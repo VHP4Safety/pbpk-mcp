@@ -6,6 +6,18 @@ All notable changes to this project should be documented in this file.
 
 - No unreleased changes documented yet.
 
+## v0.2.3 - 2026-03-19
+
+### Changed
+
+- aligned repository version markers so `README`, package metadata, OpenAPI docs, and compose/runtime surfaces consistently reflect the latest patch release
+- moved the post-`v0.2.2` version-alignment follow-up into an explicit release instead of leaving it only on `main`
+
+### Notes
+
+- `v0.2.3` is a release-alignment patch over `v0.2.2`
+- it does not change the MCP tool surface or PBPK runtime behavior
+
 ## v0.2.2 - 2026-03-19
 
 ### Added
