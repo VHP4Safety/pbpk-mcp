@@ -4,6 +4,10 @@ All notable changes to this project should be documented in this file.
 
 ## Unreleased
 
+- No unreleased changes documented yet.
+
+## v0.2.2 - 2026-03-19
+
 ### Added
 
 - `export_oecd_report` for structured OECD-style dossier export across supported backends
