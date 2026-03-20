@@ -179,9 +179,62 @@ class OecdLiveStackTests(unittest.TestCase):
         self.assertEqual(report["oecdChecklist"]["modelPerformanceAndPredictivity"]["status"], "partial")
         self.assertEqual(report["performanceEvidence"]["included"], True)
         self.assertGreaterEqual(report["performanceEvidence"]["returnedRows"], 1)
+        self.assertEqual(report["uncertaintyEvidence"]["included"], True)
+        self.assertGreaterEqual(report["uncertaintyEvidence"]["returnedRows"], 1)
+        self.assertEqual(report["verificationEvidence"]["included"], True)
+        self.assertGreaterEqual(report["verificationEvidence"]["returnedRows"], 1)
         self.assertEqual(report["parameterTable"]["included"], True)
         self.assertLessEqual(report["parameterTable"]["returnedRows"], 5)
         self.assertGreater(report["parameterTable"]["matchedRows"], 0)
+
+    def test_population_run_uses_loaded_simulation_id_without_model_path(self) -> None:
+        simulation_id = f"oecd-live-pop-{uuid4().hex[:8]}"
+        load_response = call_tool(
+            {
+                "tool": "load_simulation",
+                "critical": True,
+                "arguments": {
+                    "filePath": "/app/var/models/rxode2/cisplatin/cisplatin_population_rxode2_model.R",
+                    "simulationId": simulation_id,
+                },
+            }
+        )
+        self.assertEqual(load_response["status"], 200)
+
+        submit_response = call_tool(
+            {
+                "tool": "run_population_simulation",
+                "critical": True,
+                "arguments": {
+                    "simulationId": simulation_id,
+                    "cohort": {"size": 10, "seed": 42},
+                    "outputs": {"aggregates": ["meanCmax", "sdCmax", "meanAUC"]},
+                },
+            }
+        )
+        self.assertEqual(submit_response["status"], 200)
+        payload = submit_response["body"]["structuredContent"]
+        self.assertEqual(payload["simulationId"], simulation_id)
+
+        result_id = None
+        for _ in range(20):
+            time.sleep(1)
+            status_response = call_tool(
+                {"tool": "get_job_status", "arguments": {"jobId": payload["jobId"]}}
+            )
+            self.assertEqual(status_response["status"], 200)
+            job_payload = status_response["body"]["structuredContent"]
+            if job_payload["status"] == "succeeded":
+                result_id = job_payload["resultId"]
+                break
+        self.assertIsNotNone(result_id, "population simulation did not finish successfully")
+
+        population_results = call_tool(
+            {"tool": "get_population_results", "arguments": {"resultsId": result_id}}
+        )
+        self.assertEqual(population_results["status"], 200)
+        results_payload = population_results["body"]["structuredContent"]
+        self.assertGreaterEqual(len(results_payload.get("aggregates") or {}), 1)
 
     def test_validate_model_manifest_reports_static_manifest_state(self) -> None:
         response = call_tool(

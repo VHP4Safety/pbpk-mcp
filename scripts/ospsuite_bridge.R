@@ -705,6 +705,97 @@ performance_evidence_rows_from_profile <- function(performance) {
   rows
 }
 
+uncertainty_evidence_rows_from_profile <- function(uncertainty) {
+  evidence_rows <- uncertainty$evidence %||% uncertainty$evidenceRows %||% uncertainty$evidenceTable
+  if (is.list(evidence_rows) && length(evidence_rows) > 0) {
+    return(evidence_rows)
+  }
+
+  rows <- list()
+  variability <- uncertainty$variabilityApproach %||% list()
+  variability_method <- safe_chr(variability$method)
+  variability_parameters <- normalize_text_values(
+    variability$variedParameters %||% variability$parameters
+  )
+  variability_notes <- normalize_text_values(variability$notes %||% variability$summary)
+  if ((!is.null(variability_method) && nzchar(variability_method)) ||
+      length(variability_parameters) > 0 ||
+      length(variability_notes) > 0) {
+    rows[[length(rows) + 1]] <- list(
+      id = "variability-approach",
+      kind = "variability-approach",
+      status = safe_chr(uncertainty$status, "declared"),
+      method = variability_method,
+      variedParameters = as.list(variability_parameters),
+      notes = as.list(variability_notes)
+    )
+  }
+
+  sensitivity <- uncertainty$sensitivityAnalysis %||% list()
+  sensitivity_status <- safe_chr(sensitivity$status)
+  sensitivity_summary <- safe_chr(sensitivity$summary)
+  sensitivity_method <- safe_chr(sensitivity$method)
+  if ((!is.null(sensitivity_status) && !is_unreported_token(sensitivity_status)) ||
+      (!is.null(sensitivity_summary) && nzchar(sensitivity_summary)) ||
+      (!is.null(sensitivity_method) && nzchar(sensitivity_method))) {
+    rows[[length(rows) + 1]] <- list(
+      id = "sensitivity-analysis",
+      kind = "sensitivity-analysis",
+      status = safe_chr(sensitivity$status, safe_chr(uncertainty$status, "declared")),
+      method = sensitivity_method,
+      summary = sensitivity_summary
+    )
+  }
+
+  residuals <- normalize_text_values(uncertainty$residualUncertainty)
+  for (index in seq_along(residuals)) {
+    rows[[length(rows) + 1]] <- list(
+      id = sprintf("residual-uncertainty-%03d", index),
+      kind = "residual-uncertainty",
+      status = safe_chr(uncertainty$status, "declared"),
+      summary = residuals[[index]]
+    )
+  }
+
+  rows
+}
+
+implementation_verification_rows_from_profile <- function(verification) {
+  evidence_rows <- verification$evidence %||% verification$evidenceRows %||% verification$evidenceTable
+  if (is.list(evidence_rows) && length(evidence_rows) > 0) {
+    return(evidence_rows)
+  }
+
+  rows <- list()
+  verified_checks <- normalize_text_values(verification$verifiedChecks)
+  for (index in seq_along(verified_checks)) {
+    rows[[length(rows) + 1]] <- list(
+      id = sprintf("verified-check-%03d", index),
+      kind = "verified-check",
+      status = safe_chr(verification$status, "declared"),
+      checkName = verified_checks[[index]],
+      solver = safe_chr(verification$solver),
+      runtime = safe_chr(verification$runtime)
+    )
+  }
+
+  if (length(rows) == 0) {
+    summary <- safe_chr(verification$summary)
+    if (!is.null(summary) && nzchar(summary)) {
+      rows[[length(rows) + 1]] <- list(
+        id = "implementation-verification-summary",
+        kind = "implementation-verification-summary",
+        status = safe_chr(verification$status, "declared"),
+        summary = summary,
+        solver = safe_chr(verification$solver),
+        runtime = safe_chr(verification$runtime)
+      )
+    }
+  }
+
+  rows
+}
+
 performance_metric_count <- function(performance) {
   metrics <- performance$goodnessOfFit$metrics %||% list()
   if (is.null(metrics)) {
@@ -730,6 +821,22 @@ performance_evidence_count <- function(performance) {
     return(as.integer(explicit_count))
   }
   as.integer(length(performance_evidence_rows_from_profile(performance)))
+}
+
+uncertainty_evidence_count <- function(uncertainty) {
+  explicit_count <- safe_num(uncertainty$evidenceCount, 0)
+  if (is.finite(explicit_count) && explicit_count > 0) {
+    return(as.integer(explicit_count))
+  }
+  as.integer(length(uncertainty_evidence_rows_from_profile(uncertainty)))
+}
+
+implementation_verification_count <- function(verification) {
+  explicit_count <- safe_num(verification$evidenceCount, 0)
+  if (is.finite(explicit_count) && explicit_count > 0) {
+    return(as.integer(explicit_count))
+  }
+  as.integer(length(implementation_verification_rows_from_profile(verification)))
 }
 
 merge_validation_issues <- function(existing, additions) {
@@ -881,6 +988,7 @@ profile_oecd_checklist <- function(profile, capabilities = list()) {
   uncertainty <- profile$uncertainty %||% list()
   uncertainty_present <- character()
   uncertainty_missing <- character()
+  uncertainty_row_count <- uncertainty_evidence_count(uncertainty)
   if (!is_unreported_token(uncertainty$status)) {
     uncertainty_present <- c(uncertainty_present, "status")
   } else {
@@ -897,10 +1005,16 @@ profile_oecd_checklist <- function(profile, capabilities = list()) {
   } else {
     uncertainty_missing <- c(uncertainty_missing, "residualUncertainty")
   }
+  if (uncertainty_row_count > 0) {
+    uncertainty_present <- c(uncertainty_present, "evidenceRows")
+  } else {
+    uncertainty_missing <- c(uncertainty_missing, "evidenceRows")
+  }
 
   verification <- profile$implementationVerification %||% list()
   verification_present <- character()
   verification_missing <- character()
+  verification_row_count <- implementation_verification_count(verification)
   if (!is_unreported_token(verification$status)) {
     verification_present <- c(verification_present, "status")
   } else {
@@ -915,6 +1029,11 @@ profile_oecd_checklist <- function(profile, capabilities = list()) {
     verification_present <- c(verification_present, "runtimeOrSolver")
   } else {
     verification_missing <- c(verification_missing, "runtimeOrSolver")
+  }
+  if (verification_row_count > 0) {
+    verification_present <- c(verification_present, "evidenceRows")
+  } else {
+    verification_missing <- c(verification_missing, "evidenceRows")
   }
 
   review <- profile$peerReview %||% list()
@@ -1092,11 +1211,19 @@ profile_missing_evidence <- function(profile, capabilities = list()) {
   if (is_unreported_token(uncertainty$status)) {
     append_missing("Uncertainty and sensitivity characterization")
   }
+  if (uncertainty_evidence_count(uncertainty) == 0 &&
+      !is_unreported_token(uncertainty$status)) {
+    append_missing("Structured uncertainty or sensitivity evidence rows")
+  }
 
   verification <- profile$implementationVerification %||% list()
   if (is_unreported_token(verification$status) ||
       length(verification$verifiedChecks %||% list()) == 0) {
     append_missing("Implementation verification evidence")
+  }
+  if (implementation_verification_count(verification) == 0 &&
+      !is_unreported_token(verification$status)) {
+    append_missing("Structured implementation verification evidence rows")
   }
   for (check in normalize_text_values(verification$missingChecks)) {
     append_missing(check)
@@ -1987,6 +2114,58 @@ normalize_performance_evidence_rows <- function(rows) {
   normalized
 }
 
+normalize_supporting_evidence_rows <- function(rows, prefix = "evidence") {
+  normalized <- list()
+  for (index in seq_along(rows %||% list())) {
+    entry <- rows[[index]]
+    if (!is.list(entry)) {
+      next
+    }
+
+    row <- entry
+    row$id <- safe_chr(entry$id) %||%
+      safe_chr(entry$checkId) %||%
+      safe_chr(entry$check_id) %||%
+      sprintf("%s-%03d", prefix, index)
+    row$kind <- safe_chr(entry$kind) %||% safe_chr(entry$type) %||% prefix
+    row$status <- safe_chr(entry$status, "unreported")
+    row$summary <- safe_chr(entry$summary) %||% safe_chr(entry$description)
+    row$method <- safe_chr(entry$method)
+    row$targetOutput <- safe_chr(entry$targetOutput) %||%
+      safe_chr(entry$target_output) %||%
+      safe_chr(entry$output)
+    row$metric <- safe_chr(entry$metric) %||% safe_chr(entry$metricName) %||% safe_chr(entry$metric_name)
+    row$dataset <- safe_chr(entry$dataset) %||% safe_chr(entry$datasetId) %||% safe_chr(entry$study)
+    row$acceptanceCriterion <- safe_chr(entry$acceptanceCriterion) %||%
+      safe_chr(entry$acceptance_criterion)
+    row$evidenceLevel <- safe_chr(entry$evidenceLevel) %||%
+      safe_chr(entry$evidence_level)
+    row$checkName <- safe_chr(entry$checkName) %||% safe_chr(entry$check_name)
+    row$solver <- safe_chr(entry$solver)
+    row$runtime <- safe_chr(entry$runtime)
+
+    varied_parameters <- normalize_text_values(entry$variedParameters %||% entry$parameters)
+    if (length(varied_parameters) > 0) {
+      row$variedParameters <- as.list(varied_parameters)
+    }
+
+    notes <- normalize_text_values(entry$notes)
+    if (length(notes) > 0) {
+      row$notes <- as.list(notes)
+    }
+
+    for (field in c("value", "observedValue", "predictedValue", "lowerBound", "upperBound")) {
+      if (!is.null(entry[[field]])) {
+        row[[field]] <- safe_num(entry[[field]], 0)
+      }
+    }
+
+    normalized[[length(normalized) + 1]] <- row
+  }
+
+  normalized
+}
+
 record_performance_evidence <- function(record, limit = 200L) {
   limit_value <- as.integer(safe_num(limit, 200))
   if (is.na(limit_value) || limit_value < 1) {
@@ -2121,6 +2300,102 @@ record_parameter_table <- function(record, pattern = NULL, limit = 200L) {
   )
 }
 
+record_uncertainty_evidence <- function(record, limit = 200L) {
+  limit_value <- as.integer(safe_num(limit, 200))
+  if (is.na(limit_value) || limit_value < 1) {
+    limit_value <- 200L
+  }
+
+  raw_rows <- NULL
+  source <- "profile-uncertainty"
+  uncertainty <- record$profile$uncertainty %||% list()
+
+  if (identical(record$backend, "rxode2") &&
+      is.environment(record$module_env) &&
+      exists("pbpk_uncertainty_evidence", envir = record$module_env, inherits = FALSE)) {
+    raw_rows <- call_module_hook(
+      record$module_env,
+      "pbpk_uncertainty_evidence",
+      list(
+        simulation_id = record$simulation_id,
+        simulationId = record$simulation_id,
+        metadata = record$metadata,
+        capabilities = record$capabilities,
+        profile = record$profile,
+        file_path = record$file_path,
+        filePath = record$file_path
+      )
+    )
+    source <- "pbpk_uncertainty_evidence"
+  } else {
+    raw_rows <- uncertainty_evidence_rows_from_profile(uncertainty)
+  }
+
+  rows <- normalize_supporting_evidence_rows(raw_rows, prefix = "uncertainty")
+  total_rows <- length(rows)
+  if (total_rows > limit_value) {
+    rows <- rows[seq_len(limit_value)]
+  }
+
+  list(
+    source = source,
+    included = TRUE,
+    limit = limit_value,
+    totalRows = total_rows,
+    returnedRows = length(rows),
+    truncated = total_rows > limit_value,
+    rows = rows
+  )
+}
+
+record_verification_evidence <- function(record, limit = 200L) {
+  limit_value <- as.integer(safe_num(limit, 200))
+  if (is.na(limit_value) || limit_value < 1) {
+    limit_value <- 200L
+  }
+
+  raw_rows <- NULL
+  source <- "profile-implementationVerification"
+  verification <- record$profile$implementationVerification %||% list()
+
+  if (identical(record$backend, "rxode2") &&
+      is.environment(record$module_env) &&
+      exists("pbpk_verification_evidence", envir = record$module_env, inherits = FALSE)) {
+    raw_rows <- call_module_hook(
+      record$module_env,
+      "pbpk_verification_evidence",
+      list(
+        simulation_id = record$simulation_id,
+        simulationId = record$simulation_id,
+        metadata = record$metadata,
+        capabilities = record$capabilities,
+        profile = record$profile,
+        file_path = record$file_path,
+        filePath = record$file_path
+      )
+    )
+    source <- "pbpk_verification_evidence"
+  } else {
+    raw_rows <- implementation_verification_rows_from_profile(verification)
+  }
+
+  rows <- normalize_supporting_evidence_rows(raw_rows, prefix = "verification")
+  total_rows <- length(rows)
+  if (total_rows > limit_value) {
+    rows <- rows[seq_len(limit_value)]
+  }
+
+  list(
+    source = source,
+    included = TRUE,
+    limit = limit_value,
+    totalRows = total_rows,
+    returnedRows = length(rows),
+    truncated = total_rows > limit_value,
+    rows = rows
+  )
+}
+
 build_oecd_report <- function(
   record,
   request = list(),
@@ -2148,6 +2423,8 @@ build_oecd_report <- function(
   missing_evidence <- assessment$missingEvidence %||%
     as.list(profile_missing_evidence(record$profile, record$capabilities))
   performance_evidence <- record_performance_evidence(record, limit = 200L)
+  uncertainty_evidence <- record_uncertainty_evidence(record, limit = 200L)
+  verification_evidence <- record_verification_evidence(record, limit = 200L)
 
   parameter_table <- if (isTRUE(include_parameter_table)) {
     record_parameter_table(
@@ -2190,6 +2467,8 @@ build_oecd_report <- function(
     oecdChecklistScore = checklist_score,
     missingEvidence = missing_evidence,
     performanceEvidence = performance_evidence,
+    uncertaintyEvidence = uncertainty_evidence,
+    verificationEvidence = verification_evidence,
     parameterTable = parameter_table
   )
 }

@@ -43,6 +43,8 @@ Optional guardrail hooks:
 - `pbpk_validate_request(request = list(), parameters = NULL, stage = NULL, ...)`
 - `pbpk_parameter_table(parameters = NULL, parameter_catalog = NULL, ...)`
 - `pbpk_performance_evidence(...)`
+- `pbpk_uncertainty_evidence(...)`
+- `pbpk_verification_evidence(...)`
 
 The bridge keeps parameter editing generic, so parameter values are stored by path in the bridge and passed into the model functions as a named list.
 
@@ -82,7 +84,7 @@ Current MCP surfaces that use this data:
 - `validate_simulation_request`
   - runs preflight validation without triggering execution
 - `export_oecd_report`
-  - returns a structured dossier/report with `qualificationState`, `profile`, `validation`, `oecdChecklist`, `performanceEvidence`, and an optional parameter table
+  - returns a structured dossier/report with `qualificationState`, `profile`, `validation`, `oecdChecklist`, `performanceEvidence`, `uncertaintyEvidence`, `verificationEvidence`, and an optional parameter table
 - `run_simulation` / `get_results`
   - preserve the validation assessment on deterministic result metadata
 

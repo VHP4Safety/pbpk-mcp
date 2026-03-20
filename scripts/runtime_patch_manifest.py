@@ -50,6 +50,10 @@ PATCHES: tuple[RuntimePatch, ...] = (
         "/usr/local/lib/python3.11/site-packages/mcp/tools/export_oecd_report.py",
     ),
     RuntimePatch(
+        "patches/mcp/tools/run_population_simulation.py",
+        "/usr/local/lib/python3.11/site-packages/mcp/tools/run_population_simulation.py",
+    ),
+    RuntimePatch(
         "patches/mcp/tools/validate_model_manifest.py",
         "/usr/local/lib/python3.11/site-packages/mcp/tools/validate_model_manifest.py",
     ),

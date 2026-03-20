@@ -371,6 +371,10 @@ class OecdBridgeTests(unittest.TestCase):
         self.assertEqual(payload["qualificationState"]["state"], "research-use")
         self.assertEqual(payload["performanceEvidence"]["included"], True)
         self.assertEqual(payload["performanceEvidence"]["returnedRows"], 0)
+        self.assertEqual(payload["uncertaintyEvidence"]["included"], True)
+        self.assertGreaterEqual(payload["uncertaintyEvidence"]["returnedRows"], 2)
+        self.assertEqual(payload["verificationEvidence"]["included"], True)
+        self.assertGreaterEqual(payload["verificationEvidence"]["returnedRows"], 1)
         self.assertEqual(payload["parameterTable"]["source"], "parameter_catalog")
         self.assertEqual(payload["parameterTable"]["returnedRows"], 2)
         self.assertEqual(

@@ -24,9 +24,13 @@ var/converted_models/
 var/demos/
 var/audit/
 var/jobs/
+var/model_smoke_*.txt
 var/population-results/
 var/reports/
+var/release_readiness_summary.json
 var/snapshots/
+var/workspace_model_smoke*.json
+var/workspace_model_smoke*.txt
 var/models/discovery-tests/
 
 # Local logs

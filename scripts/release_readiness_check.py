@@ -228,6 +228,42 @@ def run_release_check(base_url: str, *, skip_unit_tests: bool = False) -> dict:
     cis_results = call_tool(base_url, "get_results", {"resultsId": cis_job["resultId"]}, timeout=60)
     assert_true(len(cis_results["series"]) > 0, "Cisplatin deterministic result returned no series")
 
+    population_tool_schema = next(
+        tool for tool in tool_catalog["tools"] if tool["name"] == "run_population_simulation"
+    )
+    required_population_fields = set(population_tool_schema["inputSchema"].get("required") or [])
+    assert_true(
+        "modelPath" not in required_population_fields,
+        f"run_population_simulation should not require modelPath in the converged contract: {required_population_fields}",
+    )
+
+    cis_population = call_tool(
+        base_url,
+        "run_population_simulation",
+        {
+            "simulationId": cis_id,
+            "cohort": {"size": 10, "seed": 42},
+            "outputs": {"aggregates": ["meanCmax", "sdCmax", "meanAUC"]},
+        },
+        critical=True,
+        timeout=60,
+    )
+    cis_population_job = poll_job(base_url, cis_population["jobId"], timeout_seconds=240)
+    assert_true(
+        cis_population_job["status"] == "succeeded",
+        f"Cisplatin population simulation failed: {cis_population_job}",
+    )
+    cis_population_results = call_tool(
+        base_url,
+        "get_population_results",
+        {"resultsId": cis_population_job["resultId"]},
+        timeout=60,
+    )
+    assert_true(
+        len(cis_population_results.get("aggregates") or {}) > 0,
+        "Cisplatin population result returned no aggregates",
+    )
+
     pkml_id = f"release-pkml-{uuid4().hex[:8]}"
     pkml_load = call_tool(
         base_url,
@@ -256,6 +292,7 @@ def run_release_check(base_url: str, *, skip_unit_tests: bool = False) -> dict:
         "performanceChecklistStatus": cis_report_payload["oecdChecklist"]["modelPerformanceAndPredictivity"]["status"],
         "performanceEvidenceRows": cis_report_payload["performanceEvidence"]["returnedRows"],
         "resultSeries": len(cis_results["series"]),
+        "populationAggregates": sorted((cis_population_results.get("aggregates") or {}).keys()),
     }
     summary["ospsuite"] = {
         "simulationId": pkml_id,

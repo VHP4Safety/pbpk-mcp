@@ -105,6 +105,7 @@ After deploy or patch:
 curl -s http://127.0.0.1:8000/health
 curl -s http://127.0.0.1:8000/mcp/list_tools
 python3 scripts/release_readiness_check.py
+python3 scripts/workspace_model_smoke.py
 ```
 
 These checks should confirm:
@@ -113,6 +114,26 @@ These checks should confirm:
 - the documented tool surface is present
 - discovery, validation, deterministic results, and OECD report export still work
 - `.pksim5` rejection still carries explicit conversion guidance
+- the currently discovered runtime-supported models still load and execute through the live API
+
+When you specifically want to exercise declared `rxode2` population support too, run:
+
+```bash
+python3 scripts/workspace_model_smoke.py --include-population
+```
+
+This emits `var/workspace_model_smoke_report.json` and gives you a catalog-wide view of:
+
+- manifest state
+- qualification state
+- deterministic execution status
+- stored result retrieval
+- optional population smoke status
+
+In the GitHub repository, the same smoke path should be treated as a release-grade verification step rather than a lightweight PR check. The recommended automation split is:
+
+- lightweight CI for patch/runtime contract checks
+- separate model-smoke workflow for Docker-backed live execution and uploaded smoke artifacts
 
 ## Failure Modes To Watch
 
@@ -158,6 +179,7 @@ Fix:
 
 - verify `patches/mcp/tools/load_simulation.py`
 - rerun `python3 scripts/release_readiness_check.py`
+- rerun `python3 scripts/workspace_model_smoke.py`
 
 ## Deferred Work
 

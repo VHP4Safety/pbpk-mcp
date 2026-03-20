@@ -3,7 +3,7 @@
 PY ?= python3
 IMAGE_NAME ?= mcp-bridge
 
-.PHONY: help install lint format type test test-e2e test-hpc compliance benchmark benchmark-celery fetch-bench-data parity docs-export sbom check clean build-image run-image celery-worker
+.PHONY: help install lint format type test test-e2e test-hpc compliance benchmark benchmark-celery fetch-bench-data parity docs-export sbom check clean build-image run-image celery-worker runtime-patch-check runtime-contract-test workspace-smoke
 
 help:
 	@awk 'BEGIN {FS = ":.*##"} /^[a-zA-Z_-]+:.*?##/ {printf "\033[36m%s\033[0m\t%s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -62,6 +62,35 @@ retention-report: ## Generate artefact retention & integrity report
 	$(PY) scripts/retention_report.py --output var/reports/retention/report.json
 
 check: lint type test ## Run full quality gate
+
+runtime-patch-check: ## Compile the patch-first runtime files used by the live stack
+	$(PY) -m py_compile \
+		scripts/runtime_patch_manifest.py \
+		scripts/install_runtime_patches.py \
+		scripts/apply_rxode2_patch.py \
+		scripts/release_readiness_check.py \
+		scripts/workspace_model_smoke.py \
+		patches/mcp/tools/load_simulation.py \
+		patches/mcp/tools/get_job_status.py \
+		patches/mcp/tools/get_results.py \
+		patches/mcp/tools/discover_models.py \
+		patches/mcp/tools/validate_model_manifest.py \
+		patches/mcp/tools/validate_simulation_request.py \
+		patches/mcp/tools/export_oecd_report.py \
+		patches/mcp/tools/run_population_simulation.py \
+		patches/mcp_bridge/model_catalog.py \
+		patches/mcp_bridge/model_manifest.py \
+		patches/mcp_bridge/routes/resources.py \
+		patches/mcp_bridge/tools/registry.py
+
+runtime-contract-test: ## Run the patch-first runtime contract tests that do not require the live stack
+	$(PY) -m unittest -v \
+		tests/test_load_simulation_contract.py \
+		tests/test_model_manifest.py \
+		tests/test_oecd_bridge.py
+
+workspace-smoke: ## Run the live workspace model smoke with rxode2 population enabled
+	$(PY) scripts/workspace_model_smoke.py --include-population
 
 clean: ## Remove build artifacts
 	rm -rf .pytest_cache .mypy_cache .ruff_cache dist build

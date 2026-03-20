@@ -20,6 +20,8 @@ _R_HOOK_PATTERNS = {
     "populationSimulation": re.compile(r"\bpbpk_run_population\s*<-"),
     "parameterTable": re.compile(r"\bpbpk_parameter_table\s*<-"),
     "performanceEvidence": re.compile(r"\bpbpk_performance_evidence\s*<-"),
+    "uncertaintyEvidence": re.compile(r"\bpbpk_uncertainty_evidence\s*<-"),
+    "verificationEvidence": re.compile(r"\bpbpk_verification_evidence\s*<-"),
 }
 _R_SECTION_PATTERNS = {
     "contextOfUse": re.compile(r"\bcontextOfUse\s*="),
@@ -397,6 +399,24 @@ def _validate_r_model(file_path: Path) -> dict[str, Any]:
                 severity="warning",
             )
         )
+    if not hooks["uncertaintyEvidence"]:
+        issues.append(
+            _issue(
+                "uncertainty_evidence_hook_missing",
+                "R model does not declare pbpk_uncertainty_evidence(...).",
+                field=str(file_path),
+                severity="warning",
+            )
+        )
+    if not hooks["verificationEvidence"]:
+        issues.append(
+            _issue(
+                "verification_evidence_hook_missing",
+                "R model does not declare pbpk_verification_evidence(...).",
+                field=str(file_path),
+                severity="warning",
+            )
+        )
 
     for name, status in sections.items():
         if not status["present"]:
@@ -415,7 +435,12 @@ def _validate_r_model(file_path: Path) -> dict[str, Any]:
     core_sections_complete = scientific_profile and hooks["validationHook"] and all(
         status["present"] for status in sections.values()
     )
-    evidence_sections_complete = hooks["parameterTable"] and hooks["performanceEvidence"] and all(
+    evidence_sections_complete = (
+        hooks["parameterTable"] and
+        hooks["performanceEvidence"] and
+        hooks["uncertaintyEvidence"] and
+        hooks["verificationEvidence"] and
+        all(
         sections[name]["present"]
         for name in (
             "modelPerformance",
@@ -423,6 +448,7 @@ def _validate_r_model(file_path: Path) -> dict[str, Any]:
             "uncertainty",
             "implementationVerification",
             "peerReview",
+        )
         )
     )
 

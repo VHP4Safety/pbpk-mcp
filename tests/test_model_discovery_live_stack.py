@@ -76,6 +76,16 @@ class ModelDiscoveryLiveStackTests(unittest.TestCase):
         }
         self.assertTrue(expected.issubset(tool_names))
 
+        population_tool = next(tool for tool in payload["tools"] if tool["name"] == "run_population_simulation")
+        required = set(population_tool["inputSchema"].get("required") or [])
+        self.assertIn("simulationId", required)
+        self.assertIn("cohort", required)
+        self.assertNotIn(
+            "modelPath",
+            required,
+            "run_population_simulation should operate on a loaded simulationId; modelPath is legacy-only",
+        )
+
     def test_resource_endpoint_matches_discover_models_for_cisplatin(self) -> None:
         resource_payload = api_json("/mcp/resources/models?search=cisplatin&backend=rxode2&limit=20")
         tool_payload = call_tool(

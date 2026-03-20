@@ -4,7 +4,19 @@ All notable changes to this project should be documented in this file.
 
 ## Unreleased
 
-- No unreleased changes documented yet.
+### Added
+
+- structured `uncertaintyEvidence` and `verificationEvidence` export in the OECD report path
+- optional `pbpk_uncertainty_evidence(...)` and `pbpk_verification_evidence(...)` hooks for MCP-ready `rxode2` models
+- `scripts/workspace_model_smoke.py` for discovery-first, catalog-wide runtime smoke checks across the live API
+- a converged `run_population_simulation` patch tool that uses loaded `simulationId` sessions and treats `modelPath` as legacy-only compatibility
+
+### Changed
+
+- static manifest inspection now detects uncertainty and verification evidence hooks on R models
+- README and integration guides now document the richer OECD evidence export surface
+- live regression checks now assert the `run_population_simulation` contract no longer requires `modelPath`
+- maintainer documentation now treats workspace-model smoke as a first-class verification step for release hygiene
 
 ## v0.3.0 - 2026-03-20
 

@@ -43,7 +43,7 @@ Model-bound enhanced responses also flatten backend information when available:
   - returns `simulationId`, `backend`, `validation`, `profile`, `capabilities`, `qualificationState`, and `warnings`
 - `export_oecd_report`
   - returns `simulationId`, `backend`, `generatedAt`, `qualificationState`, and `report`
-  - `report` includes `qualificationState`, `profile`, `validation`, `oecdChecklist`, `oecdChecklistScore`, `missingEvidence`, `performanceEvidence`, and an optional `parameterTable`
+  - `report` includes `qualificationState`, `profile`, `validation`, `oecdChecklist`, `oecdChecklistScore`, `missingEvidence`, `performanceEvidence`, `uncertaintyEvidence`, `verificationEvidence`, and an optional `parameterTable`
 - `get_job_status`
   - returns top-level `jobId`, `status`, `resultId`, and `resultHandle.resultsId`
   - still includes nested `job` for backward compatibility

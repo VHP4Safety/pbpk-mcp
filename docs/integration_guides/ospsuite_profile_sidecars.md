@@ -48,6 +48,13 @@ For richer performance reporting, `modelPerformance` may also include structured
 - `predictiveChecks.datasets`
 - `evidence`
 
+For richer uncertainty and verification reporting, the sidecar may also include structured evidence rows such as:
+
+- `uncertainty.evidence`
+- `uncertainty.evidenceRows`
+- `implementationVerification.evidence`
+- `implementationVerification.evidenceRows`
+
 Unspecified sections fall back to the bridge defaults for OSPSuite `.pkml` models.
 
 ## Behavior

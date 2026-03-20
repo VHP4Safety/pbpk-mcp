@@ -108,7 +108,7 @@ The PBPK MCP server wraps those workflows in a **single, programmable interface*
 | 🗂️ **Model discovery and curation** | Discover supported model files from `MCP_MODEL_SEARCH_PATHS`, inspect unloaded models, and run static manifest checks before load. |
 | 🛡️ **OECD-oriented qualification** | Keep `capabilities`, `profile`, `validation`, and `qualificationState` explicit; expose applicability, provenance, uncertainty, and qualification gaps. |
 | 📈 **Deterministic and population jobs** | Submit asynchronous deterministic and population simulations, then retrieve result handles, stored results, and PK summaries. |
-| 🧾 **Dossier export** | Export a structured OECD-style report with model metadata, validation context, checklist state, parameter provenance, and performance evidence when declared. |
+| 🧾 **Dossier export** | Export a structured OECD-style report with model metadata, validation context, checklist state, parameter provenance, performance evidence, uncertainty evidence, and verification evidence when declared. |
 | ⚙️ **Patch-first deployment hygiene** | Recreate the local stack and reapply the exact documented runtime patch set through shared patch-install tooling. |
 | 🤖 **Agent friendly** | Verified through MCP HTTP surfaces such as `/mcp/list_tools`, `/mcp/call_tool`, and `/mcp/resources/models`, with live-stack regression checks. |
 
@@ -198,6 +198,20 @@ For the full live-stack gate, run:
 ```bash
 python3 scripts/release_readiness_check.py
 ```
+
+To smoke-test the actual discovered model inventory in the current workspace, run:
+
+```bash
+python3 scripts/workspace_model_smoke.py
+python3 scripts/workspace_model_smoke.py --include-population
+```
+
+The script discovers runtime-supported models through `/mcp/resources/models`, runs static manifest validation, loads each model, submits a deterministic simulation, retrieves stored results, and optionally runs a small population smoke for `rxode2` models that declare population support. It writes a JSON report to `var/workspace_model_smoke_report.json`.
+
+For the GitHub-hosted verification path, the repository also carries:
+
+- a lightweight `CI` workflow for patch/runtime contract checks on pushes and pull requests
+- a heavier `Model Smoke` workflow that builds the Docker-backed stack, runs the live readiness gate, executes `workspace_model_smoke.py --include-population`, and uploads the resulting JSON reports as workflow artifacts
 
 ---
 
@@ -346,7 +360,7 @@ The server currently produces and exposes:
 - deterministic result handles and stored deterministic result payloads
 - population summary payloads and chunk handles
 - PK metric outputs from `calculate_pk_parameters`
-- OECD-style dossier/report exports with checklist state, missing-evidence hints, performance evidence, and parameter provenance when declared
+- OECD-style dossier/report exports with checklist state, missing-evidence hints, performance evidence, uncertainty evidence, verification evidence, and parameter provenance when declared
 
 ---
 
@@ -400,7 +414,13 @@ python3 -m unittest -v tests/test_oecd_bridge.py
 python3 -m unittest -v tests/test_model_discovery_live_stack.py
 python3 -m unittest -v tests/test_oecd_live_stack.py
 python3 scripts/release_readiness_check.py
+python3 scripts/workspace_model_smoke.py
 ```
+
+Repository automation is split intentionally:
+
+- normal CI should catch contract drift in the patch-first runtime layer quickly
+- the heavier catalog-wide model smoke should run as a dedicated workflow or release gate because it builds the full worker image and executes the live stack
 
 ### Maintainer workflow
 
@@ -413,6 +433,8 @@ If you are maintaining the local stack in the current convergence stage:
    - `curl -s http://localhost:8000/health`
    - `curl -s http://localhost:8000/mcp/list_tools`
    - `python3 scripts/release_readiness_check.py`
+   - `python3 scripts/workspace_model_smoke.py`
+   - `python3 scripts/workspace_model_smoke.py --include-population`
 
 Important boundaries:
 
@@ -427,6 +449,7 @@ Important boundaries:
 - `scripts/runtime_patch_manifest.py`
 - `scripts/install_runtime_patches.py`
 - `scripts/apply_rxode2_patch.py`
+- `scripts/workspace_model_smoke.py`
 - `patches/mcp_bridge/model_catalog.py`
 - `patches/mcp_bridge/model_manifest.py`
 - `patches/mcp/tools/discover_models.py`

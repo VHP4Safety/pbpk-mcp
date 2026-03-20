@@ -97,6 +97,8 @@ class ModelManifestTests(unittest.TestCase):
                     pbpk_run_population <- function(...) list()
                     pbpk_parameter_table <- function(...) list()
                     pbpk_performance_evidence <- function(...) list()
+                    pbpk_uncertainty_evidence <- function(...) list()
+                    pbpk_verification_evidence <- function(...) list()
                     """
                 ),
                 encoding="utf-8",
@@ -111,6 +113,8 @@ class ModelManifestTests(unittest.TestCase):
         self.assertTrue(manifest["hooks"]["validationHook"])
         self.assertTrue(manifest["hooks"]["parameterTable"])
         self.assertTrue(manifest["hooks"]["performanceEvidence"])
+        self.assertTrue(manifest["hooks"]["uncertaintyEvidence"])
+        self.assertTrue(manifest["hooks"]["verificationEvidence"])
 
     def test_r_without_profile_hook_is_missing(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
