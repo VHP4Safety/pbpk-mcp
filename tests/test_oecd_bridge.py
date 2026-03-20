@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import shutil
 import subprocess
+import tempfile
 import textwrap
 import unittest
 from pathlib import Path
@@ -10,6 +11,19 @@ from pathlib import Path
 
 WORKSPACE_ROOT = Path(__file__).resolve().parents[1]
 BRIDGE_PATH = WORKSPACE_ROOT / "scripts" / "ospsuite_bridge.R"
+CISPLATIN_MODEL_PATH = WORKSPACE_ROOT / "cisplatin_models" / "cisplatin_population_rxode2_model.R"
+
+
+def has_r_package(package_name: str) -> bool:
+    if not shutil.which("Rscript"):
+        return False
+    completed = subprocess.run(
+        ["Rscript", "-e", f"quit(status = if (requireNamespace('{package_name}', quietly = TRUE)) 0 else 1)"],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    return completed.returncode == 0
 
 
 def run_r_json(r_body: str):
@@ -44,6 +58,7 @@ class OecdBridgeTests(unittest.TestCase):
                 parameterProvenance = "Parameter table declared in module",
                 uncertainty = "Uncertainty dossier pending",
                 implementationVerification = "Smoke tests only",
+                platformQualification = "rxode2 runtime documented; no formal software qualification dossier",
                 peerReview = "No external peer review",
                 profileSource = "workspace-model"
               ),
@@ -59,6 +74,7 @@ class OecdBridgeTests(unittest.TestCase):
         self.assertEqual(payload["parameterProvenance"]["summary"], "Parameter table declared in module")
         self.assertEqual(payload["uncertainty"]["summary"], "Uncertainty dossier pending")
         self.assertEqual(payload["implementationVerification"]["summary"], "Smoke tests only")
+        self.assertEqual(payload["platformQualification"]["summary"], "rxode2 runtime documented; no formal software qualification dossier")
         self.assertEqual(payload["peerReview"]["summary"], "No external peer review")
         self.assertEqual(payload["profileSource"]["summary"], "workspace-model")
 
@@ -162,6 +178,13 @@ class OecdBridgeTests(unittest.TestCase):
                   solver = "rxode2::rxSolve",
                   verifiedChecks = list("syntax", "smoke test")
                 ),
+                platformQualification = list(
+                  status = "runtime-platform-documented",
+                  softwareName = "rxode2",
+                  runtime = "R",
+                  runtimeVersion = "R 4.4.0",
+                  qualificationBasis = "Runtime version is recorded for traceability; no formal platform qualification dossier is bundled."
+                ),
                 peerReview = list(status = "not-reported"),
                 profileSource = list(
                   type = "module-self-declared",
@@ -183,13 +206,14 @@ class OecdBridgeTests(unittest.TestCase):
         assessment = payload["assessment"]
         checklist = assessment["oecdChecklist"]
 
-        self.assertAlmostEqual(assessment["oecdChecklistScore"], 6.5 / 8, places=3)
+        self.assertAlmostEqual(assessment["oecdChecklistScore"], 7.5 / 9, places=3)
         self.assertEqual(checklist["contextOfUse"]["status"], "declared")
         self.assertEqual(checklist["applicabilityDomain"]["status"], "declared")
         self.assertEqual(checklist["modelPerformanceAndPredictivity"]["status"], "partial")
         self.assertEqual(checklist["parameterizationAndProvenance"]["status"], "declared")
         self.assertEqual(checklist["uncertaintyAndSensitivity"]["status"], "declared")
         self.assertEqual(checklist["implementationVerification"]["status"], "declared")
+        self.assertEqual(checklist["softwarePlatformQualification"]["status"], "declared")
         self.assertEqual(checklist["peerReviewAndPriorUse"]["status"], "missing")
         self.assertEqual(checklist["reportingAndTraceability"]["status"], "declared")
         self.assertEqual(assessment["qualificationState"]["state"], "research-use")
@@ -328,6 +352,13 @@ class OecdBridgeTests(unittest.TestCase):
                   solver = "rxode2::rxSolve",
                   verifiedChecks = list("syntax", "smoke test")
                 ),
+                platformQualification = list(
+                  status = "runtime-platform-documented",
+                  softwareName = "rxode2",
+                  runtime = "R",
+                  runtimeVersion = "R 4.4.0",
+                  qualificationBasis = "Runtime version is recorded for traceability; no formal platform qualification dossier is bundled."
+                ),
                 peerReview = list(status = "not-reported"),
                 profileSource = list(
                   type = "module-self-declared",
@@ -351,7 +382,24 @@ class OecdBridgeTests(unittest.TestCase):
                 name = "Example model",
                 modelVersion = "1.0",
                 createdBy = "test",
-                createdAt = "2026-03-19T00:00:00Z"
+                createdAt = "2026-03-19T00:00:00Z",
+                verification = list(
+                  generatedAt = "2026-03-20T10:00:00Z",
+                  status = "passed",
+                  summary = "All executable verification checks passed.",
+                  requestedPopulationSmoke = FALSE,
+                  qualificationState = list(state = "research-use"),
+                  checkCount = 2,
+                  passedCount = 2,
+                  failedCount = 0,
+                  warningCount = 0,
+                  skippedCount = 0,
+                  checks = list(
+                    list(id = "mass-balance", status = "passed", summary = "Tracked amount stayed within tolerance."),
+                    list(id = "solver-stability", status = "passed", summary = "Refined sampling remained stable.")
+                  ),
+                  artifacts = list(deterministicResultsId = "example-results")
+                )
               ),
               capabilities = list(scientificProfile = TRUE),
               profile = profile,
@@ -373,16 +421,520 @@ class OecdBridgeTests(unittest.TestCase):
         self.assertEqual(payload["qualificationState"]["state"], "research-use")
         self.assertEqual(payload["performanceEvidence"]["included"], True)
         self.assertEqual(payload["performanceEvidence"]["returnedRows"], 0)
+        self.assertEqual(payload["performanceEvidence"]["strongestEvidenceClass"], "none")
+        self.assertEqual(
+            payload["performanceEvidence"]["qualificationBoundary"],
+            "no-bundled-performance-evidence",
+        )
+        self.assertFalse(payload["performanceEvidence"]["supportsObservedVsPredictedEvidence"])
+        self.assertFalse(payload["performanceEvidence"]["supportsPredictiveDatasetEvidence"])
+        self.assertFalse(payload["performanceEvidence"]["supportsExternalQualificationEvidence"])
+        self.assertFalse(payload["performanceEvidence"]["limitedToRuntimeOrInternalEvidence"])
         self.assertEqual(payload["uncertaintyEvidence"]["included"], True)
         self.assertGreaterEqual(payload["uncertaintyEvidence"]["returnedRows"], 2)
         self.assertEqual(payload["verificationEvidence"]["included"], True)
         self.assertGreaterEqual(payload["verificationEvidence"]["returnedRows"], 1)
+        self.assertEqual(payload["executableVerification"]["included"], True)
+        self.assertEqual(payload["executableVerification"]["status"], "passed")
+        self.assertEqual(payload["executableVerification"]["passedCount"], 2)
+        self.assertEqual(payload["executableVerification"]["checks"][0]["id"], "mass-balance")
+        self.assertEqual(payload["platformQualificationEvidence"]["included"], True)
+        self.assertGreaterEqual(payload["platformQualificationEvidence"]["returnedRows"], 1)
         self.assertEqual(payload["parameterTable"]["source"], "parameter_catalog")
         self.assertEqual(payload["parameterTable"]["returnedRows"], 2)
         self.assertEqual(
             payload["parameterTable"]["rows"][0]["provenance_status"],
             "declared",
         )
+
+    def test_performance_evidence_summary_distinguishes_runtime_internal_rows(self) -> None:
+        payload = run_r_json(
+            """
+            rows <- normalize_performance_evidence_rows(
+              list(
+                list(
+                  id = "runtime-smoke-row",
+                  kind = "runtime-smoke-test",
+                  status = "passed",
+                  evidenceLevel = "runtime-only"
+                ),
+                list(
+                  id = "internal-reference-row",
+                  kind = "regression-baseline",
+                  status = "passed",
+                  evidenceLevel = "internal-reference"
+                )
+              )
+            )
+            performance_evidence_summary(rows)
+            """
+        )
+
+        self.assertEqual(payload["strongestEvidenceClass"], "internal-reference")
+        self.assertEqual(
+            payload["qualificationBoundary"],
+            "runtime-or-internal-evidence-only",
+        )
+        self.assertTrue(payload["limitedToRuntimeOrInternalEvidence"])
+        self.assertFalse(payload["supportsObservedVsPredictedEvidence"])
+        self.assertFalse(payload["supportsPredictiveDatasetEvidence"])
+        self.assertFalse(payload["supportsExternalQualificationEvidence"])
+        self.assertEqual(payload["evidenceClassCounts"]["runtime-smoke"], 1)
+        self.assertEqual(payload["evidenceClassCounts"]["internal-reference"], 1)
+
+    def test_record_performance_evidence_reads_companion_sidecar(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            model_path = root / "example_model.R"
+            model_path.write_text("# example model", encoding="utf-8")
+            (root / "example_model.performance.json").write_text(
+                json.dumps(
+                    {
+                        "metadata": {
+                            "bundleVersion": "pbpk-performance-evidence.v1",
+                            "summary": "Example benchmark bundle",
+                        },
+                        "rows": [
+                            {
+                                "id": "obs-vs-pred-cmax",
+                                "kind": "observed-vs-predicted",
+                                "status": "declared",
+                                "metric": "Cmax",
+                                "observedValue": 1.0,
+                                "predictedValue": 1.1,
+                                "dataset": "example-benchmark",
+                            }
+                        ]
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            payload = run_r_json(
+                f"""
+                record <- list(
+                  backend = "rxode2",
+                  simulation_id = "example-sidecar",
+                  file_path = {json.dumps(str(model_path))},
+                  metadata = list(name = "Example model"),
+                  profile = list(modelPerformance = list(status = "limited-internal-evaluation")),
+                  capabilities = list(scientificProfile = TRUE),
+                  parameters = list(),
+                  parameter_catalog = list()
+                )
+                record_performance_evidence(record, limit = 10)
+                """
+            )
+
+        self.assertEqual(payload["source"], "performance-evidence-sidecar")
+        self.assertEqual(payload["returnedRows"], 1)
+        self.assertEqual(payload["strongestEvidenceClass"], "observed-vs-predicted")
+        self.assertTrue(payload["supportsObservedVsPredictedEvidence"])
+        self.assertFalse(payload["supportsPredictiveDatasetEvidence"])
+        self.assertFalse(payload["supportsExternalQualificationEvidence"])
+        self.assertEqual(
+            payload["qualificationBoundary"],
+            "predictive-supporting-evidence-without-external-qualification",
+        )
+        self.assertEqual(payload["bundleMetadata"]["bundleVersion"], "pbpk-performance-evidence.v1")
+        self.assertTrue(str(payload["sidecarPath"]).endswith("example_model.performance.json"))
+
+    def test_record_performance_evidence_reports_semantic_issues(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            model_path = root / "example_model.R"
+            model_path.write_text("# example model", encoding="utf-8")
+            (root / "example_model.performance.json").write_text(
+                json.dumps(
+                    {
+                        "metadata": {},
+                        "rows": [
+                            {
+                                "id": "bad-obs-pred-row",
+                                "evidenceClass": "observed-vs-predicted",
+                                "status": "declared"
+                            }
+                        ]
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            payload = run_r_json(
+                f"""
+                record <- list(
+                  backend = "rxode2",
+                  simulation_id = "example-sidecar",
+                  file_path = {json.dumps(str(model_path))},
+                  metadata = list(name = "Example model"),
+                  profile = list(modelPerformance = list(status = "limited-internal-evaluation")),
+                  capabilities = list(scientificProfile = TRUE),
+                  parameters = list(),
+                  parameter_catalog = list()
+                )
+                record_performance_evidence(record, limit = 10)
+                """
+            )
+
+        issue_codes = {entry["code"] for entry in payload["issues"]}
+        self.assertIn("performance_bundle_version_missing", issue_codes)
+        self.assertIn("performance_bundle_summary_missing", issue_codes)
+        self.assertIn("performance_row_observed_missing", issue_codes)
+        self.assertIn("performance_row_predicted_missing", issue_codes)
+        self.assertIn("performance_row_dataset_missing", issue_codes)
+        self.assertIn("performance_row_acceptance_missing", issue_codes)
+        self.assertGreaterEqual(payload["issueCount"], 6)
+
+    def test_record_uncertainty_evidence_passes_runtime_parameter_context(self) -> None:
+        payload = run_r_json(
+            """
+            module_env <- new.env(parent = emptyenv())
+            module_env$pbpk_uncertainty_evidence <- function(parameters = NULL, parameter_catalog = NULL, parameter_table = NULL, ...) {
+              list(
+                list(
+                  id = "param-aware-uncertainty",
+                  kind = "sensitivity-analysis",
+                  status = if (!is.null(parameters) && !is.null(parameter_catalog) && !is.null(parameter_table)) "declared" else "failed",
+                  value = as.numeric(parameters[["Dose|Value"]] %||% NA_real_),
+                  lowerBound = length(parameter_catalog %||% list()),
+                  upperBound = length((parameter_table$rows %||% list())),
+                  summary = "Hook received current runtime parameter context."
+                )
+              )
+            }
+            record <- list(
+              backend = "rxode2",
+              simulation_id = "uncertainty-test",
+              file_path = "/tmp/example_model.R",
+              metadata = list(name = "Example uncertainty model", backend = "rxode2"),
+              profile = list(
+                uncertainty = list(status = "partially-characterized")
+              ),
+              capabilities = list(scientificProfile = TRUE),
+              module_env = module_env,
+              parameters = list("Dose|Value" = 42),
+              parameter_catalog = list(
+                list(path = "Dose|Value", unit = "mg", display_name = "Dose"),
+                list(path = "Simulation|EndTime", unit = "h", display_name = "End time")
+              )
+            )
+            record_uncertainty_evidence(record, limit = 10)
+            """
+        )
+
+        self.assertEqual(payload["source"], "pbpk_uncertainty_evidence")
+        self.assertEqual(payload["returnedRows"], 1)
+        self.assertEqual(payload["rows"][0]["id"], "param-aware-uncertainty")
+        self.assertEqual(payload["rows"][0]["status"], "declared")
+        self.assertEqual(payload["rows"][0]["value"], 42)
+        self.assertEqual(payload["rows"][0]["lowerBound"], 2)
+        self.assertEqual(payload["rows"][0]["upperBound"], 2)
+
+    def test_record_uncertainty_evidence_reads_companion_sidecar(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            model_path = root / "example_model.R"
+            model_path.write_text("# example model", encoding="utf-8")
+            (root / "example_model.uncertainty.json").write_text(
+                json.dumps(
+                    {
+                        "metadata": {
+                            "bundleVersion": "pbpk-uncertainty-evidence.v1",
+                            "summary": "Example uncertainty bundle",
+                        },
+                        "rows": [
+                            {
+                                "id": "variability-summary",
+                                "kind": "variability-propagation",
+                                "status": "declared",
+                                "method": "bounded sampling",
+                                "metric": "AUC0-tlast",
+                            }
+                        ]
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            payload = run_r_json(
+                f"""
+                record <- list(
+                  backend = "rxode2",
+                  simulation_id = "example-sidecar",
+                  file_path = {json.dumps(str(model_path))},
+                  metadata = list(name = "Example model"),
+                  profile = list(uncertainty = list(status = "partially-characterized")),
+                  capabilities = list(scientificProfile = TRUE),
+                  parameters = list(),
+                  parameter_catalog = list()
+                )
+                record_uncertainty_evidence(record, limit = 10)
+                """
+            )
+
+        self.assertEqual(payload["source"], "uncertainty-evidence-sidecar")
+        self.assertEqual(payload["returnedRows"], 1)
+        self.assertEqual(payload["rows"][0]["id"], "variability-summary")
+        self.assertEqual(payload["bundleMetadata"]["bundleVersion"], "pbpk-uncertainty-evidence.v1")
+        self.assertEqual(payload["issueCount"], 0)
+
+    def test_record_uncertainty_evidence_reports_semantic_issues(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            model_path = root / "example_model.R"
+            model_path.write_text("# example model", encoding="utf-8")
+            (root / "example_model.uncertainty.json").write_text(
+                json.dumps(
+                    {
+                        "metadata": {},
+                        "rows": [
+                            {
+                                "id": "bad-sensitivity-row",
+                                "kind": "sensitivity-analysis",
+                                "status": "declared"
+                            }
+                        ]
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            payload = run_r_json(
+                f"""
+                record <- list(
+                  backend = "rxode2",
+                  simulation_id = "example-sidecar",
+                  file_path = {json.dumps(str(model_path))},
+                  metadata = list(name = "Example model"),
+                  profile = list(uncertainty = list(status = "partially-characterized")),
+                  capabilities = list(scientificProfile = TRUE),
+                  parameters = list(),
+                  parameter_catalog = list()
+                )
+                record_uncertainty_evidence(record, limit = 10)
+                """
+            )
+
+        issue_codes = {entry["code"] for entry in payload["issues"]}
+        self.assertIn("uncertainty_bundle_version_missing", issue_codes)
+        self.assertIn("uncertainty_bundle_summary_missing", issue_codes)
+        self.assertIn("uncertainty_row_summary_missing", issue_codes)
+        self.assertIn("uncertainty_row_scope_missing", issue_codes)
+        self.assertGreaterEqual(payload["issueCount"], 4)
+
+    def test_cisplatin_uncertainty_evidence_includes_variability_propagation(self) -> None:
+        if not has_r_package("rxode2"):
+            self.skipTest("rxode2 is required for the cisplatin uncertainty hook test")
+        payload = run_r_json(
+            f"""
+            source({json.dumps(str(CISPLATIN_MODEL_PATH))})
+            pbpk_uncertainty_evidence(parameters = pbpk_default_parameters())
+            """
+        )
+
+        row_ids = {entry["id"] for entry in payload}
+        self.assertIn("bounded-variability-propagation-summary", row_ids)
+        self.assertIn("local-sensitivity-screen-summary", row_ids)
+        self.assertTrue(
+            any(entry.startswith("bounded-variability-propagation-") for entry in row_ids)
+        )
+        self.assertTrue(
+            any(entry.startswith("local-sensitivity-") for entry in row_ids)
+        )
+
+    def test_build_verification_summary_runs_smoke_checks(self) -> None:
+        payload = run_r_json(
+            """
+            module_env <- new.env(parent = emptyenv())
+            module_env$pbpk_run_simulation <- function(parameters, simulation_id = NULL, run_id = NULL, request = list()) {
+              list(
+                metadata = list(engine = "rxode2"),
+                series = list(
+                  list(
+                    parameter = "Plasma|Test|Concentration",
+                    unit = "mg/L",
+                    values = list(
+                      list(time = 0, value = 1),
+                      list(time = 1, value = 0.5)
+                    )
+                  )
+                )
+              )
+            }
+            module_env$pbpk_run_population <- function(parameters, simulation_id = NULL, cohort = list(), outputs = list(), request = list()) {
+              list(
+                aggregates = list(meanCmax = 1.2, meanAUC = 3.4),
+                chunks = list(
+                  list(
+                    chunkId = "chunk-001",
+                    subjectRange = c(1, cohort$size %||% 1),
+                    timeRange = c(0, 24)
+                  )
+                ),
+                metadata = list(engine = "rxode2")
+              )
+            }
+            module_env$pbpk_run_verification_checks <- function(parameters = NULL, request = list(), parameter_catalog = NULL, parameter_table = NULL, ...) {
+              list(
+                list(
+                  id = "parameter-unit-consistency",
+                  kind = "unit-consistency",
+                  status = if (!is.null(parameter_catalog) && !is.null(parameter_table) && length(parameter_table$rows %||% list()) > 0) "passed" else "failed",
+                  summary = "Parameter table snapshot was available to the model-specific runtime verification hook."
+                ),
+                list(
+                  id = "mass-balance",
+                  kind = "mass-balance",
+                  status = "passed",
+                  summary = "Tracked amount stayed within tolerance.",
+                  value = 1e-08
+                ),
+                list(
+                  id = "solver-stability",
+                  kind = "solver-stability",
+                  status = "passed",
+                  summary = "Refined sampling grid remained numerically stable.",
+                  value = 5e-06
+                )
+              )
+            }
+            profile <- normalize_model_profile(
+              list(
+                contextOfUse = list(
+                  scientificPurpose = "Verification test",
+                  decisionContext = "Smoke validation",
+                  regulatoryUse = "research-only"
+                ),
+                applicabilityDomain = list(
+                  type = "declared-with-runtime-guardrails",
+                  qualificationLevel = "research-use",
+                  species = "human",
+                  routes = "iv-infusion"
+                ),
+                modelPerformance = list(status = "limited-internal-evaluation"),
+                parameterProvenance = list(
+                  status = "partially-declared",
+                  sourceTable = "pbpk_parameter_table",
+                  coverage = "Named runtime parameters",
+                  provenanceMethod = "module annotations"
+                ),
+                uncertainty = list(status = "partially-characterized"),
+                implementationVerification = list(
+                  status = "basic-internal-checks",
+                  solver = "rxode2::rxSolve",
+                  verifiedChecks = list("smoke test"),
+                  evidence = list(
+                    list(
+                      id = "smoke-check",
+                      status = "passed",
+                      summary = "Deterministic smoke test completed"
+                    )
+                  )
+                ),
+                peerReview = list(status = "not-reported"),
+                profileSource = list(
+                  type = "module-self-declared",
+                  path = "example_model.R"
+                )
+              ),
+              "rxode2",
+              "/tmp/example_model.R"
+            )
+            capabilities <- list(
+              backend = "rxode2",
+              deterministicSimulation = TRUE,
+              populationSimulation = TRUE,
+              scientificProfile = TRUE,
+              applicabilityDomain = profile$applicabilityDomain
+            )
+            record <- list(
+              backend = "rxode2",
+              simulation_id = "verify-test",
+              file_path = "/tmp/example_model.R",
+              metadata = list(
+                name = "Example verification model",
+                backend = "rxode2",
+                capabilities = capabilities,
+                profile = profile
+              ),
+              profile = profile,
+              capabilities = capabilities,
+              module_env = module_env,
+              parameters = list("Dose|Value" = 1),
+              parameter_catalog = list(
+                "Dose|Value" = list(
+                  path = "Dose|Value",
+                  unit = "mg",
+                  display_name = "Dose"
+                )
+              )
+            )
+            assign("verify-test", record, envir = simulations)
+            validation <- with_profile_assessment(
+              list(
+                ok = TRUE,
+                summary = "Request is consistent with the declared profile",
+                errors = list(),
+                warnings = list()
+              ),
+              profile,
+              capabilities
+            )
+            build_verification_summary(
+              simulation_record("verify-test"),
+              request = list(route = "iv-infusion", contextOfUse = "research-only"),
+              validation = validation,
+              include_population_smoke = TRUE,
+              population_cohort = list(size = 5, seed = 42),
+              population_outputs = list(aggregates = list("meanCmax"))
+            )
+            """
+        )
+
+        self.assertEqual(payload["status"], "passed")
+        self.assertTrue(payload["requestedPopulationSmoke"])
+        self.assertEqual(payload["qualificationState"]["state"], "research-use")
+
+        checks = {entry["id"]: entry for entry in payload["checks"]}
+        self.assertEqual(checks["preflight-validation"]["status"], "passed")
+        self.assertEqual(checks["parameter-catalog"]["status"], "passed")
+        self.assertEqual(checks["verification-evidence"]["status"], "passed")
+        self.assertEqual(checks["deterministic-smoke"]["status"], "passed")
+        self.assertEqual(checks["deterministic-integrity"]["status"], "passed")
+        self.assertEqual(checks["deterministic-reproducibility"]["status"], "passed")
+        self.assertEqual(checks["parameter-unit-consistency"]["status"], "passed")
+        self.assertEqual(checks["mass-balance"]["status"], "passed")
+        self.assertEqual(checks["solver-stability"]["status"], "passed")
+        self.assertEqual(checks["population-smoke"]["status"], "passed")
+        self.assertEqual(checks["deterministic-smoke"]["seriesCount"], 1)
+        self.assertEqual(checks["population-smoke"]["cohortSize"], 5)
+        self.assertTrue(payload["artifacts"]["deterministicResultsId"])
+        self.assertTrue(payload["artifacts"]["deterministicRepeatResultsId"])
+        self.assertTrue(payload["artifacts"]["populationResultsId"])
+
+    def test_result_integrity_check_detects_decreasing_time(self) -> None:
+        payload = run_r_json(
+            """
+            result_integrity_check(
+              list(
+                series = list(
+                  list(
+                    parameter = "Plasma|Test|Concentration",
+                    unit = "mg/L",
+                    values = list(
+                      list(time = 0, value = 1),
+                      list(time = 2, value = 0.5),
+                      list(time = 1, value = 0.4)
+                    )
+                  )
+                )
+              )
+            )
+            """
+        )
+
+        self.assertEqual(payload["status"], "failed")
+        self.assertEqual(payload["decreasingSeriesCount"], 1)
 
 
 if __name__ == "__main__":

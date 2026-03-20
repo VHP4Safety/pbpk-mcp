@@ -216,6 +216,7 @@ Qualification-oriented metadata such as:
 - `parameterProvenance`
 - `uncertainty`
 - `implementationVerification`
+- `platformQualification`
 - `peerReview`
 - `profileSource`
 - `qualificationState`
@@ -280,6 +281,7 @@ These are intended to remain shared across both backends:
 | `get_parameter_value` | Read one parameter | Yes | Yes |
 | `set_parameter_value` | Write one parameter | Yes | Yes |
 | `validate_simulation_request` | Assess intended use and guardrails | Yes | Yes |
+| `run_verification_checks` | Run executable verification checks with unit/flow-volume/integrity/reproducibility summaries | Yes | Yes |
 | `run_simulation` | Run one deterministic simulation | Yes | Yes |
 | `get_job_status` | Inspect job state | Yes | Yes |
 | `get_results` | Retrieve deterministic results | Yes | Yes |
@@ -391,6 +393,7 @@ Current MCP surfaces for this layer:
 
 - `validate_model_manifest`
 - `validate_simulation_request`
+- `run_verification_checks`
 - `export_oecd_report`
 
 The qualification layer now also derives an explicit `qualificationState`, such as:
@@ -418,6 +421,8 @@ The important boundary remains:
 
 - population simulation is currently implemented for `rxode2`, not generic OSPSuite `.pkml`
 - backend capability sets are intentionally not identical
+- `run_verification_checks` is a lightweight runtime-verification surface; it includes parameter-unit consistency, structural flow/volume consistency, smoke, integrity, and reproducibility checks, but it does not replace a full implementation-verification dossier, software-platform qualification package, or external qualification package
+- `rxode2` models may optionally contribute model-specific executable qualification checks through a runtime hook; these are useful for checks such as flow/volume consistency, mass balance, or solver-stability heuristics, but they are still implementation evidence rather than a blanket qualification claim
 - some OSPSuite transfer files still rely on runtime output-selection fallbacks
 - static manifest validation for `.R` models is text and hook based before load, not a semantic proof of execution correctness
 
@@ -443,7 +448,7 @@ These parts are already implemented in this workspace:
 - filesystem-backed discovery through `/mcp/resources/models` and `discover_models`
 - capability-aware validation and OECD-style profile export
 - sidecar-backed scientific metadata for `.pkml` models
-- structured OECD dossier export through `export_oecd_report`
+- structured OECD dossier export through `export_oecd_report`, including stored executable-verification snapshots when `run_verification_checks` has already been run for that simulation
 
 ## Recommended Near-Term Work
 

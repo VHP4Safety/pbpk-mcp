@@ -45,6 +45,7 @@ class ModelManifestTests(unittest.TestCase):
                             "parameterProvenance": {"status": "declared"},
                             "uncertainty": {"status": "declared"},
                             "implementationVerification": {"status": "declared"},
+                            "platformQualification": {"status": "declared"},
                             "peerReview": {"status": "declared"},
                         }
                     }
@@ -94,6 +95,7 @@ class ModelManifestTests(unittest.TestCase):
                         parameterProvenance = list(status = "partially-declared"),
                         uncertainty = list(status = "partially-characterized"),
                         implementationVerification = list(status = "basic-internal-checks"),
+                        platformQualification = list(status = "runtime-platform-documented"),
                         peerReview = list(status = "not-reported")
                       )
                     }
@@ -104,6 +106,8 @@ class ModelManifestTests(unittest.TestCase):
                     pbpk_performance_evidence <- function(...) list()
                     pbpk_uncertainty_evidence <- function(...) list()
                     pbpk_verification_evidence <- function(...) list()
+                    pbpk_platform_qualification_evidence <- function(...) list()
+                    pbpk_run_verification_checks <- function(...) list()
                     """
                 ),
                 encoding="utf-8",
@@ -120,6 +124,290 @@ class ModelManifestTests(unittest.TestCase):
         self.assertTrue(manifest["hooks"]["performanceEvidence"])
         self.assertTrue(manifest["hooks"]["uncertaintyEvidence"])
         self.assertTrue(manifest["hooks"]["verificationEvidence"])
+        self.assertTrue(manifest["hooks"]["platformQualificationEvidence"])
+        self.assertTrue(manifest["hooks"]["runtimeVerificationHook"])
+
+    def test_r_manifest_accepts_performance_sidecar_without_hook(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            model_path = root / "example_model.R"
+            model_path.write_text(
+                textwrap.dedent(
+                    """
+                    pbpk_model_profile <- function(...) {
+                      list(
+                        contextOfUse = list(
+                          scientificPurpose = "Kidney PBPK research",
+                          decisionContext = "Internal decision support",
+                          regulatoryUse = "research-only"
+                        ),
+                        applicabilityDomain = list(
+                          type = "declared-with-runtime-guardrails",
+                          qualificationLevel = "research-use"
+                        ),
+                        modelPerformance = list(status = "limited-internal-evaluation"),
+                        parameterProvenance = list(status = "partially-declared"),
+                        uncertainty = list(status = "partially-characterized"),
+                        implementationVerification = list(status = "basic-internal-checks"),
+                        platformQualification = list(status = "runtime-platform-documented"),
+                        peerReview = list(status = "not-reported")
+                      )
+                    }
+                    pbpk_validate_request <- function(...) list(ok = TRUE)
+                    pbpk_run_simulation <- function(...) list()
+                    pbpk_run_population <- function(...) list()
+                    pbpk_parameter_table <- function(...) list()
+                    pbpk_uncertainty_evidence <- function(...) list()
+                    pbpk_verification_evidence <- function(...) list()
+                    pbpk_platform_qualification_evidence <- function(...) list()
+                    pbpk_run_verification_checks <- function(...) list()
+                    """
+                ),
+                encoding="utf-8",
+            )
+            (root / "example_model.performance.json").write_text(
+                json.dumps(
+                    {
+                        "metadata": {
+                            "bundleVersion": "pbpk-performance-evidence.v1",
+                            "summary": "Example companion performance bundle",
+                        },
+                        "rows": [
+                            {
+                                "id": "observed-predicted-cmax",
+                                "kind": "observed-vs-predicted",
+                                "status": "declared",
+                                "observedValue": 1.0,
+                                "predictedValue": 1.1,
+                            }
+                        ]
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            payload = validate_model_manifest(model_path)
+
+        manifest = payload["manifest"]
+        self.assertEqual(manifest["manifestStatus"], "valid")
+        self.assertEqual(manifest["qualificationState"]["state"], "research-use")
+        self.assertFalse(manifest["hooks"]["performanceEvidence"])
+        self.assertTrue(manifest["hooks"]["performanceEvidenceSidecar"])
+        self.assertEqual(
+            manifest["supplementalEvidence"]["performanceEvidenceRowCount"],
+            1,
+        )
+        self.assertEqual(
+            manifest["supplementalEvidence"]["performanceEvidenceBundleMetadata"]["bundleVersion"],
+            "pbpk-performance-evidence.v1",
+        )
+        codes = {issue["code"] for issue in manifest["issues"]}
+        self.assertNotIn("performance_evidence_hook_missing", codes)
+
+    def test_r_manifest_warns_for_malformed_performance_sidecar_rows(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            model_path = root / "example_model.R"
+            model_path.write_text(
+                textwrap.dedent(
+                    """
+                    pbpk_model_profile <- function(...) {
+                      list(
+                        contextOfUse = list(
+                          scientificPurpose = "Kidney PBPK research",
+                          decisionContext = "Internal decision support",
+                          regulatoryUse = "research-only"
+                        ),
+                        applicabilityDomain = list(
+                          type = "declared-with-runtime-guardrails",
+                          qualificationLevel = "research-use"
+                        ),
+                        modelPerformance = list(status = "limited-internal-evaluation"),
+                        parameterProvenance = list(status = "partially-declared"),
+                        uncertainty = list(status = "partially-characterized"),
+                        implementationVerification = list(status = "basic-internal-checks"),
+                        platformQualification = list(status = "runtime-platform-documented"),
+                        peerReview = list(status = "not-reported")
+                      )
+                    }
+                    pbpk_validate_request <- function(...) list(ok = TRUE)
+                    pbpk_run_simulation <- function(...) list()
+                    pbpk_run_population <- function(...) list()
+                    pbpk_parameter_table <- function(...) list()
+                    pbpk_uncertainty_evidence <- function(...) list()
+                    pbpk_verification_evidence <- function(...) list()
+                    pbpk_platform_qualification_evidence <- function(...) list()
+                    pbpk_run_verification_checks <- function(...) list()
+                    """
+                ),
+                encoding="utf-8",
+            )
+            (root / "example_model.performance.json").write_text(
+                json.dumps(
+                    {
+                        "metadata": {},
+                        "rows": [
+                            {
+                                "id": "bad-obs-pred-row",
+                                "evidenceClass": "observed-vs-predicted",
+                                "status": "declared"
+                            }
+                        ]
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            payload = validate_model_manifest(model_path)
+
+        manifest = payload["manifest"]
+        codes = {issue["code"] for issue in manifest["issues"]}
+        self.assertIn("performance_bundle_version_missing", codes)
+        self.assertIn("performance_bundle_summary_missing", codes)
+        self.assertIn("performance_row_observed_missing", codes)
+        self.assertIn("performance_row_predicted_missing", codes)
+        self.assertIn("performance_row_dataset_missing", codes)
+        self.assertIn("performance_row_acceptance_missing", codes)
+
+    def test_r_manifest_accepts_uncertainty_sidecar_without_hook(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            model_path = root / "example_model.R"
+            model_path.write_text(
+                textwrap.dedent(
+                    """
+                    pbpk_model_profile <- function(...) {
+                      list(
+                        contextOfUse = list(
+                          scientificPurpose = "Kidney PBPK research",
+                          decisionContext = "Internal decision support",
+                          regulatoryUse = "research-only"
+                        ),
+                        applicabilityDomain = list(
+                          type = "declared-with-runtime-guardrails",
+                          qualificationLevel = "research-use"
+                        ),
+                        modelPerformance = list(status = "limited-internal-evaluation"),
+                        parameterProvenance = list(status = "partially-declared"),
+                        uncertainty = list(status = "partially-characterized"),
+                        implementationVerification = list(status = "basic-internal-checks"),
+                        platformQualification = list(status = "runtime-platform-documented"),
+                        peerReview = list(status = "not-reported")
+                      )
+                    }
+                    pbpk_validate_request <- function(...) list(ok = TRUE)
+                    pbpk_run_simulation <- function(...) list()
+                    pbpk_run_population <- function(...) list()
+                    pbpk_parameter_table <- function(...) list()
+                    pbpk_performance_evidence <- function(...) list()
+                    pbpk_verification_evidence <- function(...) list()
+                    pbpk_platform_qualification_evidence <- function(...) list()
+                    pbpk_run_verification_checks <- function(...) list()
+                    """
+                ),
+                encoding="utf-8",
+            )
+            (root / "example_model.uncertainty.json").write_text(
+                json.dumps(
+                    {
+                        "metadata": {
+                            "bundleVersion": "pbpk-uncertainty-evidence.v1",
+                            "summary": "Example companion uncertainty bundle",
+                        },
+                        "rows": [
+                            {
+                                "id": "local-sensitivity-summary",
+                                "kind": "sensitivity-analysis",
+                                "status": "declared",
+                                "method": "one-at-a-time",
+                                "metric": "Cmax",
+                            }
+                        ]
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            payload = validate_model_manifest(model_path)
+
+        manifest = payload["manifest"]
+        self.assertEqual(manifest["manifestStatus"], "valid")
+        self.assertEqual(manifest["qualificationState"]["state"], "research-use")
+        self.assertFalse(manifest["hooks"]["uncertaintyEvidence"])
+        self.assertTrue(manifest["hooks"]["uncertaintyEvidenceSidecar"])
+        self.assertEqual(
+            manifest["supplementalEvidence"]["uncertaintyEvidenceRowCount"],
+            1,
+        )
+        self.assertEqual(
+            manifest["supplementalEvidence"]["uncertaintyEvidenceBundleMetadata"]["bundleVersion"],
+            "pbpk-uncertainty-evidence.v1",
+        )
+        codes = {issue["code"] for issue in manifest["issues"]}
+        self.assertNotIn("uncertainty_evidence_hook_missing", codes)
+
+    def test_r_manifest_warns_for_malformed_uncertainty_sidecar_rows(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            model_path = root / "example_model.R"
+            model_path.write_text(
+                textwrap.dedent(
+                    """
+                    pbpk_model_profile <- function(...) {
+                      list(
+                        contextOfUse = list(
+                          scientificPurpose = "Kidney PBPK research",
+                          decisionContext = "Internal decision support",
+                          regulatoryUse = "research-only"
+                        ),
+                        applicabilityDomain = list(
+                          type = "declared-with-runtime-guardrails",
+                          qualificationLevel = "research-use"
+                        ),
+                        modelPerformance = list(status = "limited-internal-evaluation"),
+                        parameterProvenance = list(status = "partially-declared"),
+                        uncertainty = list(status = "partially-characterized"),
+                        implementationVerification = list(status = "basic-internal-checks"),
+                        platformQualification = list(status = "runtime-platform-documented"),
+                        peerReview = list(status = "not-reported")
+                      )
+                    }
+                    pbpk_validate_request <- function(...) list(ok = TRUE)
+                    pbpk_run_simulation <- function(...) list()
+                    pbpk_run_population <- function(...) list()
+                    pbpk_parameter_table <- function(...) list()
+                    pbpk_performance_evidence <- function(...) list()
+                    pbpk_verification_evidence <- function(...) list()
+                    pbpk_platform_qualification_evidence <- function(...) list()
+                    pbpk_run_verification_checks <- function(...) list()
+                    """
+                ),
+                encoding="utf-8",
+            )
+            (root / "example_model.uncertainty.json").write_text(
+                json.dumps(
+                    {
+                        "metadata": {},
+                        "rows": [
+                            {
+                                "id": "bad-sensitivity-row",
+                                "kind": "sensitivity-analysis",
+                                "status": "declared"
+                            }
+                        ]
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            payload = validate_model_manifest(model_path)
+
+        manifest = payload["manifest"]
+        codes = {issue["code"] for issue in manifest["issues"]}
+        self.assertIn("uncertainty_bundle_version_missing", codes)
+        self.assertIn("uncertainty_bundle_summary_missing", codes)
+        self.assertIn("uncertainty_row_summary_missing", codes)
+        self.assertIn("uncertainty_row_scope_missing", codes)
 
     def test_r_without_profile_hook_is_missing(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

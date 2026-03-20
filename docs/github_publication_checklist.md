@@ -36,6 +36,8 @@
 - `docs/architecture/dual_backend_pbpk_mcp.md`
 - `docs/deployment/runtime_patch_flow.md`
 - `docs/integration_guides/rxode2_adapter.md`
+- `docs/integration_guides/performance_evidence_bundles.md`
+- `docs/integration_guides/uncertainty_evidence_bundles.md`
 - `.gitignore`
 
 ## Post-Push

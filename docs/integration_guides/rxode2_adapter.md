@@ -45,6 +45,10 @@ Optional guardrail hooks:
 - `pbpk_performance_evidence(...)`
 - `pbpk_uncertainty_evidence(...)`
 - `pbpk_verification_evidence(...)`
+- `pbpk_run_verification_checks(...)`
+- `pbpk_platform_qualification_evidence(...)`
+
+When present, the evidence hooks receive the loaded runtime parameter state and a parameter-table snapshot from the bridge. This lets an `rxode2` model export uncertainty or performance evidence that reflects the current MCP session rather than only a static default manifest.
 
 The bridge keeps parameter editing generic, so parameter values are stored by path in the bridge and passed into the model functions as a named list.
 
@@ -57,6 +61,7 @@ If `pbpk_model_profile()` is present, `load_simulation` also returns a `profile`
 - `parameterProvenance`
 - `uncertainty`
 - `implementationVerification`
+- `platformQualification`
 - `peerReview`
 
 If `pbpk_validate_request()` is present, the bridge calls it during:
@@ -83,8 +88,15 @@ Current MCP surfaces that use this data:
   - returns `capabilities`, `profile`, and the default `validation` payload for the loaded model
 - `validate_simulation_request`
   - runs preflight validation without triggering execution
+- `run_verification_checks`
+  - runs executable verification checks and returns structured check results, smoke artifact handles, parameter-unit consistency, structural flow/volume consistency, deterministic integrity/reproducibility summaries, optional model-specific checks such as mass balance or solver stability, and a compact verification-evidence snapshot
 - `export_oecd_report`
-  - returns a structured dossier/report with `qualificationState`, `profile`, `validation`, `oecdChecklist`, `performanceEvidence`, `uncertaintyEvidence`, `verificationEvidence`, and an optional parameter table
+  - returns a structured dossier/report with `qualificationState`, `profile`, `validation`, `oecdChecklist`, `performanceEvidence`, `uncertaintyEvidence`, `verificationEvidence`, `executableVerification`, `platformQualificationEvidence`, and an optional parameter table
+  - `performanceEvidence` now carries explicit classification fields such as `strongestEvidenceClass`, `qualificationBoundary`, and support flags for observed-versus-predicted, predictive-dataset, and external-qualification evidence so runtime smoke checks are not overstated
+  - if a model author prefers file-based attachment over a code hook, companion bundles such as `model.performance.json` are also supported; see [performance_evidence_bundles.md](/Volumes/Storage/topotox_offload/20260220_space_relief/manual_offload/PBPK_MCP/docs/integration_guides/performance_evidence_bundles.md)
+  - `executableVerification` is included when `run_verification_checks` has already been executed for that loaded simulation; export does not rerun verification implicitly
+  - `uncertaintyEvidence` can include bounded local sensitivity rows and compact variability-propagation summaries for models that choose to export them, but those rows should still be documented as internal quantitative evidence rather than global uncertainty analysis
+  - if a model author prefers file-based attachment over a code hook, companion bundles such as `model.uncertainty.json` are also supported; see [uncertainty_evidence_bundles.md](/Volumes/Storage/topotox_offload/20260220_space_relief/manual_offload/PBPK_MCP/docs/integration_guides/uncertainty_evidence_bundles.md)
 - `run_simulation` / `get_results`
   - preserve the validation assessment on deterministic result metadata
 

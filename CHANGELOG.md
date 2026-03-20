@@ -7,16 +7,45 @@ All notable changes to this project should be documented in this file.
 ### Added
 
 - structured `uncertaintyEvidence` and `verificationEvidence` export in the OECD report path
-- optional `pbpk_uncertainty_evidence(...)` and `pbpk_verification_evidence(...)` hooks for MCP-ready `rxode2` models
+- structured `platformQualificationEvidence` export in the OECD report path
+- optional `pbpk_uncertainty_evidence(...)`, `pbpk_verification_evidence(...)`, and `pbpk_platform_qualification_evidence(...)` hooks for MCP-ready `rxode2` models
 - `scripts/workspace_model_smoke.py` for discovery-first, catalog-wide runtime smoke checks across the live API
 - a converged `run_population_simulation` patch tool that uses loaded `simulationId` sessions and treats `modelPath` as legacy-only compatibility
+- `run_verification_checks` for executable smoke-oriented verification across loaded `ospsuite` and `rxode2` models
+- deterministic result-integrity and repeat-run reproducibility checks in the executable verification path
+- optional `pbpk_run_verification_checks(...)` hooks for model-specific executable qualification checks such as mass balance and solver-stability heuristics
+- stored `executableVerification` snapshots in `export_oecd_report` so OECD dossiers can carry the latest executed verification results without implicitly rerunning them
+- parameter-catalog and parameter-table snapshots are now passed into `pbpk_run_verification_checks(...)` so model-specific runtime checks can validate exposed units and structural coverage
+- executable structural physiology checks for systemic flow distribution and renal volume partition consistency in the cisplatin example model
+- bounded local sensitivity evidence for the cisplatin example, exported through `uncertaintyEvidence` with current-parameter context rather than a placeholder sensitivity gap
+- bounded variability-propagation evidence for the cisplatin example, exported through `uncertaintyEvidence` as a compact internal-exposure distribution summary
+- explicit performance-evidence classification and qualification-boundary summaries in `export_oecd_report`, so runtime smoke/internal evidence is separated from predictive and external qualification evidence
+- generic companion performance-evidence bundles for `.pkml` and MCP-ready `.R` models via files such as `model.performance.json`
+- reusable starter template for companion performance-evidence bundles at `examples/performance_evidence_bundle.template.json`
+- generic companion uncertainty-evidence bundles for `.pkml` and MCP-ready `.R` models via files such as `model.uncertainty.json`
+- reusable starter template for companion uncertainty-evidence bundles at `examples/uncertainty_evidence_bundle.template.json`
 
 ### Changed
 
-- static manifest inspection now detects uncertainty and verification evidence hooks on R models
+- static manifest inspection now detects uncertainty, verification, and platform-qualification evidence hooks on R models
 - README and integration guides now document the richer OECD evidence export surface
 - live regression checks now assert the `run_population_simulation` contract no longer requires `modelPath`
 - maintainer documentation now treats workspace-model smoke as a first-class verification step for release hygiene
+- release-readiness checks now exercise the executable verification surface in addition to validation, execution, and OECD report export
+- executable verification now goes beyond smoke-only checks by asserting deterministic result integrity and repeat-run reproducibility
+- OECD checklist/report generation now separates software-platform qualification evidence from implementation verification evidence
+- the cisplatin example now contributes executable mass-balance and solver-stability checks through the runtime verification hook
+- OECD report export now carries stored executable verification snapshots separately from static `verificationEvidence`
+- the cisplatin example now contributes executable parameter-unit consistency checks through the runtime verification hook
+- the cisplatin example now contributes executable systemic-flow and renal-volume consistency checks through the runtime verification hook
+- bridge evidence hooks now receive the loaded runtime parameter context and parameter-table snapshot so uncertainty/performance evidence can reflect the actual loaded model state
+- cisplatin runtime smoke evidence is now explicitly labeled as internal operational evidence rather than implied predictive support
+- static manifest inspection now treats a companion performance-evidence bundle as a valid alternative to a dedicated `pbpk_performance_evidence(...)` hook for `R` models
+- companion performance-evidence bundles can now expose bundle-level metadata, and that metadata is surfaced through static manifest inspection and OECD report export
+- malformed performance-evidence rows are now surfaced as warnings during static manifest inspection and OECD report export instead of being silently normalized
+- static manifest inspection now treats a companion uncertainty-evidence bundle as a valid alternative to a dedicated `pbpk_uncertainty_evidence(...)` hook for `R` models
+- companion uncertainty-evidence bundles can now expose bundle-level metadata, and that metadata is surfaced through static manifest inspection and OECD report export
+- malformed uncertainty-evidence rows are now surfaced as warnings during static manifest inspection and OECD report export instead of being silently normalized
 
 ## v0.3.0 - 2026-03-20
 

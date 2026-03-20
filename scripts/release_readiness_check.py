@@ -23,6 +23,7 @@ REQUIRED_TOOLS = {
     "validate_model_manifest",
     "load_simulation",
     "validate_simulation_request",
+    "run_verification_checks",
     "run_simulation",
     "run_population_simulation",
     "get_job_status",
@@ -197,6 +198,80 @@ def run_release_check(base_url: str, *, skip_unit_tests: bool = False) -> dict:
     )
     assert_true(cis_validation["validation"]["ok"] is True, "Cisplatin validation did not pass in-domain")
 
+    cis_verification = call_tool(
+        base_url,
+        "run_verification_checks",
+        {
+            "simulationId": cis_id,
+            "request": {"route": "iv-infusion", "contextOfUse": "research-only"},
+            "includePopulationSmoke": True,
+            "populationCohort": {"size": 10, "seed": 42},
+            "populationOutputs": {"aggregates": ["meanCmax", "sdCmax", "meanAUC"]},
+        },
+        timeout=180,
+    )
+    assert_true(
+        cis_verification["verification"]["status"] == "passed",
+        f"Cisplatin verification checks did not pass: {cis_verification}",
+    )
+    assert_true(
+        any(check["id"] == "deterministic-smoke" for check in cis_verification["verification"]["checks"]),
+        "Verification output is missing the deterministic smoke check",
+    )
+    assert_true(
+        any(check["id"] == "population-smoke" for check in cis_verification["verification"]["checks"]),
+        "Verification output is missing the population smoke check",
+    )
+    assert_true(
+        any(
+            check["id"] == "deterministic-integrity" and check["status"] == "passed"
+            for check in cis_verification["verification"]["checks"]
+        ),
+        "Verification output is missing the deterministic integrity check",
+    )
+    assert_true(
+        any(
+            check["id"] == "deterministic-reproducibility" and check["status"] == "passed"
+            for check in cis_verification["verification"]["checks"]
+        ),
+        "Verification output is missing the deterministic reproducibility check",
+    )
+    assert_true(
+        any(
+            check["id"] == "parameter-unit-consistency" and check["status"] == "passed"
+            for check in cis_verification["verification"]["checks"]
+        ),
+        "Verification output is missing the parameter-unit-consistency check",
+    )
+    assert_true(
+        any(
+            check["id"] == "systemic-flow-consistency" and check["status"] == "passed"
+            for check in cis_verification["verification"]["checks"]
+        ),
+        "Verification output is missing the systemic-flow-consistency check",
+    )
+    assert_true(
+        any(
+            check["id"] == "renal-volume-consistency" and check["status"] == "passed"
+            for check in cis_verification["verification"]["checks"]
+        ),
+        "Verification output is missing the renal-volume-consistency check",
+    )
+    assert_true(
+        any(
+            check["id"] == "mass-balance" and check["status"] == "passed"
+            for check in cis_verification["verification"]["checks"]
+        ),
+        "Verification output is missing the mass-balance check",
+    )
+    assert_true(
+        any(
+            check["id"] == "solver-stability" and check["status"] == "passed"
+            for check in cis_verification["verification"]["checks"]
+        ),
+        "Verification output is missing the solver-stability check",
+    )
+
     cis_report = call_tool(
         base_url,
         "export_oecd_report",
@@ -213,6 +288,76 @@ def run_release_check(base_url: str, *, skip_unit_tests: bool = False) -> dict:
     assert_true(
         cis_report_payload["performanceEvidence"]["returnedRows"] >= 1,
         "Cisplatin report should include exported performance evidence rows",
+    )
+    assert_true(
+        cis_report_payload["performanceEvidence"]["strongestEvidenceClass"] == "runtime-smoke",
+        "Cisplatin report should classify bundled performance evidence as runtime smoke only",
+    )
+    assert_true(
+        cis_report_payload["performanceEvidence"]["qualificationBoundary"] == "runtime-or-internal-evidence-only",
+        "Cisplatin report should keep a runtime/internal-only qualification boundary until predictive datasets are attached",
+    )
+    assert_true(
+        cis_report_payload["performanceEvidence"]["limitedToRuntimeOrInternalEvidence"] is True,
+        "Cisplatin report should explicitly mark its current performance evidence as runtime/internal only",
+    )
+    assert_true(
+        cis_report_payload["performanceEvidence"]["supportsObservedVsPredictedEvidence"] is False,
+        "Cisplatin report must not claim observed-versus-predicted evidence when none is bundled",
+    )
+    assert_true(
+        cis_report_payload["performanceEvidence"]["supportsPredictiveDatasetEvidence"] is False,
+        "Cisplatin report must not claim predictive-dataset evidence when none is bundled",
+    )
+    assert_true(
+        cis_report_payload["performanceEvidence"]["supportsExternalQualificationEvidence"] is False,
+        "Cisplatin report must not claim external qualification evidence when none is bundled",
+    )
+    uncertainty_row_ids = {entry["id"] for entry in cis_report_payload["uncertaintyEvidence"]["rows"]}
+    assert_true(
+        "bounded-variability-propagation-summary" in uncertainty_row_ids,
+        f"Cisplatin report uncertainty evidence is missing the variability propagation summary row: {sorted(uncertainty_row_ids)}",
+    )
+    assert_true(
+        any(row_id.startswith("bounded-variability-propagation-") and row_id != "bounded-variability-propagation-summary" for row_id in uncertainty_row_ids),
+        f"Cisplatin report uncertainty evidence is missing quantitative variability propagation rows: {sorted(uncertainty_row_ids)}",
+    )
+    assert_true(
+        "local-sensitivity-screen-summary" in uncertainty_row_ids,
+        f"Cisplatin report uncertainty evidence is missing the local sensitivity summary row: {sorted(uncertainty_row_ids)}",
+    )
+    assert_true(
+        any(row_id.startswith("local-sensitivity-") and row_id != "local-sensitivity-screen-summary" for row_id in uncertainty_row_ids),
+        f"Cisplatin report uncertainty evidence is missing quantitative local sensitivity rows: {sorted(uncertainty_row_ids)}",
+    )
+    assert_true(
+        cis_report_payload["executableVerification"]["included"] is True,
+        "Cisplatin report should include the stored executable verification snapshot after run_verification_checks",
+    )
+    assert_true(
+        cis_report_payload["executableVerification"]["status"] == "passed",
+        f"Cisplatin report carried an unexpected executable verification status: {cis_report_payload['executableVerification']}",
+    )
+    report_check_ids = {entry["id"] for entry in cis_report_payload["executableVerification"]["checks"]}
+    assert_true(
+        "mass-balance" in report_check_ids,
+        f"Cisplatin report executable verification is missing the mass-balance check: {sorted(report_check_ids)}",
+    )
+    assert_true(
+        "parameter-unit-consistency" in report_check_ids,
+        f"Cisplatin report executable verification is missing the parameter-unit-consistency check: {sorted(report_check_ids)}",
+    )
+    assert_true(
+        "systemic-flow-consistency" in report_check_ids,
+        f"Cisplatin report executable verification is missing the systemic-flow-consistency check: {sorted(report_check_ids)}",
+    )
+    assert_true(
+        "renal-volume-consistency" in report_check_ids,
+        f"Cisplatin report executable verification is missing the renal-volume-consistency check: {sorted(report_check_ids)}",
+    )
+    assert_true(
+        "solver-stability" in report_check_ids,
+        f"Cisplatin report executable verification is missing the solver-stability check: {sorted(report_check_ids)}",
     )
 
     run_id = f"{cis_id}-smoke"
@@ -288,9 +433,12 @@ def run_release_check(base_url: str, *, skip_unit_tests: bool = False) -> dict:
         "simulationId": cis_id,
         "manifestState": manifest_check["manifest"]["qualificationState"]["state"],
         "validationDecision": cis_validation["validation"]["assessment"]["decision"],
+        "verificationStatus": cis_verification["verification"]["status"],
+        "executableVerificationStatus": cis_report_payload["executableVerification"]["status"],
         "reportChecklistScore": cis_report_payload["oecdChecklistScore"],
         "performanceChecklistStatus": cis_report_payload["oecdChecklist"]["modelPerformanceAndPredictivity"]["status"],
         "performanceEvidenceRows": cis_report_payload["performanceEvidence"]["returnedRows"],
+        "performanceEvidenceBoundary": cis_report_payload["performanceEvidence"]["qualificationBoundary"],
         "resultSeries": len(cis_results["series"]),
         "populationAggregates": sorted((cis_population_results.get("aggregates") or {}).keys()),
     }

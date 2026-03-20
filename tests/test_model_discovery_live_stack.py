@@ -67,6 +67,7 @@ class ModelDiscoveryLiveStackTests(unittest.TestCase):
             "validate_model_manifest",
             "load_simulation",
             "validate_simulation_request",
+            "run_verification_checks",
             "run_simulation",
             "run_population_simulation",
             "get_job_status",

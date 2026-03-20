@@ -455,6 +455,17 @@ call_module_hook <- function(module_env, function_name, args = list()) {
 
 default_model_profile <- function(backend, file_path, applicability_domain = NULL) {
   model_name <- basename(file_path %||% backend)
+  runtime_version <- safe_chr(R.version$version.string)
+  software_name <- switch(
+    backend,
+    ospsuite = "ospsuite",
+    rxode2 = "rxode2",
+    backend
+  )
+  software_version <- tryCatch(
+    as.character(utils::packageVersion(software_name)),
+    error = function(...) NULL
+  )
   list(
     contextOfUse = list(
       status = "unreported",
@@ -479,6 +490,25 @@ default_model_profile <- function(backend, file_path, applicability_domain = NUL
     implementationVerification = list(
       status = "unreported",
       summary = sprintf("No implementation-verification metadata is declared for '%s'", model_name)
+    ),
+    platformQualification = list(
+      status = "runtime-platform-documented",
+      softwareName = software_name,
+      softwareVersion = software_version,
+      runtime = "R",
+      runtimeVersion = runtime_version,
+      qualificationBasis = paste(
+        "The MCP bridge records the execution software and runtime version,",
+        "but no formal software-platform qualification dossier is attached by default."
+      ),
+      missingEvidence = list(
+        "Formal software/platform qualification dossier",
+        "Documented software validation or acceptance criteria"
+      ),
+      summary = sprintf(
+        "The MCP bridge records runtime platform details for '%s', but this should not be treated as formal software qualification evidence.",
+        model_name
+      )
     ),
     peerReview = list(
       status = "unreported",
@@ -529,6 +559,7 @@ normalize_model_profile <- function(payload, backend, file_path, applicability_d
     "parameterProvenance",
     "uncertainty",
     "implementationVerification",
+    "platformQualification",
     "peerReview",
     "profileSource"
   )
@@ -796,6 +827,39 @@ implementation_verification_rows_from_profile <- function(verification) {
   rows
 }
 
+platform_qualification_rows_from_profile <- function(platform_qualification) {
+  evidence_rows <- platform_qualification$evidence %||%
+    platform_qualification$evidenceRows %||%
+    platform_qualification$evidenceTable
+  if (is.list(evidence_rows) && length(evidence_rows) > 0) {
+    return(evidence_rows)
+  }
+
+  rows <- list()
+  if (length(normalize_text_values(list(
+    platform_qualification$softwareName,
+    platform_qualification$softwareVersion,
+    platform_qualification$runtime,
+    platform_qualification$runtimeVersion,
+    platform_qualification$qualificationBasis,
+    platform_qualification$summary
+  ))) > 0) {
+    rows[[length(rows) + 1]] <- list(
+      id = "software-platform-record",
+      kind = "software-platform-record",
+      status = safe_chr(platform_qualification$status, "declared"),
+      summary = safe_chr(platform_qualification$summary),
+      softwareName = safe_chr(platform_qualification$softwareName),
+      softwareVersion = safe_chr(platform_qualification$softwareVersion),
+      runtime = safe_chr(platform_qualification$runtime),
+      runtimeVersion = safe_chr(platform_qualification$runtimeVersion),
+      qualificationBasis = safe_chr(platform_qualification$qualificationBasis)
+    )
+  }
+
+  rows
+}
+
 performance_metric_count <- function(performance) {
   metrics <- performance$goodnessOfFit$metrics %||% list()
   if (is.null(metrics)) {
@@ -837,6 +901,14 @@ implementation_verification_count <- function(verification) {
     return(as.integer(explicit_count))
   }
   as.integer(length(implementation_verification_rows_from_profile(verification)))
+}
+
+platform_qualification_count <- function(platform_qualification) {
+  explicit_count <- safe_num(platform_qualification$evidenceCount, 0)
+  if (is.finite(explicit_count) && explicit_count > 0) {
+    return(as.integer(explicit_count))
+  }
+  as.integer(length(platform_qualification_rows_from_profile(platform_qualification)))
 }
 
 merge_validation_issues <- function(existing, additions) {
@@ -1036,6 +1108,37 @@ profile_oecd_checklist <- function(profile, capabilities = list()) {
     verification_missing <- c(verification_missing, "evidenceRows")
   }
 
+  platform <- profile$platformQualification %||% list()
+  platform_present <- character()
+  platform_missing <- character()
+  platform_row_count <- platform_qualification_count(platform)
+  if (!is_unreported_token(platform$status)) {
+    platform_present <- c(platform_present, "status")
+  } else {
+    platform_missing <- c(platform_missing, "status")
+  }
+  if (length(normalize_text_values(platform$softwareName %||% platform$softwareVersion)) > 0) {
+    platform_present <- c(platform_present, "softwareIdentity")
+  } else {
+    platform_missing <- c(platform_missing, "softwareIdentity")
+  }
+  if (length(normalize_text_values(platform$runtime)) > 0 ||
+      length(normalize_text_values(platform$runtimeVersion)) > 0) {
+    platform_present <- c(platform_present, "runtimeEnvironment")
+  } else {
+    platform_missing <- c(platform_missing, "runtimeEnvironment")
+  }
+  if (length(normalize_text_values(platform$qualificationBasis)) > 0) {
+    platform_present <- c(platform_present, "qualificationBasis")
+  } else {
+    platform_missing <- c(platform_missing, "qualificationBasis")
+  }
+  if (platform_row_count > 0) {
+    platform_present <- c(platform_present, "evidenceRows")
+  } else {
+    platform_missing <- c(platform_missing, "evidenceRows")
+  }
+
   review <- profile$peerReview %||% list()
   review_present <- character()
   review_missing <- character()
@@ -1118,6 +1221,16 @@ profile_oecd_checklist <- function(profile, capabilities = list()) {
       present_fields = verification_present,
       missing_fields = verification_missing,
       summary = safe_chr(verification$summary, "Code, solver, and internal verification evidence")
+    ),
+    softwarePlatformQualification = oecd_dimension(
+      "softwarePlatformQualification",
+      "Software/platform qualification",
+      present_fields = platform_present,
+      missing_fields = platform_missing,
+      summary = safe_chr(
+        platform$summary,
+        "Software-platform identity, versioning, and qualification-basis metadata"
+      )
     ),
     peerReviewAndPriorUse = oecd_dimension(
       "peerReviewAndPriorUse",
@@ -1227,6 +1340,21 @@ profile_missing_evidence <- function(profile, capabilities = list()) {
   }
   for (check in normalize_text_values(verification$missingChecks)) {
     append_missing(check)
+  }
+
+  platform <- profile$platformQualification %||% list()
+  if (is_unreported_token(platform$status)) {
+    append_missing("Software/platform qualification record")
+  }
+  if (length(normalize_text_values(platform$qualificationBasis)) == 0) {
+    append_missing("Software/platform qualification basis")
+  }
+  if (platform_qualification_count(platform) == 0 &&
+      !is_unreported_token(platform$status)) {
+    append_missing("Structured software/platform qualification evidence rows")
+  }
+  for (item in normalize_text_values(platform$missingEvidence)) {
+    append_missing(item)
   }
 
   review <- profile$peerReview %||% list()
@@ -1441,6 +1569,26 @@ profile_assessment_warnings <- function(profile, capabilities = list()) {
       code = "uncertainty_metadata_missing",
       message = "Uncertainty and sensitivity metadata are not declared for this model.",
       field = "profile.uncertainty",
+      severity = "warning"
+    )
+  }
+
+  if (is_unreported_token(profile$platformQualification$status)) {
+    warnings[[length(warnings) + 1]] <- list(
+      code = "platform_qualification_metadata_missing",
+      message = "Software/platform qualification metadata are not declared for this model.",
+      field = "profile.platformQualification",
+      severity = "warning"
+    )
+  } else if (length(normalize_text_values(profile$platformQualification$qualificationBasis)) == 0 ||
+             platform_qualification_count(profile$platformQualification %||% list()) == 0) {
+    warnings[[length(warnings) + 1]] <- list(
+      code = "platform_qualification_evidence_limited",
+      message = paste(
+        "Software/platform metadata are present, but the qualification basis or structured",
+        "supporting evidence remains limited."
+      ),
+      field = "profile.platformQualification",
       severity = "warning"
     )
   }
@@ -1663,6 +1811,26 @@ ospsuite_profile_sidecar_candidates <- function(file_path) {
   ))
 }
 
+performance_evidence_sidecar_candidates <- function(file_path) {
+  stem <- tools::file_path_sans_ext(file_path)
+  unique(c(
+    paste0(stem, ".performance.json"),
+    paste0(stem, ".performance-evidence.json"),
+    paste0(file_path, ".performance.json"),
+    paste0(file_path, ".performance-evidence.json")
+  ))
+}
+
+uncertainty_evidence_sidecar_candidates <- function(file_path) {
+  stem <- tools::file_path_sans_ext(file_path)
+  unique(c(
+    paste0(stem, ".uncertainty.json"),
+    paste0(stem, ".uncertainty-evidence.json"),
+    paste0(file_path, ".uncertainty.json"),
+    paste0(file_path, ".uncertainty-evidence.json")
+  ))
+}
+
 read_json_file <- function(file_path) {
   tryCatch(
     fromJSON(file_path, simplifyVector = FALSE),
@@ -1673,6 +1841,160 @@ read_json_file <- function(file_path) {
       )
     }
   )
+}
+
+extract_performance_evidence_rows_payload <- function(payload) {
+  candidate <- payload$rows %||%
+    payload$performanceEvidence$rows %||%
+    payload$evidence
+
+  if (is.list(candidate) && length(candidate) > 0 && is.null(names(candidate))) {
+    return(candidate)
+  }
+
+  if (is.list(payload) && is.null(names(payload)) && length(payload) > 0) {
+    return(payload)
+  }
+
+  NULL
+}
+
+extract_performance_evidence_metadata <- function(payload) {
+  if (!is.list(payload) || is.null(names(payload))) {
+    return(NULL)
+  }
+
+  metadata <- payload$metadata
+  if (is.null(metadata) && is.list(payload$performanceEvidence)) {
+    metadata <- payload$performanceEvidence$metadata
+  }
+  if (!is.list(metadata)) {
+    return(NULL)
+  }
+  metadata
+}
+
+extract_uncertainty_evidence_rows_payload <- function(payload) {
+  candidate <- payload$rows %||%
+    payload$uncertaintyEvidence$rows %||%
+    payload$evidence
+
+  if (is.list(candidate) && length(candidate) > 0 && is.null(names(candidate))) {
+    return(candidate)
+  }
+
+  if (is.list(payload) && is.null(names(payload)) && length(payload) > 0) {
+    return(payload)
+  }
+
+  NULL
+}
+
+extract_uncertainty_evidence_metadata <- function(payload) {
+  if (!is.list(payload) || is.null(names(payload))) {
+    return(NULL)
+  }
+
+  metadata <- payload$metadata
+  if (is.null(metadata) && is.list(payload$uncertaintyEvidence)) {
+    metadata <- payload$uncertaintyEvidence$metadata
+  }
+  if (!is.list(metadata)) {
+    return(NULL)
+  }
+  metadata
+}
+
+performance_evidence_sidecar <- function(file_path) {
+  issues <- list()
+  for (candidate in performance_evidence_sidecar_candidates(file_path)) {
+    if (!file.exists(candidate)) {
+      next
+    }
+
+    payload <- tryCatch(
+      fromJSON(candidate, simplifyVector = FALSE),
+      error = function(exc) exc
+    )
+    if (inherits(payload, "error")) {
+      issues[[length(issues) + 1]] <- list(
+        code = "performance_sidecar_parse_error",
+        message = sprintf(
+          "Failed to parse performance evidence sidecar '%s': %s",
+          basename(candidate),
+          conditionMessage(payload)
+        ),
+        field = candidate,
+        severity = "warning"
+      )
+      return(list(path = candidate, rows = list(), issues = issues))
+    }
+
+    rows <- extract_performance_evidence_rows_payload(payload)
+    metadata <- extract_performance_evidence_metadata(payload)
+    if (is.null(rows)) {
+      issues[[length(issues) + 1]] <- list(
+        code = "performance_sidecar_rows_missing",
+        message = sprintf(
+          "Performance evidence sidecar '%s' must provide 'rows', 'performanceEvidence.rows', or a top-level row array.",
+          basename(candidate)
+        ),
+        field = candidate,
+        severity = "warning"
+      )
+      return(list(path = candidate, rows = list(), metadata = metadata, issues = issues))
+    }
+
+    return(list(path = candidate, rows = rows, metadata = metadata, issues = issues))
+  }
+
+  list(path = NULL, rows = list(), metadata = NULL, issues = issues)
+}
+
+uncertainty_evidence_sidecar <- function(file_path) {
+  issues <- list()
+  for (candidate in uncertainty_evidence_sidecar_candidates(file_path)) {
+    if (!file.exists(candidate)) {
+      next
+    }
+
+    payload <- tryCatch(
+      fromJSON(candidate, simplifyVector = FALSE),
+      error = function(exc) exc
+    )
+    if (inherits(payload, "error")) {
+      issues[[length(issues) + 1]] <- list(
+        code = "uncertainty_sidecar_parse_error",
+        message = sprintf(
+          "Failed to parse uncertainty evidence sidecar '%s': %s",
+          basename(candidate),
+          conditionMessage(payload)
+        ),
+        field = candidate,
+        severity = "warning"
+      )
+      return(list(path = candidate, rows = list(), metadata = NULL, issues = issues))
+    }
+
+    rows <- extract_uncertainty_evidence_rows_payload(payload)
+    metadata <- extract_uncertainty_evidence_metadata(payload)
+    if (is.null(rows)) {
+      issues[[length(issues) + 1]] <- list(
+        code = "uncertainty_sidecar_rows_missing",
+        message = sprintf(
+          "Uncertainty evidence sidecar '%s' must provide 'rows', 'uncertaintyEvidence.rows', or a top-level row array.",
+          basename(candidate)
+        ),
+        field = candidate,
+        severity = "warning"
+      )
+      return(list(path = candidate, rows = list(), metadata = metadata, issues = issues))
+    }
+
+    return(list(path = candidate, rows = rows, metadata = metadata, issues = issues))
+  }
+
+  list(path = NULL, rows = list(), metadata = NULL, issues = issues)
 }
 
 ospsuite_profile_sidecar <- function(file_path) {
@@ -2099,6 +2421,10 @@ normalize_performance_evidence_rows <- function(rows) {
       safe_chr(entry$acceptance_criterion)
     row$evidenceLevel <- safe_chr(entry$evidenceLevel) %||%
       safe_chr(entry$evidence_level)
+    row$summary <- safe_chr(entry$summary) %||% safe_chr(entry$description)
+    row$qualificationBasis <- safe_chr(entry$qualificationBasis) %||%
+      safe_chr(entry$qualification_basis)
+    row$dataOrigin <- safe_chr(entry$dataOrigin) %||% safe_chr(entry$data_origin)
     if (!is.null(entry$value)) {
       row$value <- safe_num(entry$value, 0)
     }
@@ -2108,9 +2434,443 @@ normalize_performance_evidence_rows <- function(rows) {
     if (!is.null(entry$predictedValue)) {
       row$predictedValue <- safe_num(entry$predictedValue, 0)
     }
+    notes <- normalize_text_values(entry$notes)
+    if (length(notes) > 0) {
+      row$notes <- as.list(notes)
+    }
+
+    kind_value <- tolower(safe_chr(row$kind, ""))
+    level_value <- tolower(safe_chr(row$evidenceLevel, ""))
+    basis_value <- tolower(safe_chr(row$qualificationBasis, ""))
+
+    inferred_class <- safe_chr(entry$evidenceClass) %||% safe_chr(entry$evidence_class)
+    if (is.null(inferred_class) || !nzchar(inferred_class)) {
+      inferred_class <- if (!is.null(row$observedValue) && !is.null(row$predictedValue)) {
+        "observed-vs-predicted"
+      } else if (grepl("runtime-smoke|smoke-test|smoke", kind_value) || grepl("runtime-only", level_value)) {
+        "runtime-smoke"
+      } else if (grepl("external", level_value) || grepl("regulatory|peer-reviewed|qualified", basis_value)) {
+        "external-qualification"
+      } else if (grepl("predictive", kind_value) || grepl("predictive", level_value)) {
+        "predictive-dataset"
+      } else if (grepl("goodness-of-fit|fit-metric|observed", kind_value)) {
+        "observed-vs-predicted"
+      } else if (grepl("internal", level_value) || grepl("reference|baseline|regression", kind_value)) {
+        "internal-reference"
+      } else {
+        "other"
+      }
+    }
+    row$evidenceClass <- inferred_class
+
+    inferred_relevance <- safe_chr(entry$qualificationRelevance) %||%
+      safe_chr(entry$qualification_relevance)
+    if (is.null(inferred_relevance) || !nzchar(inferred_relevance)) {
+      inferred_relevance <- switch(
+        inferred_class,
+        "runtime-smoke" = "operational-only",
+        "internal-reference" = "internal-supporting",
+        "observed-vs-predicted" = "predictive-supporting",
+        "predictive-dataset" = "predictive-supporting",
+        "external-qualification" = "external-supporting",
+        "unspecified"
+      )
+    }
+    row$qualificationRelevance <- inferred_relevance
+
+    if (is.null(row$dataOrigin) || !nzchar(row$dataOrigin)) {
+      row$dataOrigin <- switch(
+        inferred_class,
+        "runtime-smoke" = "internal",
+        "internal-reference" = "internal",
+        "external-qualification" = "external",
+        "unspecified"
+      )
+    }
+
     normalized[[length(normalized) + 1]] <- row
   }
 
+  normalized
+}
+
+named_value_counts <- function(values, expected = NULL) {
+  keys <- character(0)
+  if (length(expected %||% character(0)) > 0) {
+    keys <- unique(c(keys, expected))
+  }
+  if (length(values %||% character(0)) > 0) {
+    keys <- unique(c(keys, values))
+  }
+
+  counts <- vector("list", length(keys))
+  names(counts) <- keys
+  for (key in keys) {
+    counts[[key]] <- as.integer(sum(values %||% character(0) == key))
+  }
+  counts
+}
+
+performance_evidence_class_rank <- function(value) {
+  normalized <- safe_chr(value, "other")
+  switch(
+    normalized,
+    "none" = 0L,
+    "other" = 1L,
+    "runtime-smoke" = 2L,
+    "internal-reference" = 3L,
+    "observed-vs-predicted" = 4L,
+    "predictive-dataset" = 5L,
+    "external-qualification" = 6L,
+    1L
+  )
+}
+
+performance_evidence_summary <- function(rows) {
+  normalized_rows <- rows %||% list()
+  classes <- vapply(
+    normalized_rows,
+    function(entry) safe_chr(entry$evidenceClass, "other"),
+    character(1)
+  )
+  relevance <- vapply(
+    normalized_rows,
+    function(entry) safe_chr(entry$qualificationRelevance, "unspecified"),
+    character(1)
+  )
+
+  class_counts <- named_value_counts(
+    classes,
+    expected = c(
+      "runtime-smoke",
+      "internal-reference",
+      "observed-vs-predicted",
+      "predictive-dataset",
+      "external-qualification",
+      "other"
+    )
+  )
+  relevance_counts <- named_value_counts(
+    relevance,
+    expected = c(
+      "operational-only",
+      "internal-supporting",
+      "predictive-supporting",
+      "external-supporting",
+      "unspecified"
+    )
+  )
+
+  strongest_class <- "none"
+  if (length(classes) > 0) {
+    ordered_classes <- unique(classes[order(
+      vapply(classes, performance_evidence_class_rank, integer(1)),
+      decreasing = TRUE
+    )])
+    strongest_class <- safe_chr(ordered_classes[[1]], "other")
+  }
+
+  supports_observed <- as.integer(class_counts[["observed-vs-predicted"]] %||% 0L) > 0
+  supports_predictive <- as.integer(class_counts[["predictive-dataset"]] %||% 0L) > 0
+  supports_external <- as.integer(class_counts[["external-qualification"]] %||% 0L) > 0
+  limited_runtime_internal <- length(normalized_rows) > 0 &&
+    !supports_observed &&
+    !supports_predictive &&
+    !supports_external
+
+  qualification_boundary <- if (length(normalized_rows) == 0) {
+    "no-bundled-performance-evidence"
+  } else if (limited_runtime_internal) {
+    "runtime-or-internal-evidence-only"
+  } else if (!supports_external) {
+    "predictive-supporting-evidence-without-external-qualification"
+  } else {
+    "includes-external-qualification-evidence"
+  }
+
+  interpretation <- switch(
+    qualification_boundary,
+    "no-bundled-performance-evidence" =
+      "No bundled performance evidence rows were exported for this model/session.",
+    "runtime-or-internal-evidence-only" =
+      "Bundled performance evidence is limited to runtime smoke or internal reference checks and should not be interpreted as external predictive validation.",
+    "predictive-supporting-evidence-without-external-qualification" =
+      "Bundled performance evidence includes predictive-supporting rows, but no external qualification package is attached.",
+    "includes-external-qualification-evidence" =
+      "Bundled performance evidence includes at least one externally oriented qualification row.",
+    "Performance evidence classification is present but incomplete."
+  )
+
+  list(
+    evidenceClassCounts = class_counts,
+    qualificationRelevanceCounts = relevance_counts,
+    strongestEvidenceClass = strongest_class,
+    supportsObservedVsPredictedEvidence = supports_observed,
+    supportsPredictiveDatasetEvidence = supports_predictive,
+    supportsExternalQualificationEvidence = supports_external,
+    limitedToRuntimeOrInternalEvidence = limited_runtime_internal,
+    qualificationBoundary = qualification_boundary,
+    interpretation = interpretation
+  )
+}
+
+performance_evidence_row_issues <- function(rows, source = "performanceEvidence") {
+  issues <- list()
+  append_issue <- function(code, message, field, row_id = NULL) {
+    issues[[length(issues) + 1]] <<- list(
+      code = code,
+      message = message,
+      field = field,
+      severity = "warning",
+      rowId = row_id
+    )
+  }
+
+  for (index in seq_along(rows %||% list())) {
+    row <- rows[[index]]
+    if (!is.list(row)) {
+      next
+    }
+
+    row_id <- safe_chr(row$id, sprintf("row-%03d", index))
+    evidence_class <- safe_chr(row$evidenceClass, "other")
+    field_prefix <- sprintf("%s.rows[%d]", source, index)
+
+    if (identical(evidence_class, "runtime-smoke") &&
+        (is.null(safe_chr(row$acceptanceCriterion)) || !nzchar(safe_chr(row$acceptanceCriterion, "")))) {
+      append_issue(
+        "performance_row_acceptance_missing",
+        "Runtime smoke evidence rows should declare an explicit acceptanceCriterion.",
+        paste0(field_prefix, ".acceptanceCriterion"),
+        row_id
+      )
+    }
+
+    if (identical(evidence_class, "observed-vs-predicted")) {
+      if (is.null(row$observedValue)) {
+        append_issue(
+          "performance_row_observed_missing",
+          "Observed-versus-predicted rows should include observedValue.",
+          paste0(field_prefix, ".observedValue"),
+          row_id
+        )
+      }
+      if (is.null(row$predictedValue)) {
+        append_issue(
+          "performance_row_predicted_missing",
+          "Observed-versus-predicted rows should include predictedValue.",
+          paste0(field_prefix, ".predictedValue"),
+          row_id
+        )
+      }
+      if (is.null(safe_chr(row$dataset)) || !nzchar(safe_chr(row$dataset, ""))) {
+        append_issue(
+          "performance_row_dataset_missing",
+          "Observed-versus-predicted rows should identify the benchmark dataset or study.",
+          paste0(field_prefix, ".dataset"),
+          row_id
+        )
+      }
+      if (is.null(safe_chr(row$acceptanceCriterion)) || !nzchar(safe_chr(row$acceptanceCriterion, ""))) {
+        append_issue(
+          "performance_row_acceptance_missing",
+          "Observed-versus-predicted rows should declare the comparison acceptanceCriterion.",
+          paste0(field_prefix, ".acceptanceCriterion"),
+          row_id
+        )
+      }
+    }
+
+    if (identical(evidence_class, "predictive-dataset")) {
+      if (is.null(safe_chr(row$dataset)) || !nzchar(safe_chr(row$dataset, ""))) {
+        append_issue(
+          "performance_row_dataset_missing",
+          "Predictive-dataset rows should identify the dataset or benchmark package.",
+          paste0(field_prefix, ".dataset"),
+          row_id
+        )
+      }
+      if (is.null(safe_chr(row$acceptanceCriterion)) || !nzchar(safe_chr(row$acceptanceCriterion, ""))) {
+        append_issue(
+          "performance_row_acceptance_missing",
+          "Predictive-dataset rows should declare the dataset-level acceptanceCriterion.",
+          paste0(field_prefix, ".acceptanceCriterion"),
+          row_id
+        )
+      }
+    }
+
+    if (identical(evidence_class, "external-qualification")) {
+      if ((is.null(safe_chr(row$dataset)) || !nzchar(safe_chr(row$dataset, ""))) &&
+          (is.null(safe_chr(row$qualificationBasis)) || !nzchar(safe_chr(row$qualificationBasis, "")))) {
+        append_issue(
+          "performance_row_external_basis_missing",
+          "External-qualification rows should declare a dataset or qualificationBasis.",
+          field_prefix,
+          row_id
+        )
+      }
+      if (is.null(safe_chr(row$acceptanceCriterion)) || !nzchar(safe_chr(row$acceptanceCriterion, ""))) {
+        append_issue(
+          "performance_row_acceptance_missing",
+          "External-qualification rows should declare the qualification acceptanceCriterion.",
+          paste0(field_prefix, ".acceptanceCriterion"),
+          row_id
+        )
+      }
+    }
+  }
+
+  issues
+}
+
+performance_evidence_metadata_issues <- function(metadata, source = "performanceEvidence.metadata") {
+  issues <- list()
+  append_issue <- function(code, message, field) {
+    issues[[length(issues) + 1]] <<- list(
+      code = code,
+      message = message,
+      field = field,
+      severity = "warning"
+    )
+  }
+
+  if (is.null(safe_chr(metadata$bundleVersion)) || !nzchar(safe_chr(metadata$bundleVersion, ""))) {
+    append_issue(
+      "performance_bundle_version_missing",
+      "Performance evidence bundle metadata should declare bundleVersion.",
+      paste0(source, ".bundleVersion")
+    )
+  }
+  if (is.null(safe_chr(metadata$summary)) || !nzchar(safe_chr(metadata$summary, ""))) {
+    append_issue(
+      "performance_bundle_summary_missing",
+      "Performance evidence bundle metadata should declare summary.",
+      paste0(source, ".summary")
+    )
+  }
+
+  issues
+}
+
+uncertainty_evidence_row_issues <- function(rows, source = "uncertaintyEvidence") {
+  issues <- list()
+  append_issue <- function(code, message, field, row_id = NULL) {
+    issues[[length(issues) + 1]] <<- list(
+      code = code,
+      message = message,
+      field = field,
+      severity = "warning",
+      rowId = row_id
+    )
+  }
+
+  for (index in seq_along(rows %||% list())) {
+    row <- rows[[index]]
+    if (!is.list(row)) {
+      next
+    }
+
+    row_id <- safe_chr(row$id, sprintf("row-%03d", index))
+    kind <- safe_chr(row$kind, "unspecified")
+    field_prefix <- sprintf("%s.rows[%d]", source, index)
+    method <- safe_chr(row$method)
+    summary <- safe_chr(row$summary)
+    metric <- safe_chr(row$metric)
+    target_output <- safe_chr(row$targetOutput)
+    varied_parameters <- normalize_text_values(row$variedParameters %||% row$parameters)
+
+    if (identical(kind, "variability-approach")) {
+      if ((is.null(method) || !nzchar(method)) && (is.null(summary) || !nzchar(summary))) {
+        append_issue(
+          "uncertainty_row_summary_missing",
+          "Variability-approach rows should declare a method or summary.",
+          field_prefix,
+          row_id
+        )
+      }
+    } else if (kind %in% c("variability-propagation", "sensitivity-analysis")) {
+      if ((is.null(method) || !nzchar(method)) && (is.null(summary) || !nzchar(summary))) {
+        append_issue(
+          "uncertainty_row_summary_missing",
+          "Uncertainty rows should declare a method or summary.",
+          field_prefix,
+          row_id
+        )
+      }
+      if ((is.null(metric) || !nzchar(metric)) &&
+          (is.null(target_output) || !nzchar(target_output)) &&
+          length(varied_parameters) == 0) {
+        append_issue(
+          "uncertainty_row_scope_missing",
+          "Uncertainty rows should declare a metric, targetOutput, or variedParameters.",
+          field_prefix,
+          row_id
+        )
+      }
+    } else if (identical(kind, "residual-uncertainty")) {
+      if (is.null(summary) || !nzchar(summary)) {
+        append_issue(
+          "uncertainty_row_summary_missing",
+          "Residual-uncertainty rows should declare a summary.",
+          paste0(field_prefix, ".summary"),
+          row_id
+        )
+      }
+    }
+  }
+
+  issues
+}
+
+uncertainty_evidence_metadata_issues <- function(metadata, source = "uncertaintyEvidence.metadata") {
+  issues <- list()
+  append_issue <- function(code, message, field) {
+    issues[[length(issues) + 1]] <<- list(
+      code = code,
+      message = message,
+      field = field,
+      severity = "warning"
+    )
+  }
+
+  if (is.null(safe_chr(metadata$bundleVersion)) || !nzchar(safe_chr(metadata$bundleVersion, ""))) {
+    append_issue(
+      "uncertainty_bundle_version_missing",
+      "Uncertainty evidence bundle metadata should declare bundleVersion.",
+      paste0(source, ".bundleVersion")
+    )
+  }
+  if (is.null(safe_chr(metadata$summary)) || !nzchar(safe_chr(metadata$summary, ""))) {
+    append_issue(
+      "uncertainty_bundle_summary_missing",
+      "Uncertainty evidence bundle metadata should declare summary.",
+      paste0(source, ".summary")
+    )
+  }
+
+  issues
+}
+
+ensure_unique_evidence_row_ids <- function(rows, prefix = "evidence") {
+  normalized <- list()
+  seen <- list()
+  for (index in seq_along(rows %||% list())) {
+    row <- rows[[index]]
+    if (!is.list(row)) {
+      next
+    }
+
+    base_id <- safe_chr(row$id, sprintf("%s-%03d", prefix, index))
+    duplicate_index <- as.integer(seen[[base_id]] %||% 0L)
+    seen[[base_id]] <- duplicate_index + 1L
+    if (duplicate_index > 0L) {
+      row$id <- sprintf("%s-dup-%02d", base_id, duplicate_index + 1L)
+    } else {
+      row$id <- base_id
+    }
+    normalized[[length(normalized) + 1]] <- row
+  }
   normalized
 }
 
@@ -2143,6 +2903,11 @@ normalize_supporting_evidence_rows <- function(rows, prefix = "evidence") {
     row$checkName <- safe_chr(entry$checkName) %||% safe_chr(entry$check_name)
     row$solver <- safe_chr(entry$solver)
     row$runtime <- safe_chr(entry$runtime)
+    row$runtimeVersion <- safe_chr(entry$runtimeVersion) %||% safe_chr(entry$runtime_version)
+    row$softwareName <- safe_chr(entry$softwareName) %||% safe_chr(entry$software)
+    row$softwareVersion <- safe_chr(entry$softwareVersion) %||% safe_chr(entry$version)
+    row$qualificationBasis <- safe_chr(entry$qualificationBasis) %||%
+      safe_chr(entry$qualification_basis)
 
     varied_parameters <- normalize_text_values(entry$variedParameters %||% entry$parameters)
     if (length(varied_parameters) > 0) {
@@ -2172,17 +2937,25 @@ record_performance_evidence <- function(record, limit = 200L) {
     limit_value <- 200L
   }
 
-  raw_rows <- NULL
-  source <- "profile-modelPerformance"
+  collected_rows <- list()
+  sources <- character(0)
   performance <- record$profile$modelPerformance %||% list()
+  parameter_table <- NULL
+  sidecar <- performance_evidence_sidecar(record$file_path)
 
   if (identical(record$backend, "rxode2") &&
       is.environment(record$module_env) &&
       exists("pbpk_performance_evidence", envir = record$module_env, inherits = FALSE)) {
+    parameter_table <- record_parameter_table(record, limit = 5000L)
     raw_rows <- call_module_hook(
       record$module_env,
       "pbpk_performance_evidence",
       list(
+        parameters = record$parameters,
+        parameter_catalog = record$parameter_catalog,
+        parameterCatalog = record$parameter_catalog,
+        parameter_table = parameter_table,
+        parameterTable = parameter_table,
         simulation_id = record$simulation_id,
         simulationId = record$simulation_id,
         metadata = record$metadata,
@@ -2192,26 +2965,54 @@ record_performance_evidence <- function(record, limit = 200L) {
         filePath = record$file_path
       )
     )
-    source <- "pbpk_performance_evidence"
-  } else {
-    raw_rows <- performance_evidence_rows_from_profile(performance)
+    if (is.list(raw_rows) && length(raw_rows) > 0) {
+      collected_rows <- c(collected_rows, raw_rows)
+      sources <- c(sources, "pbpk_performance_evidence")
+    }
   }
 
-  rows <- normalize_performance_evidence_rows(raw_rows)
+  profile_rows <- performance_evidence_rows_from_profile(performance)
+  if (is.list(profile_rows) && length(profile_rows) > 0) {
+    collected_rows <- c(collected_rows, profile_rows)
+    sources <- c(sources, "profile-modelPerformance")
+  }
+  if (is.list(sidecar$rows) && length(sidecar$rows) > 0) {
+    collected_rows <- c(collected_rows, sidecar$rows)
+    sources <- c(sources, "performance-evidence-sidecar")
+  }
+
+  if (length(sources) == 0) {
+    sources <- "profile-modelPerformance"
+  }
+
+  rows <- normalize_performance_evidence_rows(collected_rows)
+  rows <- ensure_unique_evidence_row_ids(rows, prefix = "performance-evidence")
+  summary <- performance_evidence_summary(rows)
+  metadata_issues <- if (!is.null(sidecar$path)) {
+    performance_evidence_metadata_issues(sidecar$metadata, source = "performanceEvidence.bundleMetadata")
+  } else {
+    list()
+  }
+  quality_issues <- performance_evidence_row_issues(rows)
   total_rows <- length(rows)
   if (total_rows > limit_value) {
     rows <- rows[seq_len(limit_value)]
   }
 
-  list(
-    source = source,
+  utils::modifyList(summary, list(
+    source = if (length(unique(sources)) == 1) unique(sources)[[1]] else "combined",
+    sources = as.list(unique(sources)),
+    sidecarPath = sidecar$path,
+    bundleMetadata = sidecar$metadata,
+    issues = c(sidecar$issues %||% list(), metadata_issues, quality_issues),
+    issueCount = length(c(sidecar$issues %||% list(), metadata_issues, quality_issues)),
     included = TRUE,
     limit = limit_value,
     totalRows = total_rows,
     returnedRows = length(rows),
     truncated = total_rows > limit_value,
     rows = rows
-  )
+  ))
 }
 
 record_parameter_table <- function(record, pattern = NULL, limit = 200L) {
@@ -2306,17 +3107,25 @@ record_uncertainty_evidence <- function(record, limit = 200L) {
     limit_value <- 200L
   }
 
-  raw_rows <- NULL
-  source <- "profile-uncertainty"
+  collected_rows <- list()
+  sources <- character(0)
   uncertainty <- record$profile$uncertainty %||% list()
+  parameter_table <- NULL
+  sidecar <- uncertainty_evidence_sidecar(record$file_path)
 
   if (identical(record$backend, "rxode2") &&
       is.environment(record$module_env) &&
       exists("pbpk_uncertainty_evidence", envir = record$module_env, inherits = FALSE)) {
+    parameter_table <- record_parameter_table(record, limit = 5000L)
     raw_rows <- call_module_hook(
       record$module_env,
       "pbpk_uncertainty_evidence",
       list(
+        parameters = record$parameters,
+        parameter_catalog = record$parameter_catalog,
+        parameterCatalog = record$parameter_catalog,
+        parameter_table = parameter_table,
+        parameterTable = parameter_table,
         simulation_id = record$simulation_id,
         simulationId = record$simulation_id,
         metadata = record$metadata,
@@ -2326,19 +3135,45 @@ record_uncertainty_evidence <- function(record, limit = 200L) {
         filePath = record$file_path
       )
     )
-    source <- "pbpk_uncertainty_evidence"
-  } else {
-    raw_rows <- uncertainty_evidence_rows_from_profile(uncertainty)
+    if (is.list(raw_rows) && length(raw_rows) > 0) {
+      collected_rows <- c(collected_rows, raw_rows)
+      sources <- c(sources, "pbpk_uncertainty_evidence")
+    }
   }
 
-  rows <- normalize_supporting_evidence_rows(raw_rows, prefix = "uncertainty")
+  profile_rows <- uncertainty_evidence_rows_from_profile(uncertainty)
+  if (is.list(profile_rows) && length(profile_rows) > 0) {
+    collected_rows <- c(collected_rows, profile_rows)
+    sources <- c(sources, "profile-uncertainty")
+  }
+  if (is.list(sidecar$rows) && length(sidecar$rows) > 0) {
+    collected_rows <- c(collected_rows, sidecar$rows)
+    sources <- c(sources, "uncertainty-evidence-sidecar")
+  }
+  if (length(sources) == 0) {
+    sources <- "profile-uncertainty"
+  }
+
+  rows <- normalize_supporting_evidence_rows(collected_rows, prefix = "uncertainty")
+  rows <- ensure_unique_evidence_row_ids(rows, prefix = "uncertainty-evidence")
+  metadata_issues <- if (!is.null(sidecar$path)) {
+    uncertainty_evidence_metadata_issues(sidecar$metadata, source = "uncertaintyEvidence.bundleMetadata")
+  } else {
+    list()
+  }
+  quality_issues <- uncertainty_evidence_row_issues(rows)
   total_rows <- length(rows)
   if (total_rows > limit_value) {
     rows <- rows[seq_len(limit_value)]
   }
 
   list(
-    source = source,
+    source = if (length(unique(sources)) == 1) unique(sources)[[1]] else "combined",
+    sources = as.list(unique(sources)),
+    sidecarPath = sidecar$path,
+    bundleMetadata = sidecar$metadata,
+    issues = c(sidecar$issues %||% list(), metadata_issues, quality_issues),
+    issueCount = length(c(sidecar$issues %||% list(), metadata_issues, quality_issues)),
     included = TRUE,
     limit = limit_value,
     totalRows = total_rows,
@@ -2357,14 +3192,21 @@ record_verification_evidence <- function(record, limit = 200L) {
   raw_rows <- NULL
   source <- "profile-implementationVerification"
   verification <- record$profile$implementationVerification %||% list()
+  parameter_table <- NULL
 
   if (identical(record$backend, "rxode2") &&
       is.environment(record$module_env) &&
       exists("pbpk_verification_evidence", envir = record$module_env, inherits = FALSE)) {
+    parameter_table <- record_parameter_table(record, limit = 5000L)
     raw_rows <- call_module_hook(
       record$module_env,
       "pbpk_verification_evidence",
       list(
+        parameters = record$parameters,
+        parameter_catalog = record$parameter_catalog,
+        parameterCatalog = record$parameter_catalog,
+        parameter_table = parameter_table,
+        parameterTable = parameter_table,
         simulation_id = record$simulation_id,
         simulationId = record$simulation_id,
         metadata = record$metadata,
@@ -2393,6 +3235,887 @@ record_verification_evidence <- function(record, limit = 200L) {
     returnedRows = length(rows),
     truncated = total_rows > limit_value,
     rows = rows
+  )
+}
+
+record_platform_qualification_evidence <- function(record, limit = 200L) {
+  limit_value <- as.integer(safe_num(limit, 200))
+  if (is.na(limit_value) || limit_value < 1) {
+    limit_value <- 200L
+  }
+
+  raw_rows <- NULL
+  source <- "profile-platformQualification"
+  platform_qualification <- record$profile$platformQualification %||% list()
+  parameter_table <- NULL
+
+  if (identical(record$backend, "rxode2") &&
+      is.environment(record$module_env) &&
+      exists("pbpk_platform_qualification_evidence", envir = record$module_env, inherits = FALSE)) {
+    parameter_table <- record_parameter_table(record, limit = 5000L)
+    raw_rows <- call_module_hook(
+      record$module_env,
+      "pbpk_platform_qualification_evidence",
+      list(
+        parameters = record$parameters,
+        parameter_catalog = record$parameter_catalog,
+        parameterCatalog = record$parameter_catalog,
+        parameter_table = parameter_table,
+        parameterTable = parameter_table,
+        simulation_id = record$simulation_id,
+        simulationId = record$simulation_id,
+        metadata = record$metadata,
+        capabilities = record$capabilities,
+        profile = record$profile,
+        file_path = record$file_path,
+        filePath = record$file_path
+      )
+    )
+    source <- "pbpk_platform_qualification_evidence"
+  } else {
+    raw_rows <- platform_qualification_rows_from_profile(platform_qualification)
+  }
+
+  rows <- normalize_supporting_evidence_rows(raw_rows, prefix = "platform-qualification")
+  total_rows <- length(rows)
+  if (total_rows > limit_value) {
+    rows <- rows[seq_len(limit_value)]
+  }
+
+  list(
+    source = source,
+    included = TRUE,
+    limit = limit_value,
+    totalRows = total_rows,
+    returnedRows = length(rows),
+    truncated = total_rows > limit_value,
+    rows = rows
+  )
+}
+
+record_executable_verification_snapshot <- function(record) {
+  verification <- record$metadata$verification %||% list()
+  if (!is.list(verification) || length(verification) == 0) {
+    return(list(
+      source = "metadata.verification",
+      included = FALSE,
+      status = "not-run",
+      summary = "No stored run_verification_checks snapshot is attached to this simulation record.",
+      generatedAt = NULL,
+      requestedPopulationSmoke = FALSE,
+      qualificationState = NULL,
+      checkCount = 0L,
+      passedCount = 0L,
+      failedCount = 0L,
+      warningCount = 0L,
+      skippedCount = 0L,
+      checks = list(),
+      artifacts = list()
+    ))
+  }
+
+  list(
+    source = "metadata.verification",
+    included = TRUE,
+    status = safe_chr(verification$status, "unreported"),
+    summary = safe_chr(verification$summary),
+    generatedAt = safe_chr(verification$generatedAt),
+    requestedPopulationSmoke = safe_lgl(verification$requestedPopulationSmoke, FALSE),
+    qualificationState = verification$qualificationState %||% NULL,
+    checkCount = as.integer(safe_num(verification$checkCount, 0)),
+    passedCount = as.integer(safe_num(verification$passedCount, 0)),
+    failedCount = as.integer(safe_num(verification$failedCount, 0)),
+    warningCount = as.integer(safe_num(verification$warningCount, 0)),
+    skippedCount = as.integer(safe_num(verification$skippedCount, 0)),
+    checks = verification$checks %||% list(),
+    artifacts = verification$artifacts %||% list()
+  )
+}
+
+verification_check <- function(id, label, status, summary = NULL, ...) {
+  payload <- list(
+    id = safe_chr(id),
+    label = safe_chr(label, safe_chr(id)),
+    status = safe_chr(status, "unreported"),
+    summary = safe_chr(summary)
+  )
+  extra <- list(...)
+  for (name in names(extra)) {
+    value <- extra[[name]]
+    if (!is.null(value)) {
+      payload[[name]] <- value
+    }
+  }
+  payload
+}
+
+verification_counts <- function(checks) {
+  statuses <- vapply(
+    checks %||% list(),
+    function(entry) safe_chr(entry$status, "unreported"),
+    character(1)
+  )
+  list(
+    checkCount = as.integer(length(statuses)),
+    passedCount = as.integer(sum(statuses == "passed")),
+    failedCount = as.integer(sum(statuses == "failed")),
+    warningCount = as.integer(sum(statuses == "warning")),
+    skippedCount = as.integer(sum(statuses == "skipped"))
+  )
+}
+
+verification_status <- function(counts) {
+  if (safe_num(counts$failedCount, 0) > 0) {
+    return("failed")
+  }
+  if (safe_num(counts$warningCount, 0) > 0) {
+    return("warning")
+  }
+  if (safe_num(counts$passedCount, 0) > 0) {
+    return("passed")
+  }
+  "skipped"
+}
+
+verification_summary_text <- function(status, counts) {
+  total <- as.integer(safe_num(counts$checkCount, 0))
+  failed <- as.integer(safe_num(counts$failedCount, 0))
+  warning <- as.integer(safe_num(counts$warningCount, 0))
+  passed <- as.integer(safe_num(counts$passedCount, 0))
+  skipped <- as.integer(safe_num(counts$skippedCount, 0))
+
+  if (identical(status, "failed")) {
+    return(sprintf(
+      "Verification failed: %d of %d checks failed%s",
+      failed,
+      total,
+      if (warning > 0) sprintf(", with %d warnings", warning) else ""
+    ))
+  }
+  if (identical(status, "warning")) {
+    return(sprintf(
+      "Verification completed with %d warnings across %d checks",
+      warning,
+      total
+    ))
+  }
+  if (identical(status, "passed")) {
+    return(sprintf("All %d verification checks passed", passed))
+  }
+  sprintf("No verification checks were executed (%d skipped)", skipped)
+}
+
+verification_artifact_id <- function(simulation_id, suffix) {
+  sprintf(
+    "%s-%s-%s-%06d",
+    simulation_id,
+    suffix,
+    as.integer(as.numeric(Sys.time())),
+    sample.int(999999L, 1L)
+  )
+}
+
+record_parameter_count <- function(record) {
+  if (identical(record$backend, "ospsuite")) {
+    ensure_ospsuite()
+    return(as.integer(length(unique(getAllParameterPathsIn(record$simulation)))))
+  }
+
+  catalog_count <- as.integer(length(record$parameter_catalog %||% list()))
+  if (catalog_count > 0) {
+    return(catalog_count)
+  }
+  as.integer(length(record$parameters %||% list()))
+}
+
+result_integrity_check <- function(result) {
+  series <- result$series %||% list()
+  if (length(series) == 0) {
+    return(verification_check(
+      "deterministic-integrity",
+      "Deterministic result integrity",
+      "failed",
+      "Deterministic result payload contains no series",
+      totalSeries = 0L,
+      totalPoints = 0L,
+      emptySeriesCount = 0L,
+      nonFinitePointCount = 0L,
+      decreasingSeriesCount = 0L,
+      duplicateTimeSeriesCount = 0L,
+      duplicateParameterCount = 0L
+    ))
+  }
+
+  total_points <- 0L
+  empty_series_count <- 0L
+  non_finite_point_count <- 0L
+  decreasing_series_count <- 0L
+  duplicate_time_series_count <- 0L
+  duplicate_parameter_count <- 0L
+  parameter_names <- character()
+
+  for (entry in series) {
+    parameter <- safe_chr(entry$parameter)
+    if (!is.null(parameter) && nzchar(parameter)) {
+      parameter_names <- c(parameter_names, parameter)
+    }
+    values <- entry$values %||% list()
+    point_count <- length(values)
+    total_points <- total_points + as.integer(point_count)
+    if (point_count == 0) {
+      empty_series_count <- empty_series_count + 1L
+      next
+    }
+
+    times <- vapply(values, function(item) safe_num(item$time, NA_real_), numeric(1))
+    numbers <- vapply(values, function(item) safe_num(item$value, NA_real_), numeric(1))
+    finite_mask <- is.finite(times) & is.finite(numbers)
+    if (any(!finite_mask)) {
+      non_finite_point_count <- non_finite_point_count + as.integer(sum(!finite_mask))
+    }
+
+    if (length(times) > 1 && any(diff(times) < 0, na.rm = TRUE)) {
+      decreasing_series_count <- decreasing_series_count + 1L
+    }
+    if (anyDuplicated(times) > 0) {
+      duplicate_time_series_count <- duplicate_time_series_count + 1L
+    }
+  }
+
+  if (length(parameter_names) > 0) {
+    duplicate_parameter_count <- as.integer(sum(duplicated(parameter_names)))
+  }
+
+  status <- if (
+    empty_series_count > 0L ||
+    non_finite_point_count > 0L ||
+    decreasing_series_count > 0L ||
+    duplicate_parameter_count > 0L
+  ) {
+    "failed"
+  } else if (duplicate_time_series_count > 0L) {
+    "warning"
+  } else {
+    "passed"
+  }
+
+  summary <- if (identical(status, "passed")) {
+    sprintf(
+      "Deterministic result integrity checks passed across %d series and %d points",
+      length(series),
+      total_points
+    )
+  } else if (identical(status, "warning")) {
+    sprintf(
+      "Deterministic result integrity checks found duplicate time points in %d series",
+      duplicate_time_series_count
+    )
+  } else {
+    paste(
+      "Deterministic result integrity checks failed:",
+      sprintf("empty series=%d,", empty_series_count),
+      sprintf("non-finite points=%d,", non_finite_point_count),
+      sprintf("decreasing time series=%d,", decreasing_series_count),
+      sprintf("duplicate parameters=%d", duplicate_parameter_count)
+    )
+  }
+
+  verification_check(
+    "deterministic-integrity",
+    "Deterministic result integrity",
+    status,
+    summary,
+    totalSeries = as.integer(length(series)),
+    totalPoints = total_points,
+    emptySeriesCount = empty_series_count,
+    nonFinitePointCount = non_finite_point_count,
+    decreasingSeriesCount = decreasing_series_count,
+    duplicateTimeSeriesCount = duplicate_time_series_count,
+    duplicateParameterCount = duplicate_parameter_count
+  )
+}
+
+numeric_equal_with_tolerance <- function(lhs, rhs, abs_tol = 1e-8, rel_tol = 1e-6) {
+  if (length(lhs) != length(rhs)) {
+    return(FALSE)
+  }
+  if (length(lhs) == 0) {
+    return(TRUE)
+  }
+  if (any(!is.finite(lhs)) || any(!is.finite(rhs))) {
+    return(FALSE)
+  }
+  allowed <- abs_tol + rel_tol * pmax(abs(lhs), abs(rhs), 1)
+  all(abs(lhs - rhs) <= allowed)
+}
+
+compare_result_series <- function(reference_result, candidate_result, abs_tol = 1e-8, rel_tol = 1e-6) {
+  reference_series <- reference_result$series %||% list()
+  candidate_series <- candidate_result$series %||% list()
+  reference_map <- setNames(reference_series, vapply(reference_series, function(entry) safe_chr(entry$parameter, ""), character(1)))
+  candidate_map <- setNames(candidate_series, vapply(candidate_series, function(entry) safe_chr(entry$parameter, ""), character(1)))
+
+  reference_names <- sort(names(reference_map))
+  candidate_names <- sort(names(candidate_map))
+  if (!identical(reference_names, candidate_names)) {
+    missing_in_candidate <- setdiff(reference_names, candidate_names)
+    missing_in_reference <- setdiff(candidate_names, reference_names)
+    return(verification_check(
+      "deterministic-reproducibility",
+      "Deterministic reproducibility",
+      "failed",
+      "Repeated deterministic run returned a different set of result series",
+      comparedSeriesCount = as.integer(length(intersect(reference_names, candidate_names))),
+      comparedPointCount = 0L,
+      missingInRepeat = as.list(missing_in_candidate),
+      extraInRepeat = as.list(missing_in_reference)
+    ))
+  }
+
+  compared_points <- 0L
+  unit_mismatch_count <- 0L
+  point_count_mismatch_count <- 0L
+  time_mismatch_count <- 0L
+  value_mismatch_count <- 0L
+  max_abs_difference <- 0
+  max_rel_difference <- 0
+
+  for (name in reference_names) {
+    lhs <- reference_map[[name]]
+    rhs <- candidate_map[[name]]
+
+    if (!identical(safe_chr(lhs$unit, "unitless"), safe_chr(rhs$unit, "unitless"))) {
+      unit_mismatch_count <- unit_mismatch_count + 1L
+      next
+    }
+
+    lhs_values <- lhs$values %||% list()
+    rhs_values <- rhs$values %||% list()
+    if (length(lhs_values) != length(rhs_values)) {
+      point_count_mismatch_count <- point_count_mismatch_count + 1L
+      next
+    }
+
+    lhs_times <- vapply(lhs_values, function(item) safe_num(item$time, NA_real_), numeric(1))
+    rhs_times <- vapply(rhs_values, function(item) safe_num(item$time, NA_real_), numeric(1))
+    lhs_numbers <- vapply(lhs_values, function(item) safe_num(item$value, NA_real_), numeric(1))
+    rhs_numbers <- vapply(rhs_values, function(item) safe_num(item$value, NA_real_), numeric(1))
+    compared_points <- compared_points + as.integer(length(lhs_numbers))
+
+    if (!numeric_equal_with_tolerance(lhs_times, rhs_times, abs_tol = abs_tol, rel_tol = rel_tol)) {
+      time_mismatch_count <- time_mismatch_count + 1L
+      next
+    }
+
+    diff_abs <- abs(lhs_numbers - rhs_numbers)
+    max_abs_difference <- max(max_abs_difference, max(diff_abs, na.rm = TRUE))
+    denom <- pmax(abs(lhs_numbers), abs(rhs_numbers), abs_tol)
+    rel_values <- diff_abs / denom
+    max_rel_difference <- max(max_rel_difference, max(rel_values, na.rm = TRUE))
+
+    if (!numeric_equal_with_tolerance(lhs_numbers, rhs_numbers, abs_tol = abs_tol, rel_tol = rel_tol)) {
+      value_mismatch_count <- value_mismatch_count + 1L
+    }
+  }
+
+  status <- if (
+    unit_mismatch_count > 0L ||
+    point_count_mismatch_count > 0L ||
+    time_mismatch_count > 0L ||
+    value_mismatch_count > 0L
+  ) {
+    "failed"
+  } else {
+    "passed"
+  }
+
+  summary <- if (identical(status, "passed")) {
+    sprintf(
+      "Repeated deterministic run matched across %d series and %d points within tolerance",
+      length(reference_names),
+      compared_points
+    )
+  } else {
+    paste(
+      "Repeated deterministic run diverged:",
+      sprintf("unit mismatches=%d,", unit_mismatch_count),
+      sprintf("point-count mismatches=%d,", point_count_mismatch_count),
+      sprintf("time mismatches=%d,", time_mismatch_count),
+      sprintf("value mismatches=%d", value_mismatch_count)
+    )
+  }
+
+  verification_check(
+    "deterministic-reproducibility",
+    "Deterministic reproducibility",
+    status,
+    summary,
+    comparedSeriesCount = as.integer(length(reference_names)),
+    comparedPointCount = compared_points,
+    unitMismatchCount = unit_mismatch_count,
+    pointCountMismatchCount = point_count_mismatch_count,
+    timeMismatchCount = time_mismatch_count,
+    valueMismatchCount = value_mismatch_count,
+    maxAbsDifference = max_abs_difference,
+    maxRelDifference = max_rel_difference,
+    absTolerance = abs_tol,
+    relTolerance = rel_tol
+  )
+}
+
+normalize_runtime_verification_checks <- function(raw_checks, prefix = "model-check") {
+  artifacts <- list()
+  checks <- raw_checks
+
+  if (is.list(raw_checks) &&
+      !is.null(raw_checks$checks) &&
+      is.list(raw_checks$checks) &&
+      (length(raw_checks) == 0 || !"status" %in% names(raw_checks))) {
+    checks <- raw_checks$checks
+    artifacts <- raw_checks$artifacts %||% list()
+  }
+
+  normalized <- list()
+  for (index in seq_along(checks %||% list())) {
+    entry <- checks[[index]]
+    if (!is.list(entry)) {
+      next
+    }
+
+    payload <- entry
+    payload$id <- safe_chr(entry$id) %||%
+      safe_chr(entry$checkId) %||%
+      safe_chr(entry$check_id) %||%
+      sprintf("%s-%03d", prefix, index)
+    payload$label <- safe_chr(entry$label) %||%
+      safe_chr(entry$checkName) %||%
+      safe_chr(entry$check_name) %||%
+      payload$id
+    payload$status <- safe_chr(entry$status, "unreported")
+    payload$summary <- safe_chr(entry$summary) %||%
+      safe_chr(entry$message) %||%
+      safe_chr(entry$description)
+    if (is.null(payload$source)) {
+      payload$source <- "pbpk_run_verification_checks"
+    }
+    normalized[[length(normalized) + 1]] <- payload
+  }
+
+  list(checks = normalized, artifacts = artifacts %||% list())
+}
+
+record_runtime_verification_checks <- function(
+  record,
+  request = list(),
+  include_population_smoke = FALSE,
+  population_cohort = list(),
+  population_outputs = list()
+) {
+  if (!identical(record$backend, "rxode2") ||
+      !is.environment(record$module_env) ||
+      !exists("pbpk_run_verification_checks", envir = record$module_env, inherits = FALSE)) {
+    return(list(checks = list(), artifacts = list(), source = NULL))
+  }
+
+  parameter_table <- record_parameter_table(record, limit = 5000L)
+
+  raw_checks <- call_module_hook(
+    record$module_env,
+    "pbpk_run_verification_checks",
+    list(
+      parameters = record$parameters,
+      parameter_catalog = record$parameter_catalog,
+      parameterCatalog = record$parameter_catalog,
+      parameter_table = parameter_table,
+      parameterTable = parameter_table,
+      request = request,
+      simulation_id = record$simulation_id,
+      simulationId = record$simulation_id,
+      metadata = record$metadata,
+      capabilities = record$capabilities,
+      profile = record$profile,
+      file_path = record$file_path,
+      filePath = record$file_path,
+      include_population_smoke = include_population_smoke,
+      includePopulationSmoke = include_population_smoke,
+      population_cohort = population_cohort,
+      populationCohort = population_cohort,
+      population_outputs = population_outputs,
+      populationOutputs = population_outputs
+    )
+  )
+
+  normalized <- normalize_runtime_verification_checks(raw_checks)
+  normalized$source <- "pbpk_run_verification_checks"
+  normalized
+}
+
+build_verification_summary <- function(
+  record,
+  request = list(),
+  validation = NULL,
+  include_population_smoke = FALSE,
+  population_cohort = list(),
+  population_outputs = list()
+) {
+  request_payload <- request %||% list()
+  resolved_validation <- validation
+  if (is.null(resolved_validation)) {
+    resolved_validation <- if (identical(record$backend, "ospsuite")) {
+      ospsuite_validate_record(record, request = request_payload, stage = "run_verification_checks")
+    } else {
+      rxode_validate_record(record, request = request_payload, stage = "run_verification_checks")
+    }
+  }
+
+  checks <- list()
+  assessment <- resolved_validation$assessment %||% list()
+  qualification_state <- assessment$qualificationState %||%
+    derive_qualification_state(record$profile, record$capabilities, assessment)
+
+  checks[[length(checks) + 1]] <- verification_check(
+    "preflight-validation",
+    "Preflight validation",
+    if (isTRUE(resolved_validation$ok)) "passed" else "failed",
+    safe_chr(
+      resolved_validation$summary,
+      if (isTRUE(resolved_validation$ok)) {
+        "Request is within the declared profile and runtime guardrails"
+      } else {
+        "Request is outside the declared profile or runtime guardrails"
+      }
+    ),
+    decision = safe_chr(assessment$decision),
+    oecdReadiness = safe_chr(assessment$oecdReadiness),
+    errorCount = as.integer(length(resolved_validation$errors %||% list())),
+    warningCount = as.integer(length(resolved_validation$warnings %||% list()))
+  )
+
+  parameter_count <- record_parameter_count(record)
+  checks[[length(checks) + 1]] <- verification_check(
+    "parameter-catalog",
+    "Parameter catalog coverage",
+    if (parameter_count > 0) "passed" else "failed",
+    if (parameter_count > 0) {
+      sprintf("Detected %d exposed parameter paths", parameter_count)
+    } else {
+      "No exposed parameter paths were detected"
+    },
+    parameterCount = parameter_count,
+    source = if (identical(record$backend, "ospsuite")) {
+      "runtime-parameter-introspection"
+    } else if (length(record$parameter_catalog %||% list()) > 0) {
+      "parameter_catalog"
+    } else {
+      "default_parameters"
+    }
+  )
+
+  verification_evidence <- record_verification_evidence(record, limit = 50L)
+  evidence_rows <- as.integer(safe_num(verification_evidence$returnedRows, 0))
+  checks[[length(checks) + 1]] <- verification_check(
+    "verification-evidence",
+    "Implementation verification evidence",
+    if (evidence_rows > 0) "passed" else "warning",
+    if (evidence_rows > 0) {
+      sprintf("Returned %d structured implementation-verification evidence rows", evidence_rows)
+    } else {
+      "No structured implementation-verification evidence rows were returned"
+    },
+    returnedRows = evidence_rows,
+    totalRows = as.integer(safe_num(verification_evidence$totalRows, evidence_rows)),
+    source = safe_chr(verification_evidence$source),
+    truncated = isTRUE(verification_evidence$truncated)
+  )
+
+  if (identical(record$backend, "ospsuite")) {
+    output_selection <- ensure_ospsuite_output_selections(record$simulation)
+    record$capabilities$outputSelectionMode <- output_selection$mode
+    record$capabilities$outputSelectionCount <- output_selection$selectedCount
+    if (length(output_selection$selectedPaths) > 0) {
+      record$capabilities$runtimeOutputPreview <- utils::head(unlist(output_selection$selectedPaths), 5)
+    }
+    record$metadata$capabilities <- record$capabilities
+    assign(record$simulation_id, record, envir = simulations)
+
+    output_status <- if (safe_num(output_selection$selectedCount, 0) <= 0) {
+      "failed"
+    } else if (identical(output_selection$mode, "observer-fallback")) {
+      "warning"
+    } else {
+      "passed"
+    }
+    output_summary <- if (safe_num(output_selection$selectedCount, 0) <= 0) {
+      "No output selections are available for deterministic execution"
+    } else if (identical(output_selection$mode, "observer-fallback")) {
+      sprintf(
+        "Auto-selected %d observer-backed outputs because the transfer file declared no OutputSelections",
+        as.integer(safe_num(output_selection$selectedCount, 0))
+      )
+    } else {
+      sprintf(
+        "Detected %d declared output selections for runtime execution",
+        as.integer(safe_num(output_selection$selectedCount, 0))
+      )
+    }
+    checks[[length(checks) + 1]] <- verification_check(
+      "output-selection",
+      "OSPSuite output selection",
+      output_status,
+      output_summary,
+      outputSelectionMode = safe_chr(output_selection$mode),
+      outputSelectionCount = as.integer(safe_num(output_selection$selectedCount, 0))
+    )
+  }
+
+  artifacts <- list()
+  if (isTRUE(resolved_validation$ok)) {
+    deterministic_payload <- modifyList(
+      request_payload,
+      list(
+        simulationId = record$simulation_id,
+        runId = verification_artifact_id(record$simulation_id, "verify"),
+        verification = TRUE
+      )
+    )
+    deterministic_check <- tryCatch(
+      {
+        run_payload <- handle_run_simulation_sync(deterministic_payload)
+        result <- run_payload$result
+        series_count <- as.integer(length(result$series %||% list()))
+        first_series <- if (series_count > 0) result$series[[1]] else list()
+        point_count <- as.integer(length(first_series$values %||% list()))
+        artifacts$deterministicResultsId <- result$results_id
+        verification_check(
+          "deterministic-smoke",
+          "Deterministic smoke run",
+          if (series_count > 0) "passed" else "warning",
+          if (series_count > 0) {
+            sprintf("Deterministic smoke run returned %d result series", series_count)
+          } else {
+            "Deterministic smoke run completed but returned no result series"
+          },
+          resultsId = safe_chr(result$results_id),
+          seriesCount = series_count,
+          firstSeriesPointCount = point_count,
+          firstParameter = safe_chr(first_series$parameter)
+        )
+      },
+      error = function(exc) {
+        verification_check(
+          "deterministic-smoke",
+          "Deterministic smoke run",
+          "failed",
+          conditionMessage(exc)
+        )
+      }
+    )
+    checks[[length(checks) + 1]] <- deterministic_check
+    if (identical(safe_chr(deterministic_check$status), "passed")) {
+      first_result <- result_record(safe_chr(deterministic_check$resultsId))
+      integrity_check <- result_integrity_check(first_result)
+      checks[[length(checks) + 1]] <- integrity_check
+
+      if (!identical(safe_chr(integrity_check$status), "failed")) {
+        reproducibility_payload <- modifyList(
+          request_payload,
+          list(
+            simulationId = record$simulation_id,
+            runId = verification_artifact_id(record$simulation_id, "verify-repeat"),
+            verification = TRUE
+          )
+        )
+        reproducibility_check <- tryCatch(
+          {
+            rerun_payload <- handle_run_simulation_sync(reproducibility_payload)
+            rerun_result <- rerun_payload$result
+            artifacts$deterministicRepeatResultsId <- rerun_result$results_id
+            compare_result_series(first_result, rerun_result)
+          },
+          error = function(exc) {
+            verification_check(
+              "deterministic-reproducibility",
+              "Deterministic reproducibility",
+              "failed",
+              conditionMessage(exc)
+            )
+          }
+        )
+        checks[[length(checks) + 1]] <- reproducibility_check
+      } else {
+        checks[[length(checks) + 1]] <- verification_check(
+          "deterministic-reproducibility",
+          "Deterministic reproducibility",
+          "skipped",
+          "Repeated deterministic run was skipped because result-integrity checks failed"
+        )
+      }
+    } else {
+      checks[[length(checks) + 1]] <- verification_check(
+        "deterministic-integrity",
+        "Deterministic result integrity",
+        "skipped",
+        "Result-integrity checks were skipped because deterministic smoke did not pass"
+      )
+      checks[[length(checks) + 1]] <- verification_check(
+        "deterministic-reproducibility",
+        "Deterministic reproducibility",
+        "skipped",
+        "Repeated deterministic run was skipped because deterministic smoke did not pass"
+      )
+    }
+  } else {
+    checks[[length(checks) + 1]] <- verification_check(
+      "deterministic-smoke",
+      "Deterministic smoke run",
+      "skipped",
+      "Deterministic smoke run was skipped because preflight validation failed"
+    )
+    checks[[length(checks) + 1]] <- verification_check(
+      "deterministic-integrity",
+      "Deterministic result integrity",
+      "skipped",
+      "Result-integrity checks were skipped because preflight validation failed"
+    )
+    checks[[length(checks) + 1]] <- verification_check(
+      "deterministic-reproducibility",
+      "Deterministic reproducibility",
+      "skipped",
+      "Repeated deterministic run was skipped because preflight validation failed"
+    )
+  }
+
+  if (isTRUE(include_population_smoke)) {
+    if (!identical(record$backend, "rxode2") || !isTRUE(record$capabilities$populationSimulation)) {
+      checks[[length(checks) + 1]] <- verification_check(
+        "population-smoke",
+        "Population smoke run",
+        "skipped",
+        "Population smoke is only available for rxode2 models that declare population simulation support"
+      )
+    } else if (!isTRUE(resolved_validation$ok)) {
+      checks[[length(checks) + 1]] <- verification_check(
+        "population-smoke",
+        "Population smoke run",
+        "skipped",
+        "Population smoke run was skipped because preflight validation failed"
+      )
+    } else {
+      cohort <- population_cohort %||% list()
+      if (is.null(cohort$size)) {
+        cohort$size <- 10L
+      }
+      if (is.null(cohort$seed)) {
+        cohort$seed <- 42L
+      }
+      outputs <- population_outputs %||% list()
+      if (length(outputs) == 0) {
+        outputs <- list(aggregates = list("meanCmax", "sdCmax", "meanAUC"))
+      }
+      population_payload <- modifyList(
+        request_payload,
+        list(
+          simulationId = record$simulation_id,
+          resultsId = verification_artifact_id(record$simulation_id, "verify-pop"),
+          cohort = cohort,
+          outputs = outputs,
+          verification = TRUE
+        )
+      )
+      population_check <- tryCatch(
+        {
+          run_payload <- handle_run_population_simulation_sync(population_payload)
+          result <- run_payload$result
+          aggregate_count <- as.integer(length(result$aggregates %||% list()))
+          chunk_count <- as.integer(length(result$chunk_handles %||% list()))
+          artifacts$populationResultsId <- result$results_id
+          verification_check(
+            "population-smoke",
+            "Population smoke run",
+            if (aggregate_count > 0 || chunk_count > 0) "passed" else "warning",
+            if (aggregate_count > 0 || chunk_count > 0) {
+              sprintf(
+                "Population smoke run completed with %d aggregate metrics and %d chunk handles",
+                aggregate_count,
+                chunk_count
+              )
+            } else {
+              "Population smoke run completed without aggregates or chunk handles"
+            },
+            resultsId = safe_chr(result$results_id),
+            aggregateCount = aggregate_count,
+            chunkCount = chunk_count,
+            cohortSize = as.integer(safe_num(result$cohort$size, cohort$size %||% 0))
+          )
+        },
+        error = function(exc) {
+          verification_check(
+            "population-smoke",
+            "Population smoke run",
+            "failed",
+            conditionMessage(exc)
+          )
+        }
+      )
+      checks[[length(checks) + 1]] <- population_check
+    }
+  }
+
+  runtime_verification <- if (isTRUE(resolved_validation$ok)) {
+    tryCatch(
+      record_runtime_verification_checks(
+        record,
+        request = request_payload,
+        include_population_smoke = include_population_smoke,
+        population_cohort = population_cohort,
+        population_outputs = population_outputs
+      ),
+      error = function(exc) {
+        list(
+          checks = list(
+            verification_check(
+              "model-runtime-verification",
+              "Model-specific runtime verification",
+              "failed",
+              conditionMessage(exc),
+              source = "pbpk_run_verification_checks"
+            )
+          ),
+          artifacts = list(),
+          source = "pbpk_run_verification_checks"
+        )
+      }
+    )
+  } else {
+    list(checks = list(), artifacts = list(), source = NULL)
+  }
+
+  if (length(runtime_verification$checks %||% list()) > 0) {
+    for (entry in runtime_verification$checks) {
+      checks[[length(checks) + 1]] <- entry
+    }
+  }
+  if (length(runtime_verification$artifacts %||% list()) > 0) {
+    artifacts <- utils::modifyList(artifacts, runtime_verification$artifacts)
+  }
+
+  counts <- verification_counts(checks)
+  status <- verification_status(counts)
+  list(
+    generatedAt = now_utc(),
+    status = status,
+    summary = verification_summary_text(status, counts),
+    requestedPopulationSmoke = isTRUE(include_population_smoke),
+    oecdChecklistScore = safe_num(assessment$oecdChecklistScore),
+    qualificationState = qualification_state,
+    checkCount = counts$checkCount,
+    passedCount = counts$passedCount,
+    failedCount = counts$failedCount,
+    warningCount = counts$warningCount,
+    skippedCount = counts$skippedCount,
+    checks = checks,
+    artifacts = artifacts,
+    verificationEvidence = verification_evidence
   )
 }
 
@@ -2425,6 +4148,8 @@ build_oecd_report <- function(
   performance_evidence <- record_performance_evidence(record, limit = 200L)
   uncertainty_evidence <- record_uncertainty_evidence(record, limit = 200L)
   verification_evidence <- record_verification_evidence(record, limit = 200L)
+  platform_qualification_evidence <- record_platform_qualification_evidence(record, limit = 200L)
+  executable_verification <- record_executable_verification_snapshot(record)
 
   parameter_table <- if (isTRUE(include_parameter_table)) {
     record_parameter_table(
@@ -2469,6 +4194,8 @@ build_oecd_report <- function(
     performanceEvidence = performance_evidence,
     uncertaintyEvidence = uncertainty_evidence,
     verificationEvidence = verification_evidence,
+    executableVerification = executable_verification,
+    platformQualificationEvidence = platform_qualification_evidence,
     parameterTable = parameter_table
   )
 }
@@ -2827,6 +4554,42 @@ handle_validate_simulation_request <- function(payload) {
   )
 }
 
+handle_run_verification_checks <- function(payload) {
+  record <- simulation_record(safe_chr(payload$simulationId))
+  request <- payload$request %||% list()
+  validation <- if (identical(record$backend, "ospsuite")) {
+    ospsuite_validate_record(record, request = request, stage = "run_verification_checks")
+  } else {
+    rxode_validate_record(record, request = request, stage = "run_verification_checks")
+  }
+
+  record$metadata$validation <- validation
+  assign(record$simulation_id, record, envir = simulations)
+
+  verification <- build_verification_summary(
+    simulation_record(record$simulation_id),
+    request = request,
+    validation = validation,
+    include_population_smoke = safe_lgl(payload$includePopulationSmoke, FALSE),
+    population_cohort = payload$populationCohort %||% list(),
+    population_outputs = payload$populationOutputs %||% list()
+  )
+
+  updated_record <- simulation_record(record$simulation_id)
+  updated_record$metadata$verification <- verification
+  assign(updated_record$simulation_id, updated_record, envir = simulations)
+
+  list(
+    simulationId = updated_record$simulation_id,
+    backend = updated_record$backend,
+    generatedAt = verification$generatedAt,
+    validation = validation,
+    profile = updated_record$profile,
+    capabilities = updated_record$capabilities,
+    verification = verification
+  )
+}
+
 handle_export_oecd_report <- function(payload) {
   record <- simulation_record(safe_chr(payload$simulationId))
   request <- payload$request %||% list()
@@ -2840,7 +4603,7 @@ handle_export_oecd_report <- function(payload) {
   assign(record$simulation_id, record, envir = simulations)
 
   report <- build_oecd_report(
-    record,
+    simulation_record(record$simulation_id),
     request = request,
     validation = validation,
     include_parameter_table = safe_lgl(payload$includeParameterTable, TRUE),
@@ -2929,6 +4692,7 @@ dispatch <- function(action, payload) {
     run_simulation_sync = handle_run_simulation_sync(payload),
     get_results = handle_get_results(payload),
     validate_simulation_request = handle_validate_simulation_request(payload),
+    run_verification_checks = handle_run_verification_checks(payload),
     export_oecd_report = handle_export_oecd_report(payload),
     run_population_simulation_sync = handle_run_population_simulation_sync(payload),
     get_population_results = handle_get_population_results(payload),

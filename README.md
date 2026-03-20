@@ -32,6 +32,7 @@ flowchart LR
         Catalog["Filesystem model catalog\nMCP_MODEL_SEARCH_PATHS"]
         Manifest["Static manifest validation\nvalidate_model_manifest"]
         Qualification["Qualification metadata\ncapabilities, profile,\nvalidation, qualificationState"]
+        Verification["Executable verification\nrun_verification_checks"]
         Reports["OECD dossier export\nexport_oecd_report"]
     end
 
@@ -53,6 +54,7 @@ flowchart LR
     Tools --> Catalog
     Tools --> Manifest
     Tools --> Qualification
+    Qualification --> Verification
     Qualification --> Reports
     Tools --> OSPSuite
     Tools --> Rxode2
@@ -71,6 +73,7 @@ The current implementation follows a layered model:
 - `Discovery and manifest validation` make model files visible before load, and keep curation checks separate from runtime execution.
 - `Execution backends` route `.pkml` files to `ospsuite` and MCP-ready `.R` modules to `rxode2`, while treating `.pksim5` and `.mmd` as conversion-only inputs.
 - `Qualification metadata` keeps `capabilities`, `profile`, `validation`, and `qualificationState` separate so runnable does not get conflated with scientifically qualified.
+- `Executable verification` adds lightweight but structured runtime checks on top of qualification metadata, including parameter-unit consistency, structural flow/volume consistency, deterministic smoke, result-integrity, and repeat-run reproducibility checks without conflating them with formal qualification evidence.
 - `Patch-first runtime + smoke tests` keep the documented tool surface synchronized with the live API during the current `v0.3.0` convergence stage.
 
 See `docs/architecture/dual_backend_pbpk_mcp.md` for the fuller architecture narrative, `docs/architecture/mcp_payload_conventions.md` for the response contract, and `docs/deployment/runtime_patch_flow.md` for the operator path behind the current local deployment model.
@@ -82,7 +85,7 @@ See `docs/architecture/dual_backend_pbpk_mcp.md` for the fuller architecture nar
 - Tightened direct `.pksim5` and `.mmd` rejection with explicit conversion guidance instead of ambiguous runtime errors.
 - Added live acceptance checks for `/mcp/list_tools`, `/mcp/resources/models`, and discovery/resource parity.
 - Kept dual-backend execution explicit: `.pkml` loads on `ospsuite`; MCP-ready `.R` loads on `rxode2`.
-- Preserved OECD-oriented reporting features such as `qualificationState`, `modelPerformance`, `parameterProvenance`, and `export_oecd_report`.
+- Preserved OECD-oriented reporting features such as `qualificationState`, `modelPerformance`, `parameterProvenance`, `platformQualification`, and `export_oecd_report`.
 
 ## Why this project exists
 
@@ -95,6 +98,7 @@ The PBPK MCP server wraps those workflows in a **single, programmable interface*
 - **Qualification-aware workflows** – runtime capability, scientific profile, preflight validation, and derived `qualificationState` stay separate.
 - **Discovery before execution** – models are discoverable from disk before they are loaded into a live session.
 - **Release-tested local deployment** – the patch-first runtime is continuously exercised with unit tests, live-stack tests, and a readiness check.
+- **Model-specific executable qualification checks** – MCP-ready models can add runtime verification hooks for checks such as flow/volume consistency, mass balance, or numerical stability without overstating regulatory qualification.
 
 > `rxode2` is a native PBPK execution engine in this project. It is not limited to Berkeley Madonna conversion workflows.
 
@@ -106,9 +110,10 @@ The PBPK MCP server wraps those workflows in a **single, programmable interface*
 | --- | --- |
 | 🧬 **Dual-backend PBPK execution** | Route `.pkml` models to `ospsuite` and MCP-ready `.R` models to `rxode2` through one MCP surface. |
 | 🗂️ **Model discovery and curation** | Discover supported model files from `MCP_MODEL_SEARCH_PATHS`, inspect unloaded models, and run static manifest checks before load. |
-| 🛡️ **OECD-oriented qualification** | Keep `capabilities`, `profile`, `validation`, and `qualificationState` explicit; expose applicability, provenance, uncertainty, and qualification gaps. |
+| 🛡️ **OECD-oriented qualification** | Keep `capabilities`, `profile`, `validation`, and `qualificationState` explicit; expose applicability, provenance, uncertainty, implementation verification, software-platform qualification, and qualification gaps. |
+| ✅ **Executable verification** | Run `run_verification_checks` to capture preflight validation, parameter coverage, parameter-unit consistency, structural flow/volume consistency, deterministic smoke, deterministic result integrity, repeat-run reproducibility, optional population smoke, and verification-evidence summaries in one payload. |
 | 📈 **Deterministic and population jobs** | Submit asynchronous deterministic and population simulations, then retrieve result handles, stored results, and PK summaries. |
-| 🧾 **Dossier export** | Export a structured OECD-style report with model metadata, validation context, checklist state, parameter provenance, performance evidence, uncertainty evidence, and verification evidence when declared. |
+| 🧾 **Dossier export** | Export a structured OECD-style report with model metadata, validation context, checklist state, parameter provenance, performance evidence, uncertainty evidence, verification evidence, and software-platform qualification evidence when declared. |
 | ⚙️ **Patch-first deployment hygiene** | Recreate the local stack and reapply the exact documented runtime patch set through shared patch-install tooling. |
 | 🤖 **Agent friendly** | Verified through MCP HTTP surfaces such as `/mcp/list_tools`, `/mcp/call_tool`, and `/mcp/resources/models`, with live-stack regression checks. |
 
@@ -241,7 +246,7 @@ See `docker-compose.celery.yml`, `docs/deployment/runtime_patch_flow.md`, and `d
 | Category | Highlight tools | Notes |
 | --- | --- | --- |
 | Discovery and curation | `discover_models`, `validate_model_manifest`, `load_simulation` | Discover models before load, inspect static manifest state, and load supported `.pkml` or MCP-ready `.R` files into the live session registry. |
-| Qualification and reporting | `validate_simulation_request`, `export_oecd_report` | Run OECD-oriented preflight checks and export structured dossiers with `profile`, `validation`, `qualificationState`, and evidence sections. |
+| Qualification and reporting | `validate_simulation_request`, `run_verification_checks`, `export_oecd_report` | Run OECD-oriented preflight checks, executable verification with unit/integrity/reproducibility checks, and structured dossier export with `profile`, `validation`, `qualificationState`, and evidence sections. |
 | Simulation control | `list_parameters`, `get_parameter_value`, `set_parameter_value`, `run_simulation` | Inspect and modify simulation parameters, then submit deterministic runs asynchronously. |
 | Async status and results | `get_job_status`, `get_results`, `calculate_pk_parameters`, `cancel_job` | Track async jobs, retrieve stored deterministic results, compute PK summaries, and cancel queued/running jobs. |
 | Population and exploration | `run_population_simulation`, `get_population_results`, `run_sensitivity_analysis` | Run population workflows and sensitivity analyses on the backends that declare those capabilities. |
@@ -251,6 +256,7 @@ The normalized `pbpk-mcp.v1` contract currently applies to:
 - `load_simulation`
 - `validate_model_manifest`
 - `validate_simulation_request`
+- `run_verification_checks`
 - `export_oecd_report`
 - `get_job_status`
 - `get_results`
@@ -263,9 +269,10 @@ For the current public workflow:
 2. Call `validate_model_manifest` before loading a new model.
 3. Call `load_simulation`.
 4. Call `validate_simulation_request` for the intended context of use.
-5. Submit `run_simulation` or `run_population_simulation`.
-6. Poll `get_job_status`, then fetch `get_results` or `get_population_results`.
-7. Call `export_oecd_report` when you need a dossier/report package.
+5. Call `run_verification_checks` when you want a lightweight executable verification summary before broader use or release.
+6. Submit `run_simulation` or `run_population_simulation`.
+7. Poll `get_job_status`, then fetch `get_results` or `get_population_results`.
+8. Call `export_oecd_report` when you need a dossier/report package.
 
 ### Supported model policy
 
@@ -309,6 +316,16 @@ For `.R` models, richer OECD-oriented reporting is enabled by hooks such as:
 - `pbpk_validate_request(...)`
 - `pbpk_parameter_table(...)`
 - `pbpk_performance_evidence(...)`
+- `pbpk_uncertainty_evidence(...)`
+- `pbpk_verification_evidence(...)`
+- `pbpk_run_verification_checks(...)`
+- `pbpk_platform_qualification_evidence(...)`
+
+For example, the cisplatin `rxode2` model now exports bounded local sensitivity evidence and a compact variability-propagation summary through `uncertaintyEvidence`, using the currently loaded parameter state rather than a hard-coded placeholder row. Its `performanceEvidence` is also explicitly classified as runtime-only/internal evidence so executable smoke checks cannot be mistaken for predictive validation.
+
+Researchers can also attach generic companion performance bundles next to either `.pkml` or `.R` models without modifying the bridge code. See [performance_evidence_bundles.md](/Volumes/Storage/topotox_offload/20260220_space_relief/manual_offload/PBPK_MCP/docs/integration_guides/performance_evidence_bundles.md) and the starter template at [performance_evidence_bundle.template.json](/Volumes/Storage/topotox_offload/20260220_space_relief/manual_offload/PBPK_MCP/examples/performance_evidence_bundle.template.json). The MCP validates those rows conservatively and surfaces warnings when required observed/predicted, dataset, qualification, or acceptance-criterion fields are missing.
+
+The same pattern now exists for uncertainty evidence. See [uncertainty_evidence_bundles.md](/Volumes/Storage/topotox_offload/20260220_space_relief/manual_offload/PBPK_MCP/docs/integration_guides/uncertainty_evidence_bundles.md) and [uncertainty_evidence_bundle.template.json](/Volumes/Storage/topotox_offload/20260220_space_relief/manual_offload/PBPK_MCP/examples/uncertainty_evidence_bundle.template.json). The MCP surfaces warnings when uncertainty rows are missing method/summary or scope information.
 
 For `.pkml` models, richer qualification metadata can be supplied with sidecars such as:
 
@@ -357,10 +374,11 @@ The server currently produces and exposes:
 - discovered model inventories with loaded/unloaded state
 - static manifest validation reports
 - load-time model metadata with `backend`, `capabilities`, `profile`, `validation`, and `qualificationState`
+- executable verification summaries with structured check results, smoke-run artifact handles, parameter-unit consistency, result-integrity/reproducibility checks, and verification-evidence snapshots
 - deterministic result handles and stored deterministic result payloads
 - population summary payloads and chunk handles
 - PK metric outputs from `calculate_pk_parameters`
-- OECD-style dossier/report exports with checklist state, missing-evidence hints, performance evidence, uncertainty evidence, verification evidence, and parameter provenance when declared
+- OECD-style dossier/report exports with checklist state, missing-evidence hints, performance evidence, uncertainty evidence, verification evidence, software-platform qualification evidence, and parameter provenance when declared
 
 ---
 
@@ -389,9 +407,13 @@ The server currently produces and exposes:
 
 - `validate_model_manifest` is a static pre-load check; it does not by itself prove executable correctness or scientific validity.
 - Runtime guardrails are not the same as external scientific validation.
+- `run_verification_checks` is intentionally lightweight implementation verification; it now includes parameter-unit consistency, structural flow/volume consistency, deterministic integrity, and reproducibility checks, but it still does not replace formal dimensional analysis, full unit-consistency proof across equations, solver qualification, software-platform qualification, or external qualification evidence.
+- `export_oecd_report` now carries the latest stored `run_verification_checks` snapshot as `executableVerification` when one has been run for that loaded simulation. The report does not silently rerun verification during export.
+- Model-specific hooks can add executable qualification checks such as flow/volume consistency, mass balance, or solver-stability comparisons, but those checks should still be interpreted as implementation evidence within the declared context, not as blanket regulatory qualification.
+- Bundled `uncertaintyEvidence` can now include bounded local sensitivity screens and compact variability-propagation summaries for specific models, but those rows are still internal quantitative evidence. They are not the same thing as variance-based global sensitivity analysis, posterior uncertainty propagation, or externally reviewed qualification studies.
 - `research-use` or `illustrative-example` models should not be represented as regulatory-ready.
 - OECD-style metadata completeness can be high while scientific evidence remains incomplete.
-- Exported `performanceEvidence` may still reflect runtime or smoke-test evidence rather than observed-versus-predicted qualification datasets.
+- Exported `performanceEvidence` is now explicitly classified and bounded, but many models will still only carry runtime/internal evidence rather than observed-versus-predicted datasets, predictive evaluation sets, or external qualification studies.
 - Parameter provenance may be structured and exportable while still lacking full per-parameter citations, study conditions, or identifiability evidence.
 
 ### Operational limitations

@@ -12,6 +12,7 @@ Applied tools:
 - `validate_model_manifest`
 - `load_simulation`
 - `validate_simulation_request`
+- `run_verification_checks`
 - `export_oecd_report`
 - `get_job_status`
 - `get_results`
@@ -41,9 +42,16 @@ Model-bound enhanced responses also flatten backend information when available:
   - `manifest` includes `manifestStatus`, `qualificationState`, section coverage, and static issues
 - `validate_simulation_request`
   - returns `simulationId`, `backend`, `validation`, `profile`, `capabilities`, `qualificationState`, and `warnings`
+- `run_verification_checks`
+  - returns `simulationId`, `backend`, `generatedAt`, `validation`, `profile`, `capabilities`, `qualificationState`, `verification`, and `warnings`
+  - `verification` includes `status`, structured `checks`, smoke-run artifact handles, parameter-unit consistency, structural flow/volume consistency, deterministic integrity/reproducibility results, and a compact `verificationEvidence` snapshot
 - `export_oecd_report`
   - returns `simulationId`, `backend`, `generatedAt`, `qualificationState`, and `report`
-  - `report` includes `qualificationState`, `profile`, `validation`, `oecdChecklist`, `oecdChecklistScore`, `missingEvidence`, `performanceEvidence`, `uncertaintyEvidence`, `verificationEvidence`, and an optional `parameterTable`
+- `report` includes `qualificationState`, `profile`, `validation`, `oecdChecklist`, `oecdChecklistScore`, `missingEvidence`, `performanceEvidence`, `uncertaintyEvidence`, `verificationEvidence`, `executableVerification`, `platformQualificationEvidence`, and an optional `parameterTable`
+  - `performanceEvidence` includes row-level classification plus summary fields such as `strongestEvidenceClass`, `qualificationBoundary`, and flags indicating whether observed-versus-predicted, predictive-dataset, or external-qualification evidence is actually bundled
+  - `performanceEvidence` may be merged from a model hook, `profile.modelPerformance.evidence`, and an optional companion bundle such as `model.performance.json`; exported metadata includes `source`, `sources`, and `sidecarPath` when relevant
+  - `uncertaintyEvidence` may be merged from a model hook, `profile.uncertainty.evidence`, and an optional companion bundle such as `model.uncertainty.json`; exported metadata includes `source`, `sources`, and `sidecarPath` when relevant
+  - `executableVerification` is a stored snapshot from the latest `run_verification_checks` call for that loaded simulation; report export does not implicitly rerun verification
 - `get_job_status`
   - returns top-level `jobId`, `status`, `resultId`, and `resultHandle.resultsId`
   - still includes nested `job` for backward compatibility

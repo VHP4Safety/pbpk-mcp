@@ -62,6 +62,11 @@ from mcp.tools.run_population_simulation import (
     RunPopulationSimulationResponse,
     run_population_simulation,
 )
+from mcp.tools.run_verification_checks import (
+    RunVerificationChecksRequest,
+    RunVerificationChecksResponse,
+    run_verification_checks,
+)
 from mcp.tools.run_simulation import (
     RunSimulationRequest,
     RunSimulationResponse,
@@ -149,6 +154,15 @@ def get_tool_registry() -> Dict[str, ToolDescriptor]:
             request_model=ValidateSimulationRequestRequest,
             response_model=ValidateSimulationRequestResponse,
             handler=validate_simulation_request,
+            dependencies=("adapter",),
+            roles=_standard_roles("viewer", "operator", "admin"),
+        ),
+        "run_verification_checks": ToolDescriptor(
+            name="run_verification_checks",
+            description="Run executable verification checks for a loaded model, including deterministic smoke tests and optional population smoke where supported.",
+            request_model=RunVerificationChecksRequest,
+            response_model=RunVerificationChecksResponse,
+            handler=run_verification_checks,
             dependencies=("adapter",),
             roles=_standard_roles("viewer", "operator", "admin"),
         ),

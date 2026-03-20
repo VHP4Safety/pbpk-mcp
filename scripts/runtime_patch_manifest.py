@@ -14,8 +14,16 @@ class RuntimePatch:
 PATCHES: tuple[RuntimePatch, ...] = (
     RuntimePatch("patches/mcp/__init__.py", "/usr/local/lib/python3.11/site-packages/mcp/__init__.py"),
     RuntimePatch(
+        "patches/mcp_bridge/adapter/interface.py",
+        "/usr/local/lib/python3.11/site-packages/mcp_bridge/adapter/interface.py",
+    ),
+    RuntimePatch(
         "patches/mcp_bridge/adapter/ospsuite.py",
         "/usr/local/lib/python3.11/site-packages/mcp_bridge/adapter/ospsuite.py",
+    ),
+    RuntimePatch(
+        "patches/mcp/tools/run_verification_checks.py",
+        "/usr/local/lib/python3.11/site-packages/mcp/tools/run_verification_checks.py",
     ),
     RuntimePatch(
         "patches/mcp_bridge/model_catalog.py",

@@ -32,6 +32,11 @@ from .tools.run_population_simulation import (
     RunPopulationSimulationResponse,
     run_population_simulation,
 )
+from .tools.run_verification_checks import (
+    RunVerificationChecksRequest,
+    RunVerificationChecksResponse,
+    run_verification_checks,
+)
 from .tools.get_population_results import (
     GetPopulationResultsRequest,
     GetPopulationResultsResponse,
@@ -89,6 +94,9 @@ __all__ = [
     "RunPopulationSimulationRequest",
     "RunPopulationSimulationResponse",
     "run_population_simulation",
+    "RunVerificationChecksRequest",
+    "RunVerificationChecksResponse",
+    "run_verification_checks",
     "GetPopulationResultsRequest",
     "GetPopulationResultsResponse",
     "get_population_results",

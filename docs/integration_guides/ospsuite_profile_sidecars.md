@@ -48,6 +48,20 @@ For richer performance reporting, `modelPerformance` may also include structured
 - `predictiveChecks.datasets`
 - `evidence`
 
+If you prefer to keep quantitative evidence separate from the scientific profile, PBPK MCP also supports dedicated companion bundles such as:
+
+- `model.performance.json`
+- `model.performance-evidence.json`
+
+Those bundles work for both `.pkml` and MCP-ready `.R` models and are documented in [performance_evidence_bundles.md](/Volumes/Storage/topotox_offload/20260220_space_relief/manual_offload/PBPK_MCP/docs/integration_guides/performance_evidence_bundles.md).
+
+The same companion-bundle pattern is also available for uncertainty/sensitivity content via files such as:
+
+- `model.uncertainty.json`
+- `model.uncertainty-evidence.json`
+
+Those bundles are documented in [uncertainty_evidence_bundles.md](/Volumes/Storage/topotox_offload/20260220_space_relief/manual_offload/PBPK_MCP/docs/integration_guides/uncertainty_evidence_bundles.md).
+
 For richer uncertainty and verification reporting, the sidecar may also include structured evidence rows such as:
 
 - `uncertainty.evidence`

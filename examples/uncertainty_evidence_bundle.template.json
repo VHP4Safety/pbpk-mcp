@@ -1,0 +1,66 @@
+{
+  "metadata": {
+    "bundleVersion": "pbpk-uncertainty-evidence.v1",
+    "summary": "Template uncertainty evidence bundle for PBPK MCP.",
+    "evidenceScope": "Replace these rows with real model-specific uncertainty or sensitivity evidence. Do not publish placeholders as qualification evidence.",
+    "curator": "Replace with model author or organization",
+    "createdAt": "2026-03-20",
+    "notes": [
+      "Use bounded sensitivity or variability summaries only when they are actually supported by the model workflow.",
+      "Describe the method and scope clearly enough that a reviewer can see what was perturbed and what was measured."
+    ]
+  },
+  "rows": [
+    {
+      "id": "variability-approach-summary",
+      "kind": "variability-approach",
+      "status": "declared",
+      "method": "bounded sampling",
+      "summary": "Example bounded variability approach for a selected adult physiology parameter subset.",
+      "variedParameters": [
+        "Physiology|BodyWeight",
+        "Filtration|GFRPerKg"
+      ],
+      "notes": [
+        "Replace with real model-specific varied parameters.",
+        "This row should explain the variability methodology only."
+      ]
+    },
+    {
+      "id": "variability-propagation-plasma-cmax",
+      "kind": "variability-propagation",
+      "status": "declared",
+      "method": "bounded sampling",
+      "targetOutput": "Plasma|Compound|Concentration",
+      "metric": "Cmax",
+      "summary": "Example bounded variability-propagation summary for plasma Cmax.",
+      "lowerBound": 4.8,
+      "value": 5.6,
+      "upperBound": 6.7,
+      "notes": [
+        "Replace with real propagated summary values and interpretation."
+      ]
+    },
+    {
+      "id": "local-sensitivity-plasma-cmax",
+      "kind": "sensitivity-analysis",
+      "status": "declared",
+      "method": "one-at-a-time",
+      "targetOutput": "Plasma|Compound|Concentration",
+      "metric": "Cmax",
+      "summary": "Example local sensitivity row for plasma Cmax.",
+      "variedParameters": [
+        "Physiology|BodyWeight"
+      ],
+      "notes": [
+        "Replace with real sensitivity interpretation and method details."
+      ]
+    },
+    {
+      "id": "residual-uncertainty-transport",
+      "kind": "residual-uncertainty",
+      "status": "declared",
+      "summary": "Residual uncertainty remains in transport and partition parameters for the example model."
+    }
+  ]
+}

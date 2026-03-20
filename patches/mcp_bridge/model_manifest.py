@@ -22,6 +22,8 @@ _R_HOOK_PATTERNS = {
     "performanceEvidence": re.compile(r"\bpbpk_performance_evidence\s*<-"),
     "uncertaintyEvidence": re.compile(r"\bpbpk_uncertainty_evidence\s*<-"),
     "verificationEvidence": re.compile(r"\bpbpk_verification_evidence\s*<-"),
+    "platformQualificationEvidence": re.compile(r"\bpbpk_platform_qualification_evidence\s*<-"),
+    "runtimeVerificationHook": re.compile(r"\bpbpk_run_verification_checks\s*<-"),
 }
 _R_SECTION_PATTERNS = {
     "contextOfUse": re.compile(r"\bcontextOfUse\s*="),
@@ -30,6 +32,7 @@ _R_SECTION_PATTERNS = {
     "parameterProvenance": re.compile(r"\bparameterProvenance\s*="),
     "uncertainty": re.compile(r"\buncertainty\s*="),
     "implementationVerification": re.compile(r"\bimplementationVerification\s*="),
+    "platformQualification": re.compile(r"\bplatformQualification\s*="),
     "peerReview": re.compile(r"\bpeerReview\s*="),
 }
 _REQUIRED_SECTION_FIELDS = {
@@ -39,6 +42,7 @@ _REQUIRED_SECTION_FIELDS = {
     "parameterProvenance": ("status",),
     "uncertainty": ("status",),
     "implementationVerification": ("status",),
+    "platformQualification": ("status",),
     "peerReview": ("status",),
 }
 _EXAMPLE_QUALIFICATIONS = {"demo-only", "illustrative-example", "integration-example"}
@@ -63,6 +67,26 @@ def ospsuite_profile_sidecar_candidates(file_path: Path) -> tuple[Path, ...]:
         Path(f"{stem}.profile.json"),
         Path(f"{stem}.pbpk.json"),
         Path(f"{file_path}.profile.json"),
+    )
+
+
+def performance_evidence_sidecar_candidates(file_path: Path) -> tuple[Path, ...]:
+    stem = file_path.with_suffix("")
+    return (
+        Path(f"{stem}.performance.json"),
+        Path(f"{stem}.performance-evidence.json"),
+        Path(f"{file_path}.performance.json"),
+        Path(f"{file_path}.performance-evidence.json"),
+    )
+
+
+def uncertainty_evidence_sidecar_candidates(file_path: Path) -> tuple[Path, ...]:
+    stem = file_path.with_suffix("")
+    return (
+        Path(f"{stem}.uncertainty.json"),
+        Path(f"{stem}.uncertainty-evidence.json"),
+        Path(f"{file_path}.uncertainty.json"),
+        Path(f"{file_path}.uncertainty-evidence.json"),
     )
 
 
@@ -268,6 +292,7 @@ def _validate_profile_manifest(
             "parameterProvenance",
             "uncertainty",
             "implementationVerification",
+            "platformQualification",
             "peerReview",
         )
     )
@@ -338,6 +363,339 @@ def _load_sidecar_profile(file_path: Path) -> tuple[dict[str, Any] | None, str |
     return None, None, issues
 
 
+def _extract_performance_evidence_rows(payload: Any) -> list[Any] | None:
+    if isinstance(payload, Sequence) and not isinstance(payload, (str, bytes, bytearray)):
+        if payload and not isinstance(payload, Mapping):
+            return list(payload)
+    if not isinstance(payload, Mapping):
+        return None
+
+    candidates = (
+        payload.get("rows"),
+        payload.get("performanceEvidence", {}).get("rows") if isinstance(payload.get("performanceEvidence"), Mapping) else None,
+        payload.get("performanceEvidence"),
+        payload.get("evidence"),
+    )
+    for candidate in candidates:
+        if isinstance(candidate, Sequence) and not isinstance(candidate, (str, bytes, bytearray)):
+            return list(candidate)
+    return None
+
+
+def _extract_performance_evidence_metadata(payload: Any) -> dict[str, Any] | None:
+    if not isinstance(payload, Mapping):
+        return None
+    metadata = payload.get("metadata")
+    if metadata is None and isinstance(payload.get("performanceEvidence"), Mapping):
+        metadata = payload["performanceEvidence"].get("metadata")
+    if not isinstance(metadata, Mapping):
+        return None
+    return dict(metadata)
+
+
+def _extract_uncertainty_evidence_rows(payload: Any) -> list[Any] | None:
+    if isinstance(payload, Sequence) and not isinstance(payload, (str, bytes, bytearray)):
+        if payload and not isinstance(payload, Mapping):
+            return list(payload)
+    if not isinstance(payload, Mapping):
+        return None
+
+    candidates = (
+        payload.get("rows"),
+        payload.get("uncertaintyEvidence", {}).get("rows") if isinstance(payload.get("uncertaintyEvidence"), Mapping) else None,
+        payload.get("uncertaintyEvidence"),
+        payload.get("evidence"),
+    )
+    for candidate in candidates:
+        if isinstance(candidate, Sequence) and not isinstance(candidate, (str, bytes, bytearray)):
+            return list(candidate)
+    return None
+
+
+def _extract_uncertainty_evidence_metadata(payload: Any) -> dict[str, Any] | None:
+    if not isinstance(payload, Mapping):
+        return None
+    metadata = payload.get("metadata")
+    if metadata is None and isinstance(payload.get("uncertaintyEvidence"), Mapping):
+        metadata = payload["uncertaintyEvidence"].get("metadata")
+    if not isinstance(metadata, Mapping):
+        return None
+    return dict(metadata)
+
+
+def _validate_performance_evidence_rows(rows: Sequence[Any], *, field_prefix: str) -> list[dict[str, Any]]:
+    issues: list[dict[str, Any]] = []
+    for index, entry in enumerate(rows, start=1):
+        if not isinstance(entry, Mapping):
+            continue
+        evidence_class = _safe_text(entry.get("evidenceClass") or entry.get("evidence_class")) or "other"
+        row_id = _safe_text(entry.get("id")) or f"row-{index:03d}"
+        row_field_prefix = f"{field_prefix}[{index}]"
+
+        def add_issue(code: str, message: str, field: str) -> None:
+            issues.append(
+                _issue(
+                    code,
+                    message,
+                    field=field,
+                    severity="warning",
+                )
+            )
+
+        acceptance = _safe_text(entry.get("acceptanceCriterion") or entry.get("acceptance_criterion"))
+        dataset = _safe_text(entry.get("dataset") or entry.get("datasetId") or entry.get("study"))
+        qualification_basis = _safe_text(entry.get("qualificationBasis") or entry.get("qualification_basis"))
+
+        if evidence_class == "runtime-smoke" and not acceptance:
+            add_issue(
+                "performance_row_acceptance_missing",
+                f"Runtime smoke row '{row_id}' should declare an acceptanceCriterion.",
+                f"{row_field_prefix}.acceptanceCriterion",
+            )
+        if evidence_class == "observed-vs-predicted":
+            if entry.get("observedValue") is None:
+                add_issue(
+                    "performance_row_observed_missing",
+                    f"Observed-versus-predicted row '{row_id}' should include observedValue.",
+                    f"{row_field_prefix}.observedValue",
+                )
+            if entry.get("predictedValue") is None:
+                add_issue(
+                    "performance_row_predicted_missing",
+                    f"Observed-versus-predicted row '{row_id}' should include predictedValue.",
+                    f"{row_field_prefix}.predictedValue",
+                )
+            if not dataset:
+                add_issue(
+                    "performance_row_dataset_missing",
+                    f"Observed-versus-predicted row '{row_id}' should identify the benchmark dataset or study.",
+                    f"{row_field_prefix}.dataset",
+                )
+            if not acceptance:
+                add_issue(
+                    "performance_row_acceptance_missing",
+                    f"Observed-versus-predicted row '{row_id}' should declare the comparison acceptanceCriterion.",
+                    f"{row_field_prefix}.acceptanceCriterion",
+                )
+        if evidence_class == "predictive-dataset":
+            if not dataset:
+                add_issue(
+                    "performance_row_dataset_missing",
+                    f"Predictive-dataset row '{row_id}' should identify the dataset or benchmark package.",
+                    f"{row_field_prefix}.dataset",
+                )
+            if not acceptance:
+                add_issue(
+                    "performance_row_acceptance_missing",
+                    f"Predictive-dataset row '{row_id}' should declare the dataset-level acceptanceCriterion.",
+                    f"{row_field_prefix}.acceptanceCriterion",
+                )
+        if evidence_class == "external-qualification":
+            if not dataset and not qualification_basis:
+                add_issue(
+                    "performance_row_external_basis_missing",
+                    f"External-qualification row '{row_id}' should declare a dataset or qualificationBasis.",
+                    row_field_prefix,
+                )
+            if not acceptance:
+                add_issue(
+                    "performance_row_acceptance_missing",
+                    f"External-qualification row '{row_id}' should declare the qualification acceptanceCriterion.",
+                    f"{row_field_prefix}.acceptanceCriterion",
+                )
+    return issues
+
+
+def _validate_performance_evidence_metadata(
+    metadata: Mapping[str, Any] | None,
+    *,
+    field_prefix: str,
+) -> list[dict[str, Any]]:
+    issues: list[dict[str, Any]] = []
+    metadata_dict = dict(metadata or {})
+    if not _safe_text(metadata_dict.get("bundleVersion")):
+        issues.append(
+            _issue(
+                "performance_bundle_version_missing",
+                "Performance evidence bundle metadata should declare bundleVersion.",
+                field=f"{field_prefix}.bundleVersion",
+                severity="warning",
+            )
+        )
+    if not _safe_text(metadata_dict.get("summary")):
+        issues.append(
+            _issue(
+                "performance_bundle_summary_missing",
+                "Performance evidence bundle metadata should declare summary.",
+                field=f"{field_prefix}.summary",
+                severity="warning",
+            )
+        )
+    return issues
+
+
+def _validate_uncertainty_evidence_rows(rows: Sequence[Any], *, field_prefix: str) -> list[dict[str, Any]]:
+    issues: list[dict[str, Any]] = []
+    for index, entry in enumerate(rows, start=1):
+        if not isinstance(entry, Mapping):
+            continue
+        kind = _safe_text(entry.get("kind") or entry.get("type")) or "unspecified"
+        row_id = _safe_text(entry.get("id")) or f"row-{index:03d}"
+        row_field_prefix = f"{field_prefix}[{index}]"
+
+        def add_issue(code: str, message: str, field: str) -> None:
+            issues.append(
+                _issue(
+                    code,
+                    message,
+                    field=field,
+                    severity="warning",
+                )
+            )
+
+        summary = _safe_text(entry.get("summary") or entry.get("description"))
+        method = _safe_text(entry.get("method"))
+        metric = _safe_text(entry.get("metric") or entry.get("metricName") or entry.get("metric_name"))
+        target_output = _safe_text(entry.get("targetOutput") or entry.get("target_output") or entry.get("output"))
+        varied_parameters = entry.get("variedParameters") or entry.get("parameters")
+        has_varied_parameters = isinstance(varied_parameters, Sequence) and not isinstance(varied_parameters, (str, bytes, bytearray)) and len(varied_parameters) > 0
+
+        if kind == "variability-approach":
+            if not summary and not method:
+                add_issue(
+                    "uncertainty_row_summary_missing",
+                    f"Variability-approach row '{row_id}' should declare a method or summary.",
+                    row_field_prefix,
+                )
+        elif kind in {"variability-propagation", "sensitivity-analysis"}:
+            if not summary and not method:
+                add_issue(
+                    "uncertainty_row_summary_missing",
+                    f"Uncertainty row '{row_id}' should declare a method or summary.",
+                    row_field_prefix,
+                )
+            if not metric and not target_output and not has_varied_parameters:
+                add_issue(
+                    "uncertainty_row_scope_missing",
+                    f"Uncertainty row '{row_id}' should declare a metric, targetOutput, or variedParameters.",
+                    row_field_prefix,
+                )
+        elif kind == "residual-uncertainty":
+            if not summary:
+                add_issue(
+                    "uncertainty_row_summary_missing",
+                    f"Residual-uncertainty row '{row_id}' should declare a summary.",
+                    f"{row_field_prefix}.summary",
+                )
+    return issues
+
+
+def _validate_uncertainty_evidence_metadata(
+    metadata: Mapping[str, Any] | None,
+    *,
+    field_prefix: str,
+) -> list[dict[str, Any]]:
+    issues: list[dict[str, Any]] = []
+    metadata_dict = dict(metadata or {})
+    if not _safe_text(metadata_dict.get("bundleVersion")):
+        issues.append(
+            _issue(
+                "uncertainty_bundle_version_missing",
+                "Uncertainty evidence bundle metadata should declare bundleVersion.",
+                field=f"{field_prefix}.bundleVersion",
+                severity="warning",
+            )
+        )
+    if not _safe_text(metadata_dict.get("summary")):
+        issues.append(
+            _issue(
+                "uncertainty_bundle_summary_missing",
+                "Uncertainty evidence bundle metadata should declare summary.",
+                field=f"{field_prefix}.summary",
+                severity="warning",
+            )
+        )
+    return issues
+
+
+def _load_performance_evidence_sidecar(
+    file_path: Path,
+) -> tuple[list[Any], dict[str, Any] | None, str | None, list[dict[str, Any]]]:
+    issues: list[dict[str, Any]] = []
+    for candidate in performance_evidence_sidecar_candidates(file_path):
+        if not candidate.exists():
+            continue
+        try:
+            payload = json.loads(candidate.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as exc:
+            issues.append(
+                _issue(
+                    "performance_sidecar_parse_error",
+                    f"Failed to parse performance evidence sidecar JSON: {exc}",
+                    field=str(candidate),
+                    severity="warning",
+                )
+            )
+            return [], None, str(candidate), issues
+
+        rows = _extract_performance_evidence_rows(payload)
+        metadata = _extract_performance_evidence_metadata(payload)
+        if rows is None:
+            issues.append(
+                _issue(
+                    "performance_sidecar_rows_missing",
+                    "Performance evidence sidecar must provide 'rows', 'performanceEvidence.rows', or a top-level row array.",
+                    field=str(candidate),
+                    severity="warning",
+                )
+            )
+            return [], metadata, str(candidate), issues
+        issues.extend(_validate_performance_evidence_metadata(metadata, field_prefix=f"{candidate}:metadata"))
+        issues.extend(_validate_performance_evidence_rows(rows, field_prefix=f"{candidate}:rows"))
+        return rows, metadata, str(candidate), issues
+
+    return [], None, None, issues
+
+
+def _load_uncertainty_evidence_sidecar(
+    file_path: Path,
+) -> tuple[list[Any], dict[str, Any] | None, str | None, list[dict[str, Any]]]:
+    issues: list[dict[str, Any]] = []
+    for candidate in uncertainty_evidence_sidecar_candidates(file_path):
+        if not candidate.exists():
+            continue
+        try:
+            payload = json.loads(candidate.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as exc:
+            issues.append(
+                _issue(
+                    "uncertainty_sidecar_parse_error",
+                    f"Failed to parse uncertainty evidence sidecar JSON: {exc}",
+                    field=str(candidate),
+                    severity="warning",
+                )
+            )
+            return [], None, str(candidate), issues
+
+        rows = _extract_uncertainty_evidence_rows(payload)
+        metadata = _extract_uncertainty_evidence_metadata(payload)
+        if rows is None:
+            issues.append(
+                _issue(
+                    "uncertainty_sidecar_rows_missing",
+                    "Uncertainty evidence sidecar must provide 'rows', 'uncertaintyEvidence.rows', or a top-level row array.",
+                    field=str(candidate),
+                    severity="warning",
+                )
+            )
+            return [], metadata, str(candidate), issues
+        issues.extend(_validate_uncertainty_evidence_metadata(metadata, field_prefix=f"{candidate}:metadata"))
+        issues.extend(_validate_uncertainty_evidence_rows(rows, field_prefix=f"{candidate}:rows"))
+        return rows, metadata, str(candidate), issues
+
+    return [], None, None, issues
+
+
 def _extract_assignment(text: str, field_name: str) -> str | None:
     pattern = re.compile(rf"\b{re.escape(field_name)}\s*=\s*['\"]([^'\"]+)['\"]")
     match = pattern.search(text)
@@ -349,10 +707,14 @@ def _extract_assignment(text: str, field_name: str) -> str | None:
 
 def _validate_r_model(file_path: Path) -> dict[str, Any]:
     text = file_path.read_text(encoding="utf-8", errors="ignore")
+    performance_sidecar_rows, performance_sidecar_metadata, performance_sidecar_path, performance_sidecar_issues = _load_performance_evidence_sidecar(file_path)
+    uncertainty_sidecar_rows, uncertainty_sidecar_metadata, uncertainty_sidecar_path, uncertainty_sidecar_issues = _load_uncertainty_evidence_sidecar(file_path)
     hooks = {
         name: bool(pattern.search(text))
         for name, pattern in _R_HOOK_PATTERNS.items()
     }
+    hooks["performanceEvidenceSidecar"] = performance_sidecar_path is not None
+    hooks["uncertaintyEvidenceSidecar"] = uncertainty_sidecar_path is not None
     sections = {
         name: {
             "present": bool(pattern.search(text)),
@@ -364,6 +726,8 @@ def _validate_r_model(file_path: Path) -> dict[str, Any]:
     }
 
     issues: list[dict[str, Any]] = []
+    issues.extend(performance_sidecar_issues)
+    issues.extend(uncertainty_sidecar_issues)
     if not hooks["modelProfile"]:
         issues.append(
             _issue(
@@ -390,20 +754,20 @@ def _validate_r_model(file_path: Path) -> dict[str, Any]:
                 severity="warning",
             )
         )
-    if not hooks["performanceEvidence"]:
+    if not hooks["performanceEvidence"] and not hooks["performanceEvidenceSidecar"]:
         issues.append(
             _issue(
                 "performance_evidence_hook_missing",
-                "R model does not declare pbpk_performance_evidence(...).",
+                "R model does not declare pbpk_performance_evidence(...) and no performance evidence sidecar was found.",
                 field=str(file_path),
                 severity="warning",
             )
         )
-    if not hooks["uncertaintyEvidence"]:
+    if not hooks["uncertaintyEvidence"] and not hooks["uncertaintyEvidenceSidecar"]:
         issues.append(
             _issue(
                 "uncertainty_evidence_hook_missing",
-                "R model does not declare pbpk_uncertainty_evidence(...).",
+                "R model does not declare pbpk_uncertainty_evidence(...) and no uncertainty evidence sidecar was found.",
                 field=str(file_path),
                 severity="warning",
             )
@@ -413,6 +777,15 @@ def _validate_r_model(file_path: Path) -> dict[str, Any]:
             _issue(
                 "verification_evidence_hook_missing",
                 "R model does not declare pbpk_verification_evidence(...).",
+                field=str(file_path),
+                severity="warning",
+            )
+        )
+    if not hooks["platformQualificationEvidence"]:
+        issues.append(
+            _issue(
+                "platform_qualification_evidence_hook_missing",
+                "R model does not declare pbpk_platform_qualification_evidence(...).",
                 field=str(file_path),
                 severity="warning",
             )
@@ -437,9 +810,10 @@ def _validate_r_model(file_path: Path) -> dict[str, Any]:
     )
     evidence_sections_complete = (
         hooks["parameterTable"] and
-        hooks["performanceEvidence"] and
-        hooks["uncertaintyEvidence"] and
+        (hooks["performanceEvidence"] or hooks["performanceEvidenceSidecar"]) and
+        (hooks["uncertaintyEvidence"] or hooks["uncertaintyEvidenceSidecar"]) and
         hooks["verificationEvidence"] and
+        hooks["platformQualificationEvidence"] and
         all(
         sections[name]["present"]
         for name in (
@@ -447,6 +821,7 @@ def _validate_r_model(file_path: Path) -> dict[str, Any]:
             "parameterProvenance",
             "uncertainty",
             "implementationVerification",
+            "platformQualification",
             "peerReview",
         )
         )
@@ -469,6 +844,14 @@ def _validate_r_model(file_path: Path) -> dict[str, Any]:
         "hooks": hooks,
         "sections": sections,
         "issues": issues,
+        "supplementalEvidence": {
+            "performanceEvidenceSidecarPath": performance_sidecar_path,
+            "performanceEvidenceRowCount": len(performance_sidecar_rows),
+            "performanceEvidenceBundleMetadata": performance_sidecar_metadata,
+            "uncertaintyEvidenceSidecarPath": uncertainty_sidecar_path,
+            "uncertaintyEvidenceRowCount": len(uncertainty_sidecar_rows),
+            "uncertaintyEvidenceBundleMetadata": uncertainty_sidecar_metadata,
+        },
     }
 
 
@@ -483,6 +866,8 @@ def validate_model_manifest(file_path: str | Path) -> dict[str, Any]:
 
     if backend == "ospsuite":
         profile, sidecar_path, sidecar_issues = _load_sidecar_profile(path)
+        performance_sidecar_rows, performance_sidecar_metadata, performance_sidecar_path, performance_sidecar_issues = _load_performance_evidence_sidecar(path)
+        uncertainty_sidecar_rows, uncertainty_sidecar_metadata, uncertainty_sidecar_path, uncertainty_sidecar_issues = _load_uncertainty_evidence_sidecar(path)
         if profile is None:
             scientific_profile = False
             return {
@@ -504,8 +889,16 @@ def validate_model_manifest(file_path: str | Path) -> dict[str, Any]:
                         evidence_sections_complete=False,
                     ),
                     "sections": {},
-                    "issues": sidecar_issues,
+                    "issues": [*sidecar_issues, *performance_sidecar_issues, *uncertainty_sidecar_issues],
                     "sidecarPath": sidecar_path,
+                    "supplementalEvidence": {
+                        "performanceEvidenceSidecarPath": performance_sidecar_path,
+                        "performanceEvidenceRowCount": len(performance_sidecar_rows),
+                        "performanceEvidenceBundleMetadata": performance_sidecar_metadata,
+                        "uncertaintyEvidenceSidecarPath": uncertainty_sidecar_path,
+                        "uncertaintyEvidenceRowCount": len(uncertainty_sidecar_rows),
+                        "uncertaintyEvidenceBundleMetadata": uncertainty_sidecar_metadata,
+                    },
                 },
             }
 
@@ -515,7 +908,15 @@ def validate_model_manifest(file_path: str | Path) -> dict[str, Any]:
             profile_source="sidecar",
             sidecar_path=sidecar_path,
         )
-        manifest["issues"] = [*sidecar_issues, *manifest["issues"]]
+        manifest["issues"] = [*sidecar_issues, *performance_sidecar_issues, *uncertainty_sidecar_issues, *manifest["issues"]]
+        manifest["supplementalEvidence"] = {
+            "performanceEvidenceSidecarPath": performance_sidecar_path,
+            "performanceEvidenceRowCount": len(performance_sidecar_rows),
+            "performanceEvidenceBundleMetadata": performance_sidecar_metadata,
+            "uncertaintyEvidenceSidecarPath": uncertainty_sidecar_path,
+            "uncertaintyEvidenceRowCount": len(uncertainty_sidecar_rows),
+            "uncertaintyEvidenceBundleMetadata": uncertainty_sidecar_metadata,
+        }
         return {
             "filePath": str(path),
             "backend": backend,

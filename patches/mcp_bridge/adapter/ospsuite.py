@@ -393,6 +393,48 @@ class SubprocessOspsuiteAdapter(OspsuiteAdapter):
         self._handles[handle.simulation_id] = handle
         return dict(response)
 
+    def run_verification_checks(
+        self,
+        simulation_id: str,
+        *,
+        request: Mapping[str, Any] | None = None,
+        include_population_smoke: bool = False,
+        population_cohort: Mapping[str, Any] | None = None,
+        population_outputs: Mapping[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        handle = self._get_handle(simulation_id)
+        response = self._call_backend(
+            "run_verification_checks",
+            {
+                "simulationId": handle.simulation_id,
+                "request": dict(request or {}),
+                "includePopulationSmoke": include_population_smoke,
+                "populationCohort": dict(population_cohort or {}),
+                "populationOutputs": dict(population_outputs or {}),
+            },
+        )
+
+        if isinstance(handle.metadata, Mapping):
+            updated_metadata = dict(handle.metadata)
+        else:
+            updated_metadata = {}
+
+        for key in ("validation", "profile", "capabilities"):
+            payload = response.get(key)
+            if isinstance(payload, Mapping):
+                updated_metadata[key] = dict(payload)
+
+        verification = response.get("verification")
+        if isinstance(verification, Mapping):
+            updated_metadata["verification"] = dict(verification)
+
+        if isinstance(response.get("backend"), str):
+            updated_metadata["backend"] = response["backend"]
+
+        handle.metadata = updated_metadata
+        self._handles[handle.simulation_id] = handle
+        return dict(response)
+
     def run_population_simulation_sync(
         self,
         config: PopulationSimulationConfig,

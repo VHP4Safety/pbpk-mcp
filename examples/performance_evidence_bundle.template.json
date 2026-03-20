@@ -1,0 +1,68 @@
+{
+  "metadata": {
+    "bundleVersion": "pbpk-performance-evidence.v1",
+    "summary": "Template performance evidence bundle for PBPK MCP.",
+    "evidenceScope": "Replace these rows with real model-specific evidence. Do not publish placeholder metrics as qualification evidence.",
+    "curator": "Replace with model author or organization",
+    "createdAt": "2026-03-20",
+    "notes": [
+      "Runtime smoke rows should be kept distinct from observed-versus-predicted or external qualification rows.",
+      "Acceptance criteria should describe the exact comparison rule and threshold used for each row."
+    ]
+  },
+  "rows": [
+    {
+      "id": "runtime-smoke-plasma-cmax",
+      "kind": "runtime-smoke-test",
+      "evidenceClass": "runtime-smoke",
+      "qualificationRelevance": "operational-only",
+      "dataOrigin": "internal",
+      "status": "passed",
+      "targetOutput": "Plasma|Compound|Concentration",
+      "metric": "Cmax",
+      "dataset": "embedded-runtime-smoke",
+      "acceptanceCriterion": "Simulation executes and returns finite concentration-time output for the declared scenario.",
+      "evidenceLevel": "runtime-only",
+      "qualificationBasis": "Executable workflow smoke check",
+      "notes": [
+        "This row confirms runtime integrity only.",
+        "It must not be interpreted as predictive validation."
+      ]
+    },
+    {
+      "id": "observed-predicted-plasma-cmax",
+      "kind": "observed-vs-predicted",
+      "evidenceClass": "observed-vs-predicted",
+      "qualificationRelevance": "predictive-supporting",
+      "dataOrigin": "internal-or-external-study",
+      "status": "declared",
+      "targetOutput": "Plasma|Compound|Concentration",
+      "metric": "Cmax",
+      "dataset": "replace-with-study-or-benchmark-id",
+      "observedValue": 1.0,
+      "predictedValue": 1.1,
+      "acceptanceCriterion": "Relative error <= 20% for the declared study, matrix, route, and metric definition.",
+      "evidenceLevel": "study-comparison",
+      "qualificationBasis": "Observed-versus-predicted comparison against a declared benchmark dataset",
+      "notes": [
+        "Replace numeric values and dataset ID with real benchmark content.",
+        "State route, matrix, life stage, and study conditions in accompanying documentation."
+      ]
+    },
+    {
+      "id": "external-qualification-summary",
+      "kind": "qualification-summary",
+      "evidenceClass": "external-qualification",
+      "qualificationRelevance": "external-supporting",
+      "dataOrigin": "external",
+      "status": "declared",
+      "dataset": "replace-with-external-qualification-package-id",
+      "acceptanceCriterion": "Qualification package is reviewed and judged fit for the declared context of use.",
+      "evidenceLevel": "externally-reviewed",
+      "qualificationBasis": "External qualification or regulatory review package",
+      "notes": [
+        "Only include this row when a real external qualification package exists."
+      ]
+    }
+  ]
+}
