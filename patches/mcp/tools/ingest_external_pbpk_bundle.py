@@ -428,6 +428,10 @@ def _build_uncertainty_handoff(
         "exposure-scenario uncertainty outside PBPK MCP",
         "PoD or NAM uncertainty outside PBPK MCP",
     ]
+    if not uncertainty_register_attached:
+        required_external_inputs.append(
+            "external cross-domain uncertainty register reference"
+        )
     if not residual_uncertainty_tracked:
         required_external_inputs.append(
             "explicit residual uncertainty register for broader NGRA interpretation"
