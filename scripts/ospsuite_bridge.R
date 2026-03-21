@@ -5170,6 +5170,98 @@ uncertainty_summary_from_record <- function(record, uncertainty_evidence = NULL)
   )
 }
 
+uncertainty_handoff_from_record <- function(
+  record,
+  uncertainty_summary = NULL,
+  qualification_summary = NULL,
+  internal_exposure_estimate = NULL,
+  point_of_departure_reference = NULL,
+  uncertainty_register_reference = NULL
+) {
+  qualification_attached <- !is.null(qualification_summary$objectId) &&
+    nzchar(safe_chr(qualification_summary$objectId, ""))
+  uncertainty_status <- safe_chr(uncertainty_summary$status, "unreported")
+  uncertainty_attached <- !identical(uncertainty_status, "unreported") ||
+    safe_num(uncertainty_summary$evidenceRowCount, 0) > 0
+  internal_exposure_attached <- identical(
+    safe_chr(internal_exposure_estimate$status),
+    "available"
+  )
+  pod_reference_attached <- identical(
+    safe_chr(point_of_departure_reference$status),
+    "attached-external-reference"
+  )
+  uncertainty_register_attached <- identical(
+    safe_chr(uncertainty_register_reference$status),
+    "attached-external-reference"
+  )
+  residual_uncertainty_tracked <- isTRUE(
+    uncertainty_summary$supports$residualUncertaintyTracking
+  )
+
+  blocking_reasons <- character()
+  if (!qualification_attached) {
+    blocking_reasons <- c(blocking_reasons, "No PBPK qualification summary is attached.")
+  }
+  if (!uncertainty_attached) {
+    blocking_reasons <- c(blocking_reasons, "No structured PBPK uncertainty summary is attached.")
+  }
+
+  status <- if (length(blocking_reasons) == 0) {
+    "ready-for-cross-domain-uncertainty-synthesis"
+  } else if (qualification_attached || uncertainty_attached) {
+    "partial-pbpk-uncertainty-handoff"
+  } else {
+    "not-ready"
+  }
+
+  required_external_inputs <- c(
+    "cross-domain uncertainty synthesis outside PBPK MCP",
+    "exposure-scenario uncertainty outside PBPK MCP",
+    "PoD or NAM uncertainty outside PBPK MCP"
+  )
+  if (!uncertainty_register_attached) {
+    required_external_inputs <- c(
+      required_external_inputs,
+      "external cross-domain uncertainty register reference"
+    )
+  }
+  if (!residual_uncertainty_tracked) {
+    required_external_inputs <- c(
+      required_external_inputs,
+      "explicit residual uncertainty register for broader NGRA interpretation"
+    )
+  }
+
+  list(
+    objectType = "uncertaintyHandoff.v1",
+    objectId = sprintf("%s-uncertainty-handoff", record$simulation_id),
+    simulationId = record$simulation_id,
+    backend = record$backend,
+    assessmentBoundary = "pbpk-to-cross-domain-uncertainty-handoff-only",
+    decisionBoundary = "cross-domain-uncertainty-synthesis-owned-by-external-orchestrator",
+    decisionOwner = "external-orchestrator",
+    status = status,
+    pbpkQualificationSummaryRef = qualification_summary$objectId %||% NULL,
+    uncertaintySummaryRef = uncertainty_summary$objectId %||% NULL,
+    internalExposureEstimateRef = internal_exposure_estimate$objectId %||% NULL,
+    pointOfDepartureReferenceRef = point_of_departure_reference$objectId %||% NULL,
+    uncertaintyRegisterReferenceRef = uncertainty_register_reference$objectId %||% NULL,
+    supports = list(
+      pbpkQualificationAttached = qualification_attached,
+      pbpkUncertaintySummaryAttached = uncertainty_attached,
+      internalExposureContextAttached = internal_exposure_attached,
+      pointOfDepartureReferenceAttached = pod_reference_attached,
+      uncertaintyRegisterReferenceAttached = uncertainty_register_attached,
+      residualUncertaintyTracked = residual_uncertainty_tracked,
+      crossDomainUncertaintySynthesis = FALSE,
+      decisionRecommendation = FALSE
+    ),
+    requiredExternalInputs = as.list(unique(required_external_inputs)),
+    blockingReasons = as.list(unique(blocking_reasons))
+  )
+}
+
 pk_metric_summary_from_series <- function(series_entry) {
   values <- series_entry$values %||% list()
   if (length(values) == 0) {
@@ -5440,6 +5532,69 @@ true_dose_adjustment_from_request <- function(request = list()) {
   )
 }
 
+uncertainty_register_metadata_from_request <- function(request = list()) {
+  request_payload <- request %||% list()
+  register_payload <- request_payload$uncertaintyRegister %||%
+    request_payload$uncertainty_register %||%
+    request_payload$crossDomainUncertaintyRegister %||%
+    list()
+  if (!is.list(register_payload)) {
+    register_payload <- list(ref = register_payload)
+  }
+
+  list(
+    ref = safe_chr(register_payload$ref) %||%
+      safe_chr(register_payload$registerRef) %||%
+      safe_chr(register_payload$uncertaintyRegisterRef) %||%
+      safe_chr(request_payload$uncertaintyRegisterRef),
+    source = safe_chr(register_payload$source) %||%
+      safe_chr(register_payload$system) %||%
+      safe_chr(request_payload$uncertaintyRegisterSource),
+    summary = safe_chr(register_payload$summary) %||%
+      safe_chr(request_payload$uncertaintyRegisterSummary),
+    scope = safe_chr(register_payload$scope) %||%
+      safe_chr(request_payload$uncertaintyRegisterScope),
+    owner = safe_chr(register_payload$owner) %||%
+      safe_chr(request_payload$uncertaintyRegisterOwner)
+  )
+}
+
+uncertainty_register_reference_from_request <- function(record, request = list()) {
+  register_metadata <- uncertainty_register_metadata_from_request(request)
+  register_ref <- safe_chr(register_metadata$ref)
+  attached <- !is.null(register_ref) && nzchar(register_ref)
+  required_external_inputs <- c("cross-domain uncertainty synthesis outside PBPK MCP")
+  if (!attached) {
+    required_external_inputs <- c(
+      required_external_inputs,
+      "external cross-domain uncertainty register reference"
+    )
+  }
+
+  list(
+    objectType = "uncertaintyRegisterReference.v1",
+    objectId = sprintf("%s-uncertainty-register-reference", record$simulation_id),
+    simulationId = record$simulation_id,
+    backend = record$backend,
+    assessmentBoundary = "external-uncertainty-register-reference-only",
+    decisionBoundary = "cross-domain-uncertainty-synthesis-owned-by-external-orchestrator",
+    decisionOwner = "external-orchestrator",
+    status = if (attached) "attached-external-reference" else "not-attached",
+    registerRef = register_ref,
+    source = safe_chr(register_metadata$source),
+    summary = safe_chr(register_metadata$summary),
+    scope = safe_chr(register_metadata$scope),
+    owner = safe_chr(register_metadata$owner),
+    supports = list(
+      typedReference = attached,
+      crossDomainUncertaintySynthesis = FALSE,
+      decisionRecommendation = FALSE
+    ),
+    requiredExternalInputs = as.list(unique(required_external_inputs)),
+    warnings = list()
+  )
+}
+
 point_of_departure_reference_from_request <- function(record, request = list()) {
   request_payload <- request %||% list()
   pod_metadata <- pod_metadata_from_request(request_payload)
@@ -5682,13 +5837,24 @@ build_ngra_objects <- function(
     uncertainty_evidence = resolved_uncertainty_evidence
   )
   internal_exposure_estimate <- internal_exposure_estimate_from_record(record, request)
+  uncertainty_register_reference <- uncertainty_register_reference_from_request(record, request)
   point_of_departure_reference <- point_of_departure_reference_from_request(record, request)
+  uncertainty_handoff <- uncertainty_handoff_from_record(
+    record,
+    uncertainty_summary = uncertainty_summary,
+    qualification_summary = qualification_summary,
+    internal_exposure_estimate = internal_exposure_estimate,
+    point_of_departure_reference = point_of_departure_reference,
+    uncertainty_register_reference = uncertainty_register_reference
+  )
 
   payload <- list(
     assessmentContext = assessment_context,
     pbpkQualificationSummary = qualification_summary,
     uncertaintySummary = uncertainty_summary,
+    uncertaintyHandoff = uncertainty_handoff,
     internalExposureEstimate = internal_exposure_estimate,
+    uncertaintyRegisterReference = uncertainty_register_reference,
     pointOfDepartureReference = point_of_departure_reference
   )
 

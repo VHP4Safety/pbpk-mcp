@@ -893,6 +893,35 @@ class OecdBridgeTests(unittest.TestCase):
             payload["ngraObjects"]["uncertaintySummary"]["supports"]["crossDomainUncertaintyRegister"],
         )
         self.assertEqual(
+            payload["ngraObjects"]["uncertaintyHandoff"]["status"],
+            "ready-for-cross-domain-uncertainty-synthesis",
+        )
+        self.assertEqual(
+            payload["ngraObjects"]["uncertaintyHandoff"]["decisionOwner"],
+            "external-orchestrator",
+        )
+        self.assertTrue(
+            payload["ngraObjects"]["uncertaintyHandoff"]["supports"]["pbpkQualificationAttached"],
+        )
+        self.assertTrue(
+            payload["ngraObjects"]["uncertaintyHandoff"]["supports"]["pbpkUncertaintySummaryAttached"],
+        )
+        self.assertFalse(
+            payload["ngraObjects"]["uncertaintyHandoff"]["supports"]["uncertaintyRegisterReferenceAttached"],
+        )
+        self.assertEqual(
+            payload["ngraObjects"]["uncertaintyRegisterReference"]["status"],
+            "not-attached",
+        )
+        self.assertIn(
+            "PoD or NAM uncertainty outside PBPK MCP",
+            payload["ngraObjects"]["uncertaintyHandoff"]["requiredExternalInputs"],
+        )
+        self.assertIn(
+            "external cross-domain uncertainty register reference",
+            payload["ngraObjects"]["uncertaintyHandoff"]["requiredExternalInputs"],
+        )
+        self.assertEqual(
             payload["ngraObjects"]["internalExposureEstimate"]["status"],
             "available",
         )
@@ -1021,38 +1050,61 @@ class OecdBridgeTests(unittest.TestCase):
                   applied = TRUE,
                   basis = "free-concentration",
                   summary = "PoD normalized to free concentration"
+                ),
+                uncertaintyRegister = list(
+                  ref = "unc-reg-123",
+                  source = "assessment-workbench",
+                  scope = "tier-1-systemic"
                 )
               ),
               validation = validation,
               include_parameter_table = FALSE
             )
-            report$ngraObjects$berInputBundle
+            list(
+              ber = report$ngraObjects$berInputBundle,
+              register = report$ngraObjects$uncertaintyRegisterReference,
+              handoff = report$ngraObjects$uncertaintyHandoff
+            )
             """
         )
 
-        self.assertEqual(payload["status"], "ready-for-external-ber-calculation")
-        self.assertEqual(payload["assessmentBoundary"], "external-ber-calculation-only")
+        ber_payload = payload["ber"]
+        register_payload = payload["register"]
+        handoff_payload = payload["handoff"]
+
+        self.assertEqual(ber_payload["status"], "ready-for-external-ber-calculation")
+        self.assertEqual(ber_payload["assessmentBoundary"], "external-ber-calculation-only")
         self.assertEqual(
-            payload["decisionOwner"],
+            ber_payload["decisionOwner"],
             "external-orchestrator",
         )
         self.assertEqual(
-            payload["pointOfDepartureReferenceRef"],
+            ber_payload["pointOfDepartureReferenceRef"],
             "ber-ready-model-point-of-departure-reference",
         )
-        self.assertEqual(payload["comparisonMetric"], "cmax")
-        self.assertEqual(payload["podRef"], "pod-123")
-        self.assertEqual(payload["podMetadata"]["source"], "httr-benchmark")
-        self.assertEqual(payload["internalExposureMetric"]["metric"], "cmax")
-        self.assertEqual(payload["internalExposureMetric"]["value"], 5)
-        self.assertEqual(payload["internalExposureMetric"]["unit"], "uM")
-        self.assertTrue(payload["trueDoseAdjustmentApplied"])
-        self.assertEqual(payload["trueDoseAdjustment"]["basis"], "free-concentration")
-        self.assertEqual(payload["blockingReasons"], [])
-        self.assertTrue(payload["supports"]["externalBerCalculation"])
+        self.assertEqual(ber_payload["comparisonMetric"], "cmax")
+        self.assertEqual(ber_payload["podRef"], "pod-123")
+        self.assertEqual(ber_payload["podMetadata"]["source"], "httr-benchmark")
+        self.assertEqual(ber_payload["internalExposureMetric"]["metric"], "cmax")
+        self.assertEqual(ber_payload["internalExposureMetric"]["value"], 5)
+        self.assertEqual(ber_payload["internalExposureMetric"]["unit"], "uM")
+        self.assertTrue(ber_payload["trueDoseAdjustmentApplied"])
+        self.assertEqual(ber_payload["trueDoseAdjustment"]["basis"], "free-concentration")
+        self.assertEqual(ber_payload["blockingReasons"], [])
+        self.assertTrue(ber_payload["supports"]["externalBerCalculation"])
         self.assertIn(
             "BER calculation and decision policy outside PBPK MCP",
-            payload["requiredExternalInputs"],
+            ber_payload["requiredExternalInputs"],
+        )
+        self.assertEqual(register_payload["status"], "attached-external-reference")
+        self.assertEqual(register_payload["registerRef"], "unc-reg-123")
+        self.assertEqual(handoff_payload["status"], "ready-for-cross-domain-uncertainty-synthesis")
+        self.assertEqual(
+            handoff_payload["uncertaintyRegisterReferenceRef"],
+            "ber-ready-model-uncertainty-register-reference",
+        )
+        self.assertTrue(
+            handoff_payload["supports"]["uncertaintyRegisterReferenceAttached"],
         )
 
     def test_performance_evidence_summary_distinguishes_runtime_internal_rows(self) -> None:

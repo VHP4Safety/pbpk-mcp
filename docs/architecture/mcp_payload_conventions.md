@@ -44,11 +44,11 @@ Model-bound enhanced responses also flatten backend information when available:
 - `ingest_external_pbpk_bundle`
   - returns `externalRun`, `ngraObjects`, and `warnings`
   - `externalRun` is a normalized provenance record for imported external PBPK outputs; it does not imply PBPK MCP executed the upstream engine
-  - `ngraObjects` carries `assessmentContext`, `pbpkQualificationSummary`, `uncertaintySummary`, `internalExposureEstimate`, `pointOfDepartureReference`, and `berInputBundle` for imported external data
+  - `ngraObjects` carries `assessmentContext`, `pbpkQualificationSummary`, `uncertaintySummary`, `uncertaintyHandoff`, `internalExposureEstimate`, `uncertaintyRegisterReference`, `pointOfDepartureReference`, and `berInputBundle` for imported external data
   - imported NGRA objects now also expose explicit `assessmentBoundary`, `decisionBoundary`, `supports`, and where relevant `requiredExternalInputs`
 - `validate_simulation_request`
   - returns `simulationId`, `backend`, `validation`, `profile`, `capabilities`, `ngraObjects`, `qualificationState`, and `warnings`
-  - `ngraObjects` currently includes PBPK-side typed objects for `assessmentContext`, `pbpkQualificationSummary`, `uncertaintySummary`, `internalExposureEstimate`, and `pointOfDepartureReference`
+  - `ngraObjects` currently includes PBPK-side typed objects for `assessmentContext`, `pbpkQualificationSummary`, `uncertaintySummary`, `uncertaintyHandoff`, `internalExposureEstimate`, `uncertaintyRegisterReference`, and `pointOfDepartureReference`
   - these PBPK-side objects now include boundary/support fields so downstream orchestrators can distinguish PBPK execution support from decision-policy ownership
   - `profile.modelPerformance` may now include normalized `coverage` counters for goodness-of-fit metrics, dataset records, predictive dataset records, and explicit acceptance-criterion coverage
   - `profile.peerReview` may now include normalized `reviewRecords`, `priorRegulatoryUse`, `revisionHistory`, and additive coverage counters such as `reviewRecordCount`, `priorUseCount`, and `revisionEntryCount`
@@ -58,11 +58,13 @@ Model-bound enhanced responses also flatten backend information when available:
 - `export_oecd_report`
   - returns `simulationId`, `backend`, `generatedAt`, `ngraObjects`, `qualificationState`, and `report`
 - `report` includes `qualificationState`, `profile`, `validation`, `oecdChecklist`, `oecdChecklistScore`, additive `oecdCoverage`, `missingEvidence`, `performanceEvidence`, `uncertaintyEvidence`, `verificationEvidence`, `executableVerification`, `platformQualificationEvidence`, and an optional `parameterTable`
-  - `report.ngraObjects` is a self-contained PBPK-side NGRA object block; it currently carries `assessmentContext`, `pbpkQualificationSummary`, `uncertaintySummary`, `internalExposureEstimate`, `pointOfDepartureReference`, and a thin `berInputBundle`
+  - `report.ngraObjects` is a self-contained PBPK-side NGRA object block; it currently carries `assessmentContext`, `pbpkQualificationSummary`, `uncertaintySummary`, `uncertaintyHandoff`, `internalExposureEstimate`, `uncertaintyRegisterReference`, `pointOfDepartureReference`, and a thin `berInputBundle`
   - `berInputBundle` is deliberately BER-ready only: it does not calculate BER or make a decision recommendation
   - `berInputBundle` remains incomplete until the caller supplies an external `podRef` and the PBPK side has a resolved internal exposure target/metric; when both are present it can become `ready-for-external-ber-calculation`
   - `pointOfDepartureReference` is a typed external PoD handoff object only; it does not mean PBPK MCP validated PoD suitability or owns PoD interpretation
-  - `pbpkQualificationSummary`, `uncertaintySummary`, `internalExposureEstimate`, `pointOfDepartureReference`, and `berInputBundle` now expose machine-readable `assessmentBoundary` / `decisionBoundary` fields plus support flags; `berInputBundle` also names the external decision owner explicitly
+  - `pbpkQualificationSummary`, `uncertaintySummary`, `uncertaintyHandoff`, `internalExposureEstimate`, `uncertaintyRegisterReference`, `pointOfDepartureReference`, and `berInputBundle` now expose machine-readable `assessmentBoundary` / `decisionBoundary` fields plus support flags; `berInputBundle` also names the external decision owner explicitly
+  - `uncertaintyHandoff` is a separate PBPK-to-cross-domain uncertainty handoff object; it references the PBPK qualification, PBPK uncertainty, internal exposure, and optional PoD-reference objects, but leaves uncertainty synthesis and decision ownership with the external orchestrator
+  - `uncertaintyRegisterReference` is a typed external reference only; it does not mean PBPK MCP owns the cross-domain uncertainty register or the synthesis logic built on top of it
   - `oecdCoverage` is a descriptive mapping layer aligned to OECD PBK Guidance Tables 3.1 and 3.2; it is explicitly non-scoring (`affectsChecklistScore = false`, `affectsQualificationState = false`) and exists to show dossier coverage gaps without creating a second hidden qualification score
   - `performanceEvidence` includes row-level classification plus summary fields such as `strongestEvidenceClass`, `qualificationBoundary`, and flags indicating whether observed-versus-predicted, predictive-dataset, or external-qualification evidence is actually bundled
   - `performanceEvidence.traceability` summarizes dataset-record and acceptance-criterion coverage derived from the current `modelPerformance` profile plus exported evidence rows

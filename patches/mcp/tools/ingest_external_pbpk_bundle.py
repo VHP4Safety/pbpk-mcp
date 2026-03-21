@@ -107,6 +107,7 @@ class IngestExternalPbpkBundleRequest(BaseModel):
     internal_exposure: dict[str, Any] = Field(default_factory=dict, alias="internalExposure")
     qualification: dict[str, Any] = Field(default_factory=dict)
     uncertainty: dict[str, Any] = Field(default_factory=dict)
+    uncertainty_register: dict[str, Any] = Field(default_factory=dict, alias="uncertaintyRegister")
     pod: dict[str, Any] = Field(default_factory=dict)
     true_dose_adjustment: dict[str, Any] = Field(default_factory=dict, alias="trueDoseAdjustment")
     comparison_metric: str = Field(default="cmax", alias="comparisonMetric")
@@ -379,6 +380,130 @@ def _build_uncertainty_summary(payload: IngestExternalPbpkBundleRequest) -> dict
         "requiredExternalInputs": list(dict.fromkeys(required_external_inputs)),
         "bundleMetadata": _as_mapping(uncertainty.get("bundleMetadata")) or None,
     }
+
+
+def _build_uncertainty_handoff(
+    payload: IngestExternalPbpkBundleRequest,
+    *,
+    qualification_summary: Mapping[str, Any],
+    uncertainty_summary: Mapping[str, Any],
+    internal_exposure_estimate: Mapping[str, Any],
+    point_of_departure_reference: Mapping[str, Any],
+    uncertainty_register_reference: Mapping[str, Any],
+) -> dict[str, Any]:
+    qualification_attached = bool(_safe_text(qualification_summary.get("objectId")))
+    uncertainty_status = _safe_text(uncertainty_summary.get("status")) or "unreported"
+    uncertainty_attached = bool(
+        uncertainty_status != "unreported"
+        or _safe_float(uncertainty_summary.get("evidenceRowCount")) not in (None, 0.0)
+    )
+    internal_exposure_attached = (
+        _safe_text(internal_exposure_estimate.get("status")) == "available"
+    )
+    pod_reference_attached = (
+        _safe_text(point_of_departure_reference.get("status")) == "attached-external-reference"
+    )
+    uncertainty_register_attached = (
+        _safe_text(uncertainty_register_reference.get("status")) == "attached-external-reference"
+    )
+    residual_uncertainty_tracked = bool(
+        _as_mapping(uncertainty_summary.get("supports")).get("residualUncertaintyTracking")
+    )
+
+    blocking_reasons: list[str] = []
+    if not qualification_attached:
+        blocking_reasons.append("No PBPK qualification summary is attached.")
+    if not uncertainty_attached:
+        blocking_reasons.append("No structured PBPK uncertainty summary is attached.")
+
+    if not blocking_reasons:
+        status = "ready-for-cross-domain-uncertainty-synthesis"
+    elif qualification_attached or uncertainty_attached:
+        status = "partial-pbpk-uncertainty-handoff"
+    else:
+        status = "not-ready"
+
+    required_external_inputs = [
+        "cross-domain uncertainty synthesis outside PBPK MCP",
+        "exposure-scenario uncertainty outside PBPK MCP",
+        "PoD or NAM uncertainty outside PBPK MCP",
+    ]
+    if not residual_uncertainty_tracked:
+        required_external_inputs.append(
+            "explicit residual uncertainty register for broader NGRA interpretation"
+        )
+
+    return {
+        "objectType": "uncertaintyHandoff.v1",
+        "objectId": f"{payload.source_platform.lower()}-uncertainty-handoff",
+        "simulationId": None,
+        "backend": EXTERNAL_BACKEND,
+        "sourcePlatform": payload.source_platform,
+        "assessmentBoundary": "pbpk-to-cross-domain-uncertainty-handoff-only",
+        "decisionBoundary": "cross-domain-uncertainty-synthesis-owned-by-external-orchestrator",
+        "decisionOwner": "external-orchestrator",
+        "status": status,
+        "pbpkQualificationSummaryRef": _safe_text(qualification_summary.get("objectId")),
+        "uncertaintySummaryRef": _safe_text(uncertainty_summary.get("objectId")),
+        "internalExposureEstimateRef": _safe_text(internal_exposure_estimate.get("objectId")),
+        "pointOfDepartureReferenceRef": _safe_text(point_of_departure_reference.get("objectId")),
+        "uncertaintyRegisterReferenceRef": _safe_text(
+            uncertainty_register_reference.get("objectId")
+        ),
+        "supports": {
+            "pbpkQualificationAttached": qualification_attached,
+            "pbpkUncertaintySummaryAttached": uncertainty_attached,
+            "internalExposureContextAttached": internal_exposure_attached,
+            "pointOfDepartureReferenceAttached": pod_reference_attached,
+            "uncertaintyRegisterReferenceAttached": uncertainty_register_attached,
+            "residualUncertaintyTracked": residual_uncertainty_tracked,
+            "crossDomainUncertaintySynthesis": False,
+            "decisionRecommendation": False,
+        },
+        "requiredExternalInputs": list(dict.fromkeys(required_external_inputs)),
+        "blockingReasons": blocking_reasons,
+    }
+
+
+def _build_uncertainty_register_reference(
+    payload: IngestExternalPbpkBundleRequest,
+) -> tuple[dict[str, Any], list[str]]:
+    register = _as_mapping(payload.uncertainty_register)
+    register_ref = _safe_text(
+        register.get("ref")
+        or register.get("registerRef")
+        or register.get("uncertaintyRegisterRef")
+        or register.get("id")
+    )
+    warnings: list[str] = []
+    required_external_inputs = ["cross-domain uncertainty synthesis outside PBPK MCP"]
+    if register_ref is None:
+        required_external_inputs.append("external cross-domain uncertainty register reference")
+
+    register_reference = {
+        "objectType": "uncertaintyRegisterReference.v1",
+        "objectId": f"{payload.source_platform.lower()}-uncertainty-register-reference",
+        "simulationId": None,
+        "backend": EXTERNAL_BACKEND,
+        "sourcePlatform": payload.source_platform,
+        "assessmentBoundary": "external-uncertainty-register-reference-only",
+        "decisionBoundary": "cross-domain-uncertainty-synthesis-owned-by-external-orchestrator",
+        "decisionOwner": "external-orchestrator",
+        "status": "attached-external-reference" if register_ref is not None else "not-attached",
+        "registerRef": register_ref,
+        "source": _safe_text(register.get("source") or register.get("system")),
+        "summary": _safe_text(register.get("summary")),
+        "scope": _safe_text(register.get("scope")),
+        "owner": _safe_text(register.get("owner")),
+        "supports": {
+            "typedReference": register_ref is not None,
+            "crossDomainUncertaintySynthesis": False,
+            "decisionRecommendation": False,
+        },
+        "requiredExternalInputs": list(dict.fromkeys(required_external_inputs)),
+        "warnings": warnings,
+    }
+    return register_reference, warnings
 
 
 def _build_internal_exposure_estimate(payload: IngestExternalPbpkBundleRequest) -> tuple[dict[str, Any], list[str]]:
@@ -654,7 +779,18 @@ def ingest_external_pbpk_bundle(
     qualification_summary = _build_pbpk_qualification_summary(payload)
     uncertainty_summary = _build_uncertainty_summary(payload)
     internal_exposure_estimate, internal_warnings = _build_internal_exposure_estimate(payload)
+    uncertainty_register_reference, uncertainty_register_warnings = _build_uncertainty_register_reference(
+        payload
+    )
     point_of_departure_reference, pod_warnings = _build_point_of_departure_reference(payload)
+    uncertainty_handoff = _build_uncertainty_handoff(
+        payload,
+        qualification_summary=qualification_summary,
+        uncertainty_summary=uncertainty_summary,
+        internal_exposure_estimate=internal_exposure_estimate,
+        point_of_departure_reference=point_of_departure_reference,
+        uncertainty_register_reference=uncertainty_register_reference,
+    )
     ber_input_bundle, ber_warnings = _build_ber_input_bundle(
         payload,
         internal_exposure_estimate=internal_exposure_estimate,
@@ -671,11 +807,22 @@ def ingest_external_pbpk_bundle(
             "assessmentContext": assessment_context,
             "pbpkQualificationSummary": qualification_summary,
             "uncertaintySummary": uncertainty_summary,
+            "uncertaintyHandoff": uncertainty_handoff,
             "internalExposureEstimate": internal_exposure_estimate,
+            "uncertaintyRegisterReference": uncertainty_register_reference,
             "pointOfDepartureReference": point_of_departure_reference,
             "berInputBundle": ber_input_bundle,
         },
-        warnings=list(dict.fromkeys([*internal_warnings, *pod_warnings, *ber_warnings])),
+        warnings=list(
+            dict.fromkeys(
+                [
+                    *internal_warnings,
+                    *uncertainty_register_warnings,
+                    *pod_warnings,
+                    *ber_warnings,
+                ]
+            )
+        ),
     )
 
 

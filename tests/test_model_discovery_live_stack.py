@@ -246,6 +246,14 @@ class ModelDiscoveryLiveStackTests(unittest.TestCase):
             "external-pbpk-normalization-only",
         )
         self.assertEqual(
+            response["ngraObjects"]["uncertaintyHandoff"]["status"],
+            "partial-pbpk-uncertainty-handoff",
+        )
+        self.assertEqual(
+            response["ngraObjects"]["uncertaintyRegisterReference"]["status"],
+            "not-attached",
+        )
+        self.assertEqual(
             response["ngraObjects"]["berInputBundle"]["status"],
             "ready-for-external-ber-calculation",
         )

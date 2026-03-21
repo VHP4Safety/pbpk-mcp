@@ -54,6 +54,11 @@ class ExternalPbpkBundleTests(unittest.TestCase):
                     "platformClass": "commercial",
                 },
                 uncertainty={"status": "declared", "summary": "Imported uncertainty summary"},
+                uncertaintyRegister={
+                    "ref": "unc-reg-001",
+                    "source": "assessment-workbench",
+                    "scope": "tier-1-systemic",
+                },
                 pod={
                     "ref": "pod-001",
                     "source": "httr-benchmark",
@@ -101,6 +106,28 @@ class ExternalPbpkBundleTests(unittest.TestCase):
             "no-ngra-decision-policy",
         )
         self.assertEqual(
+            payload["ngraObjects"]["uncertaintyHandoff"]["status"],
+            "ready-for-cross-domain-uncertainty-synthesis",
+        )
+        self.assertEqual(
+            payload["ngraObjects"]["uncertaintyHandoff"]["decisionOwner"],
+            "external-orchestrator",
+        )
+        self.assertTrue(
+            payload["ngraObjects"]["uncertaintyHandoff"]["supports"]["pbpkUncertaintySummaryAttached"],
+        )
+        self.assertTrue(
+            payload["ngraObjects"]["uncertaintyHandoff"]["supports"]["uncertaintyRegisterReferenceAttached"],
+        )
+        self.assertEqual(
+            payload["ngraObjects"]["uncertaintyRegisterReference"]["status"],
+            "attached-external-reference",
+        )
+        self.assertEqual(
+            payload["ngraObjects"]["uncertaintyHandoff"]["uncertaintyRegisterReferenceRef"],
+            "gastroplus-uncertainty-register-reference",
+        )
+        self.assertEqual(
             payload["ngraObjects"]["berInputBundle"]["status"],
             "ready-for-external-ber-calculation",
         )
@@ -139,6 +166,22 @@ class ExternalPbpkBundleTests(unittest.TestCase):
         self.assertEqual(
             payload["ngraObjects"]["pointOfDepartureReference"]["status"],
             "not-attached",
+        )
+        self.assertEqual(
+            payload["ngraObjects"]["uncertaintyHandoff"]["status"],
+            "partial-pbpk-uncertainty-handoff",
+        )
+        self.assertEqual(
+            payload["ngraObjects"]["uncertaintyRegisterReference"]["status"],
+            "not-attached",
+        )
+        self.assertIn(
+            "No structured PBPK uncertainty summary is attached.",
+            payload["ngraObjects"]["uncertaintyHandoff"]["blockingReasons"],
+        )
+        self.assertIn(
+            "external cross-domain uncertainty register reference",
+            payload["ngraObjects"]["uncertaintyHandoff"]["requiredExternalInputs"],
         )
         self.assertIn(
             "BER calculation and decision policy outside PBPK MCP",

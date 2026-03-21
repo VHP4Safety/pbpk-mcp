@@ -181,6 +181,11 @@ def run_release_check(base_url: str, *, skip_unit_tests: bool = False) -> dict:
                 "verificationStatus": "checked",
                 "platformClass": "commercial",
             },
+            "uncertaintyRegister": {
+                "ref": "unc-reg-readiness-001",
+                "source": "assessment-workbench",
+                "scope": "tier-1-systemic",
+            },
             "pod": {
                 "ref": "pod-readiness-001",
                 "metric": "cmax",
@@ -203,11 +208,21 @@ def run_release_check(base_url: str, *, skip_unit_tests: bool = False) -> dict:
         external_bundle["ngraObjects"]["pointOfDepartureReference"]["status"] == "attached-external-reference",
         "External PBPK ingestion should normalize the external PoD reference into a typed handoff object",
     )
+    assert_true(
+        external_bundle["ngraObjects"]["uncertaintyHandoff"]["decisionOwner"] == "external-orchestrator",
+        "External PBPK ingestion should keep cross-domain uncertainty synthesis outside PBPK MCP",
+    )
+    assert_true(
+        external_bundle["ngraObjects"]["uncertaintyRegisterReference"]["status"] == "attached-external-reference",
+        "External PBPK ingestion should normalize an external uncertainty-register reference when one is supplied",
+    )
     summary["externalImport"] = {
         "sourcePlatform": external_bundle["externalRun"]["sourcePlatform"],
         "berBundleStatus": external_bundle["ngraObjects"]["berInputBundle"]["status"],
         "decisionOwner": external_bundle["ngraObjects"]["berInputBundle"]["decisionOwner"],
         "podReferenceStatus": external_bundle["ngraObjects"]["pointOfDepartureReference"]["status"],
+        "uncertaintyHandoffStatus": external_bundle["ngraObjects"]["uncertaintyHandoff"]["status"],
+        "uncertaintyRegisterStatus": external_bundle["ngraObjects"]["uncertaintyRegisterReference"]["status"],
     }
 
     pksim5_error = call_tool_error(
@@ -379,6 +394,10 @@ def run_release_check(base_url: str, *, skip_unit_tests: bool = False) -> dict:
         "The PBPK-side BER bundle should remain incomplete until an external point-of-departure reference is attached",
     )
     assert_true(
+        cis_report_payload["ngraObjects"]["uncertaintyHandoff"]["status"] == "ready-for-cross-domain-uncertainty-synthesis",
+        "The exported OECD report should expose a ready PBPK-side uncertainty handoff object",
+    )
+    assert_true(
         cis_report_payload["oecdChecklist"]["modelPerformanceAndPredictivity"]["status"] == "partial",
         "Cisplatin performance checklist should remain partial until real fit evidence is attached",
     )
@@ -544,6 +563,7 @@ def run_release_check(base_url: str, *, skip_unit_tests: bool = False) -> dict:
         "performanceChecklistStatus": cis_report_payload["oecdChecklist"]["modelPerformanceAndPredictivity"]["status"],
         "performanceEvidenceRows": cis_report_payload["performanceEvidence"]["returnedRows"],
         "performanceEvidenceBoundary": cis_report_payload["performanceEvidence"]["qualificationBoundary"],
+        "uncertaintyHandoffStatus": cis_report_payload["ngraObjects"]["uncertaintyHandoff"]["status"],
         "resultSeries": len(cis_results["series"]),
         "populationAggregates": sorted((cis_population_results.get("aggregates") or {}).keys()),
     }

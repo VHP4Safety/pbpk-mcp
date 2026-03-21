@@ -126,6 +126,8 @@ The typed PBPK-side NGRA objects now carry explicit handoff semantics as well:
 - `decisionBoundary` makes it explicit that BER calculation and NGRA decision policy remain external
 - `supports` flags tell downstream orchestrators which PBPK-side capabilities are actually present versus absent
 - `pointOfDepartureReference` makes external PoD provenance explicit without turning PBPK MCP into the owner of PoD interpretation or BER policy
+- `uncertaintyHandoff` makes PBPK-to-cross-domain uncertainty transfer explicit without turning PBPK MCP into the owner of uncertainty synthesis
+- `uncertaintyRegisterReference` makes an external cross-domain uncertainty register reference explicit without turning PBPK MCP into the owner of that register
 
 ## Runtime Deployment
 
@@ -241,10 +243,13 @@ PBPK MCP can now derive typed PBPK-side objects for downstream workflow orchestr
 - `assessmentContext`
 - `pbpkQualificationSummary`
 - `uncertaintySummary`
+- `uncertaintyHandoff`
 - `internalExposureEstimate`
+- `uncertaintyRegisterReference`
+- `pointOfDepartureReference`
 - a thin `berInputBundle` in dossier export
 
-These objects are intended to make PBPK outputs composable in downstream systems such as ToxClaw without moving BER policy or broader decision logic into PBPK MCP itself.
+These objects are intended to make PBPK outputs composable in downstream orchestrators without moving BER policy or broader decision logic into PBPK MCP itself.
 
 PBPK MCP can now also normalize externally generated PBPK outputs into the same object family through `ingest_external_pbpk_bundle`. This is an interoperability/import path, not a third execution backend.
 

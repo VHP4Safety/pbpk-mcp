@@ -123,6 +123,18 @@ class OecdLiveStackTests(unittest.TestCase):
             "not-attached",
         )
         self.assertEqual(
+            validation_payload["ngraObjects"]["uncertaintyHandoff"]["status"],
+            "ready-for-cross-domain-uncertainty-synthesis",
+        )
+        self.assertEqual(
+            validation_payload["ngraObjects"]["uncertaintyHandoff"]["decisionOwner"],
+            "external-orchestrator",
+        )
+        self.assertEqual(
+            validation_payload["ngraObjects"]["uncertaintyRegisterReference"]["status"],
+            "not-attached",
+        )
+        self.assertEqual(
             validation_payload["ngraObjects"]["internalExposureEstimate"]["decisionBoundary"],
             "no-ngra-decision-policy",
         )
@@ -258,6 +270,17 @@ class OecdLiveStackTests(unittest.TestCase):
         self.assertEqual(
             report["ngraObjects"]["berInputBundle"]["status"],
             "incomplete",
+        )
+        self.assertEqual(
+            report["ngraObjects"]["uncertaintyHandoff"]["status"],
+            "ready-for-cross-domain-uncertainty-synthesis",
+        )
+        self.assertFalse(
+            report["ngraObjects"]["uncertaintyHandoff"]["supports"]["crossDomainUncertaintySynthesis"],
+        )
+        self.assertEqual(
+            report["ngraObjects"]["uncertaintyRegisterReference"]["status"],
+            "not-attached",
         )
         self.assertEqual(
             report["ngraObjects"]["pointOfDepartureReference"]["status"],
