@@ -4,11 +4,46 @@
 from __future__ import annotations
 
 import argparse
+import importlib
 import json
 import sys
 import types
 from pathlib import Path
 from typing import Iterable
+
+WORKSPACE_ROOT = Path(__file__).resolve().parents[1]
+PATCH_ROOT = WORKSPACE_ROOT / "patches"
+SRC_ROOT = WORKSPACE_ROOT / "src"
+
+if SRC_ROOT.exists():
+    sys.path.insert(0, str(SRC_ROOT))
+
+
+def _extend_package_path(package_name: str, overlay_path: Path) -> None:
+    """Overlay a patch directory onto an already-importable package path."""
+
+    if not overlay_path.exists():
+        return
+    package = importlib.import_module(package_name)
+    package_path = getattr(package, "__path__", None)
+    if package_path is None:
+        return
+    overlay = str(overlay_path)
+    existing_paths = list(package_path)
+    if overlay not in existing_paths:
+        package.__path__ = [overlay, *existing_paths]
+
+
+if PATCH_ROOT.exists():
+    _extend_package_path("mcp_bridge", PATCH_ROOT / "mcp_bridge")
+    _extend_package_path("mcp_bridge.routes", PATCH_ROOT / "mcp_bridge" / "routes")
+    _extend_package_path("mcp_bridge.tools", PATCH_ROOT / "mcp_bridge" / "tools")
+    _extend_package_path("mcp", PATCH_ROOT / "mcp")
+    _extend_package_path("mcp.tools", PATCH_ROOT / "mcp" / "tools")
+    # Importing ``mcp_bridge.tools`` executes its packaged __init__, which eagerly
+    # imports the packaged registry. Remove that submodule so subsequent imports
+    # resolve against the overlaid patch path and reflect the live public surface.
+    sys.modules.pop("mcp_bridge.tools.registry", None)
 
 try:
     import prometheus_client  # noqa: F401
@@ -44,8 +79,7 @@ except ModuleNotFoundError:  # pragma: no cover - documentation environments onl
 
 
 def _ensure_stub_module(name: str, attrs: dict[str, object]) -> None:
-    if name in sys.modules:
-        return
+    sys.modules.pop(name, None)
     parts = name.split(".")
     for idx in range(1, len(parts)):
         pkg_name = ".".join(parts[:idx])
@@ -59,18 +93,7 @@ def _ensure_stub_module(name: str, attrs: dict[str, object]) -> None:
     sys.modules[name] = module
 
 
-try:
-    import langchain_core.messages  # noqa: F401
-    import langchain_core.pydantic_v1  # noqa: F401
-    import langchain_core.tools  # noqa: F401
-    import langchain_core.utils.function_calling  # noqa: F401
-    import langgraph.checkpoint.memory  # noqa: F401
-    import langgraph.checkpoint.sqlite  # noqa: F401
-    import langgraph.checkpoint.base  # noqa: F401
-    import langgraph.constants  # noqa: F401
-    import langgraph.graph  # noqa: F401
-    import langgraph.pregel  # noqa: F401
-except ModuleNotFoundError:  # pragma: no cover - documentation environments only
+def _install_langchain_stubs() -> None:
     class _StubMessage:
         def __init__(self, content: str | None = None, **kwargs) -> None:
             self.content = content
@@ -149,12 +172,31 @@ except ModuleNotFoundError:  # pragma: no cover - documentation environments onl
     def _stub_empty_checkpoint() -> dict:
         return {}
 
-    from pydantic import BaseModel as _PydanticBaseModel
-    from pydantic import Field as _PydanticField
     try:
-        from pydantic import validator as _pydantic_validator
-    except ImportError:  # pragma: no cover
-        from pydantic.class_validators import validator as _pydantic_validator  # type: ignore
+        from pydantic import BaseModel as _PydanticBaseModel
+        from pydantic import Field as _PydanticField
+        try:
+            from pydantic import validator as _pydantic_validator
+        except ImportError:  # pragma: no cover
+            from pydantic.class_validators import validator as _pydantic_validator  # type: ignore
+    except ModuleNotFoundError:  # pragma: no cover - help path in lightweight envs
+        class _PydanticBaseModel:  # noqa: D401
+            @classmethod
+            def model_rebuild(cls, *args, **kwargs):
+                return None
+
+            @classmethod
+            def model_json_schema(cls, *args, **kwargs):
+                return {}
+
+        def _PydanticField(default=None, **_kwargs):  # noqa: D401, ANN001
+            return default
+
+        def _pydantic_validator(*_args, **_kwargs):  # noqa: D401
+            def _decorator(func):
+                return func
+
+            return _decorator
 
     _ensure_stub_module(
         "langchain_core.messages",
@@ -213,11 +255,24 @@ except ModuleNotFoundError:  # pragma: no cover - documentation environments onl
         {"empty_checkpoint": _stub_empty_checkpoint},
     )
 
-from mcp_bridge.app import create_app
-from mcp_bridge.config import AppConfig
-from mcp_bridge.tools.registry import get_tool_registry
-from pydantic import BaseModel as _PydanticBaseModel
 
+try:
+    import langchain_core.messages  # noqa: F401
+    import langchain_core.pydantic_v1  # noqa: F401
+    import langchain_core.tools  # noqa: F401
+    import langchain_core.utils.function_calling  # noqa: F401
+    import langgraph.checkpoint.memory  # noqa: F401
+    import langgraph.checkpoint.sqlite  # noqa: F401
+    import langgraph.checkpoint.base  # noqa: F401
+    import langgraph.constants  # noqa: F401
+    import langgraph.graph  # noqa: F401
+    import langgraph.pregel  # noqa: F401
+except Exception as exc:  # pragma: no cover - documentation environments only
+    sys.stderr.write(
+        "Falling back to documentation stubs for LangChain/LangGraph imports: "
+        f"{exc.__class__.__name__}: {exc}\n"
+    )
+    _install_langchain_stubs()
 
 def _dump_json(path: Path, payload: object, indent: int) -> None:
     path.write_text(json.dumps(payload, indent=indent, sort_keys=True) + "\n")
@@ -235,6 +290,8 @@ def _export_tool_schemas(
     schemas_dir: Path,
     indent: int,
 ) -> Iterable[Path]:
+    from mcp_bridge.tools.registry import get_tool_registry
+
     schemas_dir.mkdir(parents=True, exist_ok=True)
 
     paths: list[Path] = []
@@ -255,7 +312,9 @@ def _export_tool_schemas(
     return paths
 
 
-def _build_config(source: str) -> AppConfig:
+def _build_config(source: str):
+    from mcp_bridge.config import AppConfig
+
     if source == "env":
         return AppConfig.from_env()
     return AppConfig()
@@ -265,6 +324,7 @@ def _rebuild_known_models() -> None:
     """Ensure Pydantic models with forward references are ready for schema export."""
 
     try:
+        from pydantic import BaseModel as _PydanticBaseModel
         from mcp_bridge.routes import mcp as mcp_routes
         from mcp_bridge.routes import resources as resource_routes
         from mcp_bridge.routes import simulation as simulation_routes
@@ -323,6 +383,8 @@ def _parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = _parse_args()
+
+    from mcp_bridge.app import create_app
 
     config = _build_config(args.config_source)
     app = create_app(config)

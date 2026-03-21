@@ -86,6 +86,8 @@ runtime-patch-check: ## Compile the patch-first runtime files used by the live s
 		patches/mcp/tools/run_population_simulation.py \
 		src/mcp_bridge/contract/__init__.py \
 		src/mcp_bridge/contract/artifacts.py \
+		src/mcp_bridge/routes/resources_base.py \
+		src/mcp_bridge/tools/registry_base.py \
 		patches/mcp_bridge/model_catalog.py \
 		patches/mcp_bridge/model_manifest.py \
 		patches/mcp_bridge/routes/resources.py \
@@ -101,7 +103,10 @@ runtime-contract-test: ## Run the patch-first runtime contract tests that do not
 		tests/test_capability_matrix.py \
 		tests/test_deployment_profiles.py \
 		tests/test_distribution_artifacts.py \
+		tests/test_export_api_docs.py \
 		tests/test_ngra_object_schemas.py \
+		tests/test_packaged_resource_routes.py \
+		tests/test_packaged_tool_registry.py \
 		tests/test_release_metadata.py \
 		tests/test_packaged_contract_artifacts.py \
 		tests/test_load_simulation_contract.py \

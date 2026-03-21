@@ -52,6 +52,8 @@ class DeploymentProfileTests(unittest.TestCase):
         expected = {
             "docs/architecture/capability_matrix.json",
             "docs/architecture/contract_manifest.json",
+            "src/mcp_bridge/routes/resources_base.py",
+            "src/mcp_bridge/tools/registry_base.py",
             "schemas/assessmentContext.v1.json",
             "schemas/berInputBundle.v1.json",
             "schemas/internalExposureEstimate.v1.json",

@@ -34,6 +34,14 @@ PATCHES: tuple[RuntimePatch, ...] = (
         "/usr/local/lib/python3.11/site-packages/mcp_bridge/model_manifest.py",
     ),
     RuntimePatch(
+        "src/mcp_bridge/routes/resources_base.py",
+        "/usr/local/lib/python3.11/site-packages/mcp_bridge/routes/resources_base.py",
+    ),
+    RuntimePatch(
+        "src/mcp_bridge/tools/registry_base.py",
+        "/usr/local/lib/python3.11/site-packages/mcp_bridge/tools/registry_base.py",
+    ),
+    RuntimePatch(
         "patches/mcp_bridge/routes/resources.py",
         "/usr/local/lib/python3.11/site-packages/mcp_bridge/routes/resources.py",
     ),

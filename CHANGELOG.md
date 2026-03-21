@@ -39,6 +39,8 @@ All notable changes to this project should be documented in this file.
 - the contract manifest now classifies published schemas and the capability matrix as normative, inventories supporting docs/scripts with hashes, and publishes the legacy-excluded extraction-record policy explicitly
 - the live resource route now prefers the patched runtime copy, but can fall back to packaged contract artifacts when the repo-root JSON files are not present
 - the live schema, capability-matrix, and contract-manifest resources now expose SHA-256 values derived from the published contract inventory, so downstream clients can verify artifact integrity directly from the running API
+- the shared schema/capability/contract-manifest resource logic now lives in packaged `src/mcp_bridge/routes/resources_base.py`, so the patch layer only extends `/mcp/resources` with the model-catalog endpoint during the current convergence stage
+- the shared base tool-registry logic now lives in packaged `src/mcp_bridge/tools/registry_base.py`, so the patch layer only extends the public tool catalog with discovery/verification/reporting/import tools that are still patch-only during the current convergence stage
 - removed the stale `mcp_bridge.schemas` package-data declaration now that the published PBPK-side contract artifacts are carried either as generated Python module content or as patched runtime JSON copies
 
 ## v0.3.5 - 2026-03-21

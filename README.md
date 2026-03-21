@@ -195,6 +195,8 @@ PBPK MCP now also publishes a machine-readable contract manifest in:
 
 That manifest inventories the published PBPK-side schema family, the capability matrix, the legacy artifacts intentionally excluded from the PBPK-side object family, and the stable resource endpoints that expose the contract.
 The live schema, capability-matrix, and contract-manifest resources now also expose SHA-256 values so downstream clients can verify that the running API matches the published artifact inventory.
+The shared schema/capability/contract-manifest route logic now lives in packaged `src/mcp_bridge/routes/resources_base.py`, while the patch layer only extends `/mcp/resources` with the model-catalog endpoint that is still patch-only in the current convergence stage.
+The same split now starts to exist for tools as well: packaged `src/mcp_bridge/tools/registry_base.py` owns the shared base tool descriptors, while the patch layer only adds the extended discovery/verification/reporting/import tools that are still patch-only in the current convergence stage.
 
 ## Capability matrix
 

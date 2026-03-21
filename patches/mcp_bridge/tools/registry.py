@@ -1,27 +1,9 @@
-"""Central registry describing MCP tools exposed by the bridge."""
+"""Central registry describing the patched MCP tool surface exposed by the bridge."""
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Any, Callable, Dict, Optional, Tuple, Type
+from typing import Dict
 
-from pydantic import BaseModel
-
-from mcp.tools.calculate_pk_parameters import (
-    CalculatePkParametersRequest,
-    CalculatePkParametersResponse,
-    calculate_pk_parameters,
-)
-from mcp.tools.cancel_job import (
-    CancelJobRequest,
-    CancelJobResponse,
-    cancel_job,
-)
-from mcp.tools.get_job_status import (
-    GetJobStatusRequest,
-    GetJobStatusResponse,
-    get_job_status,
-)
 from mcp.tools.discover_models import (
     DiscoverModelsRequest,
     DiscoverModelsResponse,
@@ -31,16 +13,6 @@ from mcp.tools.export_oecd_report import (
     ExportOecdReportRequest,
     ExportOecdReportResponse,
     export_oecd_report,
-)
-from mcp.tools.get_parameter_value import (
-    GetParameterValueRequest,
-    GetParameterValueResponse,
-    get_parameter_value,
-)
-from mcp.tools.get_population_results import (
-    GetPopulationResultsRequest,
-    GetPopulationResultsResponse,
-    get_population_results,
 )
 from mcp.tools.get_results import (
     GetResultsRequest,
@@ -52,260 +24,98 @@ from mcp.tools.ingest_external_pbpk_bundle import (
     IngestExternalPbpkBundleResponse,
     ingest_external_pbpk_bundle,
 )
-from mcp.tools.list_parameters import (
-    ListParametersRequest,
-    ListParametersResponse,
-    list_parameters,
-)
-from mcp.tools.load_simulation import (
-    LoadSimulationRequest,
-    LoadSimulationResponse,
-    load_simulation,
-)
-from mcp.tools.run_population_simulation import (
-    RunPopulationSimulationRequest,
-    RunPopulationSimulationResponse,
-    run_population_simulation,
-)
 from mcp.tools.run_verification_checks import (
     RunVerificationChecksRequest,
     RunVerificationChecksResponse,
     run_verification_checks,
-)
-from mcp.tools.run_simulation import (
-    RunSimulationRequest,
-    RunSimulationResponse,
-    run_simulation,
-)
-from mcp.tools.set_parameter_value import (
-    SetParameterValueRequest,
-    SetParameterValueResponse,
-    set_parameter_value,
-)
-from mcp.tools.run_sensitivity_analysis import (
-    RunSensitivityAnalysisRequest,
-    RunSensitivityAnalysisResponse,
-    run_sensitivity_analysis_tool,
-)
-from mcp.tools.validate_simulation_request import (
-    ValidateSimulationRequestRequest,
-    ValidateSimulationRequestResponse,
-    validate_simulation_request,
 )
 from mcp.tools.validate_model_manifest import (
     ValidateModelManifestRequest,
     ValidateModelManifestResponse,
     validate_model_manifest,
 )
-
-
-DependencyName = str
-
-
-@dataclass(frozen=True)
-class ToolDescriptor:
-    """Metadata describing a single MCP tool."""
-
-    name: str
-    description: str
-    request_model: Type[BaseModel]
-    response_model: Optional[Type[BaseModel]]
-    handler: Callable[..., Any]
-    dependencies: Tuple[DependencyName, ...]
-    roles: Tuple[str, ...]
-    critical: bool = False
-    requires_confirmation: bool = False
-
-    def input_schema(self) -> Dict[str, Any]:
-        return self.request_model.model_json_schema()
-
-    def output_schema(self) -> Optional[Dict[str, Any]]:
-        if self.response_model is None:
-            return None
-        return self.response_model.model_json_schema()
-
-
-def _standard_roles(*roles: str) -> Tuple[str, ...]:
-    return tuple(roles or ("viewer",))
+from mcp.tools.validate_simulation_request import (
+    ValidateSimulationRequestRequest,
+    ValidateSimulationRequestResponse,
+    validate_simulation_request,
+)
+from mcp_bridge.tools.registry_base import ToolDescriptor, get_base_tool_registry, standard_roles
 
 
 def get_tool_registry() -> Dict[str, ToolDescriptor]:
-    """Return the MCP tool registry keyed by tool name."""
+    """Return the patched MCP tool registry keyed by tool name."""
 
-    return {
-        "load_simulation": ToolDescriptor(
-            name="load_simulation",
-            description="Load a PBPK model (.pkml or MCP-ready .R) into the active session registry.",
-            request_model=LoadSimulationRequest,
-            response_model=LoadSimulationResponse,
-            handler=load_simulation,
-            dependencies=("adapter",),
-            roles=_standard_roles("operator", "admin"),
-            critical=True,
-            requires_confirmation=True,
-        ),
-        "discover_models": ToolDescriptor(
-            name="discover_models",
-            description="Discover supported PBPK model files under MCP_MODEL_SEARCH_PATHS, including unloaded workspace models.",
-            request_model=DiscoverModelsRequest,
-            response_model=DiscoverModelsResponse,
-            handler=discover_models,
-            dependencies=(),
-            roles=_standard_roles("viewer", "operator", "admin"),
-        ),
-        "validate_simulation_request": ToolDescriptor(
-            name="validate_simulation_request",
-            description="Run a preflight OECD-style applicability and guardrail assessment for a loaded model.",
-            request_model=ValidateSimulationRequestRequest,
-            response_model=ValidateSimulationRequestResponse,
-            handler=validate_simulation_request,
-            dependencies=("adapter",),
-            roles=_standard_roles("viewer", "operator", "admin"),
-        ),
-        "run_verification_checks": ToolDescriptor(
-            name="run_verification_checks",
-            description="Run executable verification checks for a loaded model, including deterministic smoke tests and optional population smoke where supported.",
-            request_model=RunVerificationChecksRequest,
-            response_model=RunVerificationChecksResponse,
-            handler=run_verification_checks,
-            dependencies=("adapter",),
-            roles=_standard_roles("viewer", "operator", "admin"),
-        ),
-        "validate_model_manifest": ToolDescriptor(
-            name="validate_model_manifest",
-            description="Run a static manifest check for a supported model file before loading it, including qualification-state and metadata coverage hints.",
-            request_model=ValidateModelManifestRequest,
-            response_model=ValidateModelManifestResponse,
-            handler=validate_model_manifest,
-            dependencies=(),
-            roles=_standard_roles("viewer", "operator", "admin"),
-        ),
-        "export_oecd_report": ToolDescriptor(
-            name="export_oecd_report",
-            description="Export an OECD-style model dossier/report for a loaded simulation, including profile, assessment, and parameter provenance.",
-            request_model=ExportOecdReportRequest,
-            response_model=ExportOecdReportResponse,
-            handler=export_oecd_report,
-            dependencies=("adapter",),
-            roles=_standard_roles("viewer", "operator", "admin"),
-        ),
-        "list_parameters": ToolDescriptor(
-            name="list_parameters",
-            description="List parameter paths available in a loaded simulation (supports glob filters).",
-            request_model=ListParametersRequest,
-            response_model=ListParametersResponse,
-            handler=list_parameters,
-            dependencies=("adapter",),
-            roles=_standard_roles("viewer", "operator", "admin"),
-        ),
-        "get_parameter_value": ToolDescriptor(
-            name="get_parameter_value",
-            description="Retrieve the current value for a simulation parameter.",
-            request_model=GetParameterValueRequest,
-            response_model=GetParameterValueResponse,
-            handler=get_parameter_value,
-            dependencies=("adapter",),
-            roles=_standard_roles("viewer", "operator", "admin"),
-        ),
-        "set_parameter_value": ToolDescriptor(
-            name="set_parameter_value",
-            description="Update a parameter in the simulation with an optional unit and comment.",
-            request_model=SetParameterValueRequest,
-            response_model=SetParameterValueResponse,
-            handler=set_parameter_value,
-            dependencies=("adapter",),
-            roles=_standard_roles("operator", "admin"),
-            critical=True,
-            requires_confirmation=True,
-        ),
-        "run_simulation": ToolDescriptor(
-            name="run_simulation",
-            description="Submit an asynchronous simulation job and receive a job handle.",
-            request_model=RunSimulationRequest,
-            response_model=RunSimulationResponse,
-            handler=run_simulation,
-            dependencies=("adapter", "job_service"),
-            roles=_standard_roles("operator", "admin"),
-            critical=True,
-            requires_confirmation=True,
-        ),
-        "get_job_status": ToolDescriptor(
-            name="get_job_status",
-            description="Inspect the status of a previously submitted job.",
-            request_model=GetJobStatusRequest,
-            response_model=GetJobStatusResponse,
-            handler=get_job_status,
-            dependencies=("job_service",),
-            roles=_standard_roles("viewer", "operator", "admin"),
-        ),
-        "get_results": ToolDescriptor(
-            name="get_results",
-            description="Retrieve stored deterministic simulation results by handle.",
-            request_model=GetResultsRequest,
-            response_model=GetResultsResponse,
-            handler=get_results,
-            dependencies=("adapter", "job_service"),
-            roles=_standard_roles("viewer", "operator", "admin"),
-        ),
-        "ingest_external_pbpk_bundle": ToolDescriptor(
-            name="ingest_external_pbpk_bundle",
-            description="Normalize externally generated PBPK outputs, qualification metadata, and optional PoD references into PBPK-side NGRA-ready objects without executing the upstream engine.",
-            request_model=IngestExternalPbpkBundleRequest,
-            response_model=IngestExternalPbpkBundleResponse,
-            handler=ingest_external_pbpk_bundle,
-            dependencies=(),
-            roles=_standard_roles("viewer", "operator", "admin"),
-        ),
-        "calculate_pk_parameters": ToolDescriptor(
-            name="calculate_pk_parameters",
-            description="Compute PK metrics (Cmax, Tmax, AUC) for an existing simulation results handle.",
-            request_model=CalculatePkParametersRequest,
-            response_model=CalculatePkParametersResponse,
-            handler=calculate_pk_parameters,
-            dependencies=("adapter", "job_service"),
-            roles=_standard_roles("viewer", "operator", "admin"),
-        ),
-        "run_population_simulation": ToolDescriptor(
-            name="run_population_simulation",
-            description="Execute a population simulation asynchronously and return a job handle.",
-            request_model=RunPopulationSimulationRequest,
-            response_model=RunPopulationSimulationResponse,
-            handler=run_population_simulation,
-            dependencies=("adapter", "job_service"),
-            roles=_standard_roles("operator", "admin"),
-            critical=True,
-            requires_confirmation=True,
-        ),
-        "get_population_results": ToolDescriptor(
-            name="get_population_results",
-            description="Fetch aggregated results and chunk handles for a completed population simulation.",
-            request_model=GetPopulationResultsRequest,
-            response_model=GetPopulationResultsResponse,
-            handler=get_population_results,
-            dependencies=("adapter",),
-            roles=_standard_roles("viewer", "operator", "admin"),
-        ),
-        "cancel_job": ToolDescriptor(
-            name="cancel_job",
-            description="Request cancellation of a queued or running asynchronous job.",
-            request_model=CancelJobRequest,
-            response_model=CancelJobResponse,
-            handler=cancel_job,
-            dependencies=("job_service",),
-            roles=_standard_roles("operator", "admin"),
-        ),
-        "run_sensitivity_analysis": ToolDescriptor(
-            name="run_sensitivity_analysis",
-            description="Execute a multi-parameter sensitivity analysis workflow and return PK deltas.",
-            request_model=RunSensitivityAnalysisRequest,
-            response_model=RunSensitivityAnalysisResponse,
-            handler=run_sensitivity_analysis_tool,
-            dependencies=("adapter", "job_service"),
-            roles=_standard_roles("operator", "admin"),
-            critical=True,
-            requires_confirmation=True,
-        ),
-    }
+    registry = get_base_tool_registry(
+        load_simulation_description="Load a PBPK model (.pkml or MCP-ready .R) into the active session registry."
+    )
+    registry.update(
+        {
+            "discover_models": ToolDescriptor(
+                name="discover_models",
+                description="Discover supported PBPK model files under MCP_MODEL_SEARCH_PATHS, including unloaded workspace models.",
+                request_model=DiscoverModelsRequest,
+                response_model=DiscoverModelsResponse,
+                handler=discover_models,
+                dependencies=(),
+                roles=standard_roles("viewer", "operator", "admin"),
+            ),
+            "validate_simulation_request": ToolDescriptor(
+                name="validate_simulation_request",
+                description="Run a preflight OECD-style applicability and guardrail assessment for a loaded model.",
+                request_model=ValidateSimulationRequestRequest,
+                response_model=ValidateSimulationRequestResponse,
+                handler=validate_simulation_request,
+                dependencies=("adapter",),
+                roles=standard_roles("viewer", "operator", "admin"),
+            ),
+            "run_verification_checks": ToolDescriptor(
+                name="run_verification_checks",
+                description="Run executable verification checks for a loaded model, including deterministic smoke tests and optional population smoke where supported.",
+                request_model=RunVerificationChecksRequest,
+                response_model=RunVerificationChecksResponse,
+                handler=run_verification_checks,
+                dependencies=("adapter",),
+                roles=standard_roles("viewer", "operator", "admin"),
+            ),
+            "validate_model_manifest": ToolDescriptor(
+                name="validate_model_manifest",
+                description="Run a static manifest check for a supported model file before loading it, including qualification-state and metadata coverage hints.",
+                request_model=ValidateModelManifestRequest,
+                response_model=ValidateModelManifestResponse,
+                handler=validate_model_manifest,
+                dependencies=(),
+                roles=standard_roles("viewer", "operator", "admin"),
+            ),
+            "export_oecd_report": ToolDescriptor(
+                name="export_oecd_report",
+                description="Export an OECD-style model dossier/report for a loaded simulation, including profile, assessment, and parameter provenance.",
+                request_model=ExportOecdReportRequest,
+                response_model=ExportOecdReportResponse,
+                handler=export_oecd_report,
+                dependencies=("adapter",),
+                roles=standard_roles("viewer", "operator", "admin"),
+            ),
+            "get_results": ToolDescriptor(
+                name="get_results",
+                description="Retrieve stored deterministic simulation results by handle.",
+                request_model=GetResultsRequest,
+                response_model=GetResultsResponse,
+                handler=get_results,
+                dependencies=("adapter", "job_service"),
+                roles=standard_roles("viewer", "operator", "admin"),
+            ),
+            "ingest_external_pbpk_bundle": ToolDescriptor(
+                name="ingest_external_pbpk_bundle",
+                description="Normalize externally generated PBPK outputs, qualification metadata, and optional PoD references into PBPK-side NGRA-ready objects without executing the upstream engine.",
+                request_model=IngestExternalPbpkBundleRequest,
+                response_model=IngestExternalPbpkBundleResponse,
+                handler=ingest_external_pbpk_bundle,
+                dependencies=(),
+                roles=standard_roles("viewer", "operator", "admin"),
+            ),
+        }
+    )
+    return registry
 
 
 __all__ = ["ToolDescriptor", "get_tool_registry"]
