@@ -184,7 +184,7 @@ Design intent:
 - keep BER calculation and final decision policy outside PBPK MCP
 - make the PBPK-side handoff layer consumable by downstream validators and orchestrators without scraping examples out of tests
 
-See `schemas/README.md` for the short schema guide and `tests/test_ngra_object_schemas.py` for the validation gate that keeps the published schemas aligned with live payload generation.
+See `schemas/README.md` for the short schema guide and `tests/test_ngra_object_schemas.py` for the validation gate that keeps the published schemas aligned with live payload generation. The same schema family is also exposed through the live MCP resource surface at `/mcp/resources/schemas`.
 
 ## Capability matrix
 
@@ -192,6 +192,8 @@ PBPK MCP now publishes a dedicated capability matrix for adopters in:
 
 - `docs/architecture/capability_matrix.md`
 - `docs/architecture/capability_matrix.json`
+
+The machine-readable matrix is also exposed from the running server at `/mcp/resources/capability-matrix`.
 
 This matrix is the crisp public answer to:
 
@@ -279,7 +281,7 @@ For the GitHub-hosted verification path, the repository also carries:
 
 ## Configuration
 
-The default local stack is defined in `docker-compose.celery.yml`. Key environment variables currently shaping the runtime are:
+The default developer stack is defined in `docker-compose.celery.yml`. A stricter operator overlay is now available in `docker-compose.hardened.yml` for deployments that should disable anonymous access and require explicit auth configuration. Key environment variables currently shaping the runtime are:
 
 | Variable | Default | Description |
 | --- | --- | --- |
@@ -293,8 +295,15 @@ The default local stack is defined in `docker-compose.celery.yml`. Key environme
 | `DOTNET_GCHeapLimitPercent` | `60` | Constrains the .NET heap used by the OSPSuite runtime. |
 | `SERVICE_VERSION` | `0.3.5` | Exposed through `/health` and compose-level runtime metadata. |
 | `AUTH_ALLOW_ANONYMOUS` | `true` | Development-friendly local default; do not expose beyond localhost without hardening. |
+| `PBPK_BIND_HOST` | `127.0.0.1` | Host/interface used by the hardened overlay when publishing the API port. |
+| `PBPK_BIND_PORT` | `8000` | Host port used by the hardened overlay when publishing the API port. |
+| `AUTH_ISSUER_URL` | unset | Required by the hardened overlay. OIDC issuer used for token validation. |
+| `AUTH_AUDIENCE` | unset | Required by the hardened overlay. Audience expected in bearer tokens. |
+| `AUTH_JWKS_URL` | unset | Required by the hardened overlay. JWKS endpoint used to validate bearer tokens. |
 
-See `docker-compose.celery.yml`, `docs/deployment/runtime_patch_flow.md`, and `docs/deployment/rxode2_worker_image.md` for the current operator-facing deployment surface.
+For local development, keep using `docker-compose.celery.yml` through `./scripts/deploy_rxode2_stack.sh`. For a more production-like local or operator-managed deployment, use `./scripts/deploy_hardened_stack.sh`, which layers `docker-compose.hardened.yml` over the same patch-first runtime flow and waits for stable readiness before returning.
+
+See `docker-compose.celery.yml`, `docker-compose.hardened.yml`, `docs/deployment/runtime_patch_flow.md`, and `docs/deployment/rxode2_worker_image.md` for the current operator-facing deployment surface.
 
 ---
 
@@ -418,6 +427,17 @@ The preferred local operator entrypoint is:
 
 That command recreates the containers and reapplies the current runtime patch set so the live tool catalog remains aligned with the documented contract.
 
+When you want the same runtime contract with stricter deployment defaults, use:
+
+```bash
+AUTH_ISSUER_URL="https://issuer.example" \
+AUTH_AUDIENCE="pbpk-mcp" \
+AUTH_JWKS_URL="https://issuer.example/.well-known/jwks.json" \
+./scripts/deploy_hardened_stack.sh
+```
+
+That overlay disables anonymous access, switches the stack to `ENVIRONMENT=production`, binds the published API port through `PBPK_BIND_HOST` / `PBPK_BIND_PORT`, and still reapplies the shared patch manifest before waiting for stable `/health` and `/mcp/list_tools` responses.
+
 ---
 
 ## Integrating with coding agents
@@ -430,6 +450,8 @@ Useful companion surfaces:
 - `/mcp/call_tool` for direct HTTP tool execution
 - `/mcp/resources/models` for discoverable model files
 - `/mcp/resources/simulations` for already-loaded live sessions
+- `/mcp/resources/schemas` for the published PBPK-side object schemas and example payloads
+- `/mcp/resources/capability-matrix` for the live machine-readable runtime-support matrix
 
 Critical tools still declare MCP-side guardrails such as `critical` and `requiresConfirmation` in the tool catalog. The current live regression suite checks that the documented workflow is actually exposed through `/mcp/list_tools`.
 
@@ -461,7 +483,8 @@ The server currently produces and exposes:
 - ✅ `capabilities`, `profile`, `validation`, and `qualificationState` remain distinct, so runtime support is not mislabeled as scientific qualification.
 - ✅ The shared runtime patch manifest keeps image builds and hot-patch deployment aligned in the current patch-first stage.
 - ✅ Live readiness checks verify `/mcp/list_tools`, `/mcp/resources/models`, discovery parity, and conversion-only rejection behavior.
-- 🔲 The default local compose stack is still development-oriented; harden auth and ingress before exposing it beyond localhost.
+- ✅ A documented hardened overlay now disables anonymous access by default and requires explicit auth settings before the stack will start.
+- 🔲 The default compose file is still development-oriented; keep it on localhost and use the hardened overlay plus environment-specific ingress controls when moving beyond local development.
 - 🔲 Qualification evidence completeness still depends on the model or sidecar; executable does not imply regulatory readiness.
 
 ## Current limitations
@@ -495,6 +518,7 @@ The server currently produces and exposes:
 - Runtime workers should stay conservatively capped, such as `4 GiB`.
 - Durable `rxode2` image builds can take a long time on laptop hardware because of C/C++ compilation.
 - The current local deployment is patch-first, so container recreate should be followed by the shared patch-install flow to keep the live API aligned with the current workspace contract.
+- The hardened overlay improves auth defaults and bind behavior, but it is still an operator-side compose profile rather than a full production deployment package with ingress, secret rotation, or managed identity infrastructure.
 
 ---
 
@@ -524,6 +548,7 @@ If you are maintaining the local stack in the current convergence stage:
 1. Change the authoritative runtime files in `patches/`, `scripts/ospsuite_bridge.R`, or the bundled `.R` model modules.
 2. If the worker image baseline should change, rebuild it with `./scripts/build_rxode2_worker_image.sh`.
 3. Recreate the stack with `./scripts/deploy_rxode2_stack.sh`.
+   - When you need stricter auth defaults, use `./scripts/deploy_hardened_stack.sh` with `AUTH_ISSUER_URL`, `AUTH_AUDIENCE`, and `AUTH_JWKS_URL` set.
 4. Verify the live API with:
    - `curl -s http://localhost:8000/health`
    - `curl -s http://localhost:8000/mcp/list_tools`
@@ -534,6 +559,7 @@ If you are maintaining the local stack in the current convergence stage:
 Important boundaries:
 
 - `scripts/deploy_rxode2_stack.sh` is the preferred local operator entrypoint.
+- `scripts/deploy_hardened_stack.sh` is the stricter operator entrypoint when you need non-anonymous auth defaults on the same patch-first stack.
 - `scripts/apply_rxode2_patch.py` is the lower-level recovery tool if you need to reapply the current contract without a full recreate.
 - `scripts/install_runtime_patches.py` and `scripts/runtime_patch_manifest.py` define the shared patch set used by both the worker image build and the runtime patch flow.
 - `patches/` is still the canonical implementation layer for the current `v0.3.5` stage; pure `src/` packaging migration is intentionally deferred.

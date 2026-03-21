@@ -60,6 +60,36 @@ class ModelDiscoveryLiveStackTests(unittest.TestCase):
         self.assertEqual(item["runtimeFormat"], "r")
         self.assertIn(item["discoveryState"], {"discovered", "loaded"})
 
+    def test_schema_resource_catalog_lists_published_objects(self) -> None:
+        payload = api_json("/mcp/resources/schemas?limit=50")
+        self.assertGreaterEqual(payload["total"], 8)
+
+        schema_ids = {item["schemaId"] for item in payload["items"]}
+        self.assertIn("assessmentContext.v1", schema_ids)
+        self.assertIn("uncertaintyHandoff.v1", schema_ids)
+        assessment_item = next(item for item in payload["items"] if item["schemaId"] == "assessmentContext.v1")
+        self.assertEqual(assessment_item["relativePath"], "schemas/assessmentContext.v1.json")
+        self.assertEqual(
+            assessment_item["exampleRelativePath"],
+            "schemas/examples/assessmentContext.v1.example.json",
+        )
+
+    def test_schema_resource_detail_returns_schema_and_example(self) -> None:
+        payload = api_json("/mcp/resources/schemas/assessmentContext.v1")
+        self.assertEqual(payload["schemaId"], "assessmentContext.v1")
+        self.assertEqual(payload["schema"]["title"], "assessmentContext.v1")
+        self.assertEqual(payload["example"]["objectType"], "assessmentContext.v1")
+
+    def test_capability_matrix_resource_exposes_published_contract(self) -> None:
+        payload = api_json("/mcp/resources/capability-matrix")
+        self.assertEqual(payload["contractVersion"], "pbpk-mcp.v1")
+        self.assertEqual(payload["relativePath"], "docs/architecture/capability_matrix.json")
+        self.assertGreaterEqual(payload["entryCount"], 5)
+        entries = payload["matrix"]["entries"]
+        conversion_only = next(entry for entry in entries if entry["id"] == "pksim5-project")
+        self.assertEqual(conversion_only["policy"], "conversion-only")
+        self.assertEqual(conversion_only["catalogDiscovery"], "no")
+
     def test_tool_catalog_exposes_documented_workflow(self) -> None:
         payload = api_json("/mcp/list_tools")
         tool_names = {tool["name"] for tool in payload["tools"]}

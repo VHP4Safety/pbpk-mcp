@@ -5,6 +5,7 @@ This matrix is the adoption-facing summary of what the current public PBPK MCP c
 Machine-readable source of truth:
 
 - `docs/architecture/capability_matrix.json`
+- `/mcp/resources/capability-matrix`
 
 Status meaning:
 

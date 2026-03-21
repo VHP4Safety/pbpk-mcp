@@ -67,7 +67,30 @@ What it does:
 - restarts the patched containers
 - waits for stable `/health` and `/mcp/list_tools` responses before returning so follow-on live checks do not race a still-settling API process
 
-### 2. Patch-only recovery
+### 2. Hardened local or operator redeploy
+
+```bash
+AUTH_ISSUER_URL="https://issuer.example" \
+AUTH_AUDIENCE="pbpk-mcp" \
+AUTH_JWKS_URL="https://issuer.example/.well-known/jwks.json" \
+./scripts/deploy_hardened_stack.sh
+```
+
+Use this when:
+
+- you want the same patch-first runtime contract with stricter auth defaults
+- you are testing a non-anonymous deployment posture locally
+- you want the API port bound through `PBPK_BIND_HOST` / `PBPK_BIND_PORT` instead of the base compose defaults
+
+What it does:
+
+- layers `docker-compose.hardened.yml` over `docker-compose.celery.yml`
+- requires explicit auth settings before compose startup will succeed
+- sets `AUTH_ALLOW_ANONYMOUS=false` and `ENVIRONMENT=production`
+- reapplies the shared runtime patch set to `pbpk_mcp-api-1` and `pbpk_mcp-worker-1`
+- waits for stable `/health` and `/mcp/list_tools` responses at the configured bind host/port before returning
+
+### 3. Patch-only recovery
 
 ```bash
 python3 scripts/apply_rxode2_patch.py --restart
@@ -84,7 +107,7 @@ By default it patches:
 - `pbpk_mcp-api-1`
 - `pbpk_mcp-worker-1`
 
-### 3. Rebuild the worker image baseline
+### 4. Rebuild the worker image baseline
 
 ```bash
 ./scripts/build_rxode2_worker_image.sh
@@ -118,6 +141,8 @@ These checks should confirm:
 - the currently discovered runtime-supported models still load and execute through the live API
 
 `./scripts/deploy_rxode2_stack.sh` now includes a built-in readiness wait through `scripts/wait_for_runtime_ready.py`. That helper requires several consecutive successful `/health` and `/mcp/list_tools` probes before the deploy command exits, which reduces transient connection resets immediately after patch-driven restarts.
+
+`./scripts/deploy_hardened_stack.sh` uses the same readiness helper, but targets the base URL derived from `PBPK_BIND_HOST` and `PBPK_BIND_PORT`. This lets the hardened overlay validate the same runtime contract without assuming the default `127.0.0.1:8000` bind target.
 
 When you specifically want to exercise declared `rxode2` population support too, run:
 
@@ -183,6 +208,25 @@ Fix:
 - verify `patches/mcp/tools/load_simulation.py`
 - rerun `python3 scripts/release_readiness_check.py`
 - rerun `python3 scripts/workspace_model_smoke.py`
+
+### Hardened overlay fails before startup
+
+Symptom:
+
+- `docker compose` aborts immediately when using `docker-compose.hardened.yml`
+
+Typical cause:
+
+- one or more required auth variables are unset:
+  - `AUTH_ISSUER_URL`
+  - `AUTH_AUDIENCE`
+  - `AUTH_JWKS_URL`
+
+Fix:
+
+- export the required variables
+- optionally set `PBPK_BIND_HOST` / `PBPK_BIND_PORT`
+- rerun `./scripts/deploy_hardened_stack.sh`
 
 ## Deferred Work
 

@@ -8,12 +8,17 @@ All notable changes to this project should be documented in this file.
 
 - published versioned JSON Schemas plus example payloads for the PBPK-side NGRA object family under `schemas/` and `schemas/examples/`
 - `tests/test_ngra_object_schemas.py` so the published schema layer is validated against both example payloads and the live external-bundle normalization output
+- `docker-compose.hardened.yml` and `scripts/deploy_hardened_stack.sh` so the patch-first stack can be redeployed with anonymous access disabled and explicit auth settings required at startup
+- `tests/test_deployment_profiles.py` to keep the development and hardened deployment profiles aligned with their documented intent
+- live MCP resources for the published PBPK-side schema family and the machine-readable capability matrix, so agents can inspect those contract artifacts directly from the running server
 
 ### Changed
 
 - README and payload-contract docs now link the published PBPK-side object schemas directly instead of leaving the object layer defined only by code and prose
 - package metadata now describes PBPK MCP as a dual-backend PBPK qualification and reporting server rather than an OSPSuite-only bridge
 - published a dedicated capability matrix in `docs/architecture/capability_matrix.md` and `docs/architecture/capability_matrix.json`, so adopters can see exact discover/load/validate/run/report boundaries without inferring them from scattered docs
+- deployment docs now distinguish the development compose stack from the hardened overlay profile, including bind-host/bind-port settings and readiness waits against the configured base URL
+- the base API compose service now mounts `schemas/` and `docs/` read-only so the published contract artifacts remain available through the live MCP resource surface
 
 ## v0.3.5 - 2026-03-21
 

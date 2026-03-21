@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any, Iterable, Optional, Sequence
 
 from fastapi import APIRouter, Depends, Query, Request, Response, status
@@ -110,8 +111,62 @@ class ParameterResourcePage(CamelModel):
     total: int
 
 
+class SchemaResource(CamelModel):
+    id: str
+    schema_id: str = Field(alias="schemaId")
+    version: str
+    title: Optional[str] = None
+    description: Optional[str] = None
+    relative_path: str = Field(alias="relativePath")
+    example_relative_path: Optional[str] = Field(default=None, alias="exampleRelativePath")
+
+
+class SchemaResourcePage(CamelModel):
+    items: list[SchemaResource]
+    page: int
+    limit: int
+    total: int
+
+
+class SchemaDocumentResource(CamelModel):
+    id: str
+    schema_id: str = Field(alias="schemaId")
+    version: str
+    title: Optional[str] = None
+    description: Optional[str] = None
+    relative_path: str = Field(alias="relativePath")
+    example_relative_path: Optional[str] = Field(default=None, alias="exampleRelativePath")
+    schema: dict[str, Any]
+    example: Optional[dict[str, Any]] = None
+
+
+class CapabilityMatrixResource(CamelModel):
+    id: str
+    contract_version: Optional[str] = Field(default=None, alias="contractVersion")
+    relative_path: str = Field(alias="relativePath")
+    entry_count: int = Field(alias="entryCount")
+    matrix: dict[str, Any]
+
+
 def _isoformat(timestamp: float) -> str:
     return datetime.fromtimestamp(timestamp, tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def _repo_root_candidates() -> tuple[Path, ...]:
+    return (Path("/app"), Path(__file__).resolve().parents[3])
+
+
+def _resolve_repo_root() -> Path:
+    for candidate in _repo_root_candidates():
+        if (candidate / "schemas").exists():
+            return candidate
+    return _repo_root_candidates()[-1]
+
+
+REPO_ROOT = _resolve_repo_root()
+SCHEMA_ROOT = REPO_ROOT / "schemas"
+SCHEMA_EXAMPLES_ROOT = SCHEMA_ROOT / "examples"
+CAPABILITY_MATRIX_PATH = REPO_ROOT / "docs" / "architecture" / "capability_matrix.json"
 
 
 def _weak_etag(tokens: Sequence[str]) -> str:
@@ -128,6 +183,48 @@ def _fingerprint_metadata(metadata: dict[str, Any]) -> str:
     except TypeError:
         serialised = str(sorted(metadata.items()))
     return hashlib.sha1(serialised.encode("utf-8")).hexdigest()
+
+
+def _relative_path(path: Path) -> str:
+    try:
+        return path.relative_to(REPO_ROOT).as_posix()
+    except ValueError:
+        return path.name
+
+
+def _load_json_file(path: Path) -> dict[str, Any]:
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _schema_index() -> list[dict[str, Any]]:
+    resources: list[dict[str, Any]] = []
+    if not SCHEMA_ROOT.exists():
+        raise FileNotFoundError(SCHEMA_ROOT)
+
+    for schema_path in sorted(SCHEMA_ROOT.glob("*.v*.json")):
+        document = _load_json_file(schema_path)
+        schema_id = schema_path.stem
+        version = schema_id.rsplit(".", 1)[-1] if "." in schema_id else "v1"
+        example_path = SCHEMA_EXAMPLES_ROOT / f"{schema_id}.example.json"
+        resources.append(
+            {
+                "id": schema_id,
+                "schemaId": schema_id,
+                "version": version,
+                "title": document.get("title"),
+                "description": document.get("description"),
+                "relativePath": _relative_path(schema_path),
+                "exampleRelativePath": _relative_path(example_path) if example_path.exists() else None,
+                "schema": document,
+                "example": _load_json_file(example_path) if example_path.exists() else None,
+                "_fingerprint": f"{schema_id}:{schema_path.stat().st_mtime}:{example_path.stat().st_mtime if example_path.exists() else 'none'}",
+                "_last_modified": max(
+                    schema_path.stat().st_mtime,
+                    example_path.stat().st_mtime if example_path.exists() else 0.0,
+                ),
+            }
+        )
+    return resources
 
 
 def _paginate(items: Sequence[Any], *, page: int, limit: int) -> Sequence[Any]:
@@ -351,3 +448,144 @@ async def list_parameter_resources(
     response.headers["MCP-Simulation-Created-At"] = sim_created_at
     response.headers["MCP-Simulation-Fingerprint"] = metadata_fingerprint
     return ParameterResourcePage(items=items, page=page, limit=limit, total=total)
+
+
+@router.get("/schemas", response_model=SchemaResourcePage)
+async def list_schema_resources(
+    request: Request,
+    response: Response,
+    page: int = Query(1, ge=1),
+    limit: int = Query(100, ge=1, le=1000),
+    search: Optional[str] = Query(default=None),
+) -> SchemaResourcePage:
+    try:
+        schema_items = _schema_index()
+    except FileNotFoundError as exc:
+        raise _http_error(
+            status_code=status.HTTP_404_NOT_FOUND,
+            message="Published schema resources are not available in the current runtime",
+            code=ErrorCode.NOT_FOUND,
+            hint="Mount the repository schemas directory into the API container.",
+        ) from exc
+    except json.JSONDecodeError as exc:
+        raise _http_error(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            message="Published schema resources are malformed",
+            code=ErrorCode.INTERNAL_ERROR,
+        ) from exc
+
+    if search:
+        lowered = search.lower()
+        schema_items = [
+            item
+            for item in schema_items
+            if lowered in item["schemaId"].lower()
+            or lowered in (item.get("title") or "").lower()
+            or lowered in (item.get("description") or "").lower()
+        ]
+
+    total = len(schema_items)
+    page_items = list(_paginate(schema_items, page=page, limit=limit))
+    response_items = [
+        SchemaResource.model_validate({key: value for key, value in item.items() if not key.startswith("_")})
+        for item in page_items
+    ]
+
+    etag = _weak_etag([item["_fingerprint"] for item in page_items] + [str(page), str(limit), search or ""])
+    headers = {"ETag": etag}
+    if page_items:
+        headers["Last-Modified"] = _isoformat(max(item["_last_modified"] for item in page_items))
+
+    if request.headers.get("if-none-match") == etag:
+        return Response(status_code=status.HTTP_304_NOT_MODIFIED, headers=headers)
+
+    response.headers.update(headers)
+    return SchemaResourcePage(items=response_items, page=page, limit=limit, total=total)
+
+
+@router.get("/schemas/{schema_id}", response_model=SchemaDocumentResource)
+async def get_schema_resource(
+    schema_id: str,
+    request: Request,
+    response: Response,
+) -> SchemaDocumentResource:
+    normalized_id = schema_id.removesuffix(".json")
+    try:
+        match = next((item for item in _schema_index() if item["schemaId"] == normalized_id), None)
+    except FileNotFoundError as exc:
+        raise _http_error(
+            status_code=status.HTTP_404_NOT_FOUND,
+            message="Published schema resources are not available in the current runtime",
+            code=ErrorCode.NOT_FOUND,
+            hint="Mount the repository schemas directory into the API container.",
+        ) from exc
+    except json.JSONDecodeError as exc:
+        raise _http_error(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            message="Published schema resources are malformed",
+            code=ErrorCode.INTERNAL_ERROR,
+        ) from exc
+
+    if match is None:
+        raise _http_error(
+            status_code=status.HTTP_404_NOT_FOUND,
+            message=f"Schema resource '{schema_id}' was not found",
+            code=ErrorCode.NOT_FOUND,
+            field="schemaId",
+        )
+
+    etag = _weak_etag([match["_fingerprint"]])
+    headers = {"ETag": etag, "Last-Modified": _isoformat(match["_last_modified"])}
+    if request.headers.get("if-none-match") == etag:
+        return Response(status_code=status.HTTP_304_NOT_MODIFIED, headers=headers)
+
+    response.headers.update(headers)
+    return SchemaDocumentResource.model_validate(
+        {key: value for key, value in match.items() if not key.startswith("_")}
+    )
+
+
+@router.get("/capability-matrix", response_model=CapabilityMatrixResource)
+async def get_capability_matrix_resource(
+    request: Request,
+    response: Response,
+) -> CapabilityMatrixResource:
+    if not CAPABILITY_MATRIX_PATH.exists():
+        raise _http_error(
+            status_code=status.HTTP_404_NOT_FOUND,
+            message="Capability matrix resource is not available in the current runtime",
+            code=ErrorCode.NOT_FOUND,
+            hint="Mount the repository capability matrix into the API container.",
+        )
+
+    try:
+        matrix = _load_json_file(CAPABILITY_MATRIX_PATH)
+    except json.JSONDecodeError as exc:
+        raise _http_error(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            message="Capability matrix resource is malformed",
+            code=ErrorCode.INTERNAL_ERROR,
+        ) from exc
+
+    etag = _weak_etag(
+        [
+            str(CAPABILITY_MATRIX_PATH.stat().st_mtime),
+            matrix.get("contractVersion", ""),
+            str(len(matrix.get("entries", []))),
+        ]
+    )
+    headers = {
+        "ETag": etag,
+        "Last-Modified": _isoformat(CAPABILITY_MATRIX_PATH.stat().st_mtime),
+    }
+    if request.headers.get("if-none-match") == etag:
+        return Response(status_code=status.HTTP_304_NOT_MODIFIED, headers=headers)
+
+    response.headers.update(headers)
+    return CapabilityMatrixResource(
+        id="capability-matrix",
+        contractVersion=matrix.get("contractVersion"),
+        relativePath=_relative_path(CAPABILITY_MATRIX_PATH),
+        entryCount=len(matrix.get("entries", [])),
+        matrix=matrix,
+    )

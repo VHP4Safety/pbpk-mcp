@@ -1,0 +1,18 @@
+services:
+  api:
+    environment:
+      AUTH_ALLOW_ANONYMOUS: "false"
+      ENVIRONMENT: production
+      AUTH_ISSUER_URL: ${AUTH_ISSUER_URL:?Set AUTH_ISSUER_URL for hardened deployment}
+      AUTH_AUDIENCE: ${AUTH_AUDIENCE:?Set AUTH_AUDIENCE for hardened deployment}
+      AUTH_JWKS_URL: ${AUTH_JWKS_URL:?Set AUTH_JWKS_URL for hardened deployment}
+    ports:
+      - "${PBPK_BIND_HOST:-127.0.0.1}:${PBPK_BIND_PORT:-8000}:8000"
+
+  worker:
+    environment:
+      AUTH_ALLOW_ANONYMOUS: "false"
+      ENVIRONMENT: production
+      AUTH_ISSUER_URL: ${AUTH_ISSUER_URL:?Set AUTH_ISSUER_URL for hardened deployment}
+      AUTH_AUDIENCE: ${AUTH_AUDIENCE:?Set AUTH_AUDIENCE for hardened deployment}
+      AUTH_JWKS_URL: ${AUTH_JWKS_URL:?Set AUTH_JWKS_URL for hardened deployment}

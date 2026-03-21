@@ -32,6 +32,16 @@ REQUIRED_TOOLS = {
     "get_population_results",
     "export_oecd_report",
 }
+REQUIRED_SCHEMA_IDS = {
+    "assessmentContext.v1",
+    "pbpkQualificationSummary.v1",
+    "uncertaintySummary.v1",
+    "uncertaintyHandoff.v1",
+    "uncertaintyRegisterReference.v1",
+    "internalExposureEstimate.v1",
+    "pointOfDepartureReference.v1",
+    "berInputBundle.v1",
+}
 
 
 def http_json(url: str, payload: dict | None = None, timeout: int = 60) -> dict:
@@ -163,6 +173,38 @@ def run_release_check(base_url: str, *, skip_unit_tests: bool = False) -> dict:
     summary["toolCatalog"] = {
         "requiredTools": sorted(REQUIRED_TOOLS),
         "missingTools": sorted(REQUIRED_TOOLS - tool_names),
+    }
+
+    schema_catalog = http_json(f"{base_url}/mcp/resources/schemas?limit=50", timeout=30)
+    schema_ids = {item["schemaId"] for item in schema_catalog["items"]}
+    assert_true(
+        REQUIRED_SCHEMA_IDS.issubset(schema_ids),
+        f"Schema resources are missing published PBPK object schemas: {sorted(REQUIRED_SCHEMA_IDS - schema_ids)}",
+    )
+    assessment_schema = http_json(f"{base_url}/mcp/resources/schemas/assessmentContext.v1", timeout=30)
+    assert_true(
+        assessment_schema["schema"]["title"] == "assessmentContext.v1",
+        "assessmentContext schema resource returned the wrong schema title",
+    )
+    assert_true(
+        assessment_schema["example"]["objectType"] == "assessmentContext.v1",
+        "assessmentContext schema resource returned the wrong example payload",
+    )
+    capability_resource = http_json(f"{base_url}/mcp/resources/capability-matrix", timeout=30)
+    matrix = capability_resource["matrix"]
+    matrix_entries = {entry["id"]: entry for entry in matrix["entries"]}
+    assert_true(
+        matrix.get("contractVersion") == CONTRACT_VERSION,
+        f"Capability matrix resource should advertise {CONTRACT_VERSION}: {matrix}",
+    )
+    assert_true(
+        matrix_entries["pksim5-project"]["policy"] == "conversion-only",
+        "Capability matrix resource should preserve the conversion-only PK-Sim boundary",
+    )
+    summary["resourceCatalog"] = {
+        "schemaCount": schema_catalog["total"],
+        "assessmentContextSchemaPublished": "assessmentContext.v1" in schema_ids,
+        "capabilityMatrixEntries": capability_resource["entryCount"],
     }
 
     full_catalog = call_tool(base_url, "discover_models", {"limit": 200}, timeout=30)

@@ -31,6 +31,15 @@ Published PBPK-side object schemas:
 
 Those schemas intentionally require only the stable core fields. Additive convenience fields remain allowed under `pbpk-mcp.v1`.
 
+The published schema family is also exposed through the live MCP resource surface:
+
+- `/mcp/resources/schemas`
+- `/mcp/resources/schemas/{schemaId}`
+
+The machine-readable capability matrix is exposed at:
+
+- `/mcp/resources/capability-matrix`
+
 ## Stable Top-Level Fields
 
 All enhanced tool responses now include:

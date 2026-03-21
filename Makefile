@@ -69,6 +69,7 @@ runtime-patch-check: ## Compile the patch-first runtime files used by the live s
 		scripts/install_runtime_patches.py \
 		scripts/apply_rxode2_patch.py \
 		scripts/release_readiness_check.py \
+		scripts/wait_for_runtime_ready.py \
 		scripts/workspace_model_smoke.py \
 		patches/mcp/tools/load_simulation.py \
 		patches/mcp/tools/get_job_status.py \
@@ -86,6 +87,7 @@ runtime-patch-check: ## Compile the patch-first runtime files used by the live s
 runtime-contract-test: ## Run the patch-first runtime contract tests that do not require the live stack
 	$(PY) -m unittest -v \
 		tests/test_capability_matrix.py \
+		tests/test_deployment_profiles.py \
 		tests/test_ngra_object_schemas.py \
 		tests/test_load_simulation_contract.py \
 		tests/test_model_manifest.py \
