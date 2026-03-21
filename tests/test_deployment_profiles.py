@@ -52,6 +52,12 @@ class DeploymentProfileTests(unittest.TestCase):
         expected = {
             "docs/architecture/capability_matrix.json",
             "docs/architecture/contract_manifest.json",
+            "src/mcp/tools/discover_models.py",
+            "src/mcp/tools/get_results.py",
+            "src/mcp/tools/ingest_external_pbpk_bundle.py",
+            "src/mcp/tools/validate_model_manifest.py",
+            "src/mcp_bridge/model_catalog.py",
+            "src/mcp_bridge/model_manifest.py",
             "src/mcp_bridge/routes/resources_base.py",
             "src/mcp_bridge/tools/registry_base.py",
             "schemas/assessmentContext.v1.json",
@@ -72,6 +78,12 @@ class DeploymentProfileTests(unittest.TestCase):
             "schemas/examples/uncertaintySummary.v1.example.json",
         }
         self.assertTrue(expected.issubset(manifest_sources))
+        self.assertNotIn("patches/mcp/tools/discover_models.py", manifest_sources)
+        self.assertNotIn("patches/mcp/tools/get_results.py", manifest_sources)
+        self.assertNotIn("patches/mcp/tools/ingest_external_pbpk_bundle.py", manifest_sources)
+        self.assertNotIn("patches/mcp/tools/validate_model_manifest.py", manifest_sources)
+        self.assertNotIn("patches/mcp_bridge/model_catalog.py", manifest_sources)
+        self.assertNotIn("patches/mcp_bridge/model_manifest.py", manifest_sources)
 
     def test_release_artifacts_workflow_validates_and_uploads_distribution_boundary(self) -> None:
         text = RELEASE_ARTIFACTS_WORKFLOW.read_text(encoding="utf-8")

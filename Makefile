@@ -76,20 +76,21 @@ runtime-patch-check: ## Compile the patch-first runtime files used by the live s
 		scripts/release_readiness_check.py \
 		scripts/wait_for_runtime_ready.py \
 		scripts/workspace_model_smoke.py \
+		src/mcp/tools/discover_models.py \
+		src/mcp/tools/get_results.py \
+		src/mcp/tools/ingest_external_pbpk_bundle.py \
+		src/mcp/tools/validate_model_manifest.py \
 		patches/mcp/tools/load_simulation.py \
 		patches/mcp/tools/get_job_status.py \
-		patches/mcp/tools/get_results.py \
-		patches/mcp/tools/discover_models.py \
-		patches/mcp/tools/validate_model_manifest.py \
 		patches/mcp/tools/validate_simulation_request.py \
 		patches/mcp/tools/export_oecd_report.py \
 		patches/mcp/tools/run_population_simulation.py \
 		src/mcp_bridge/contract/__init__.py \
 		src/mcp_bridge/contract/artifacts.py \
+		src/mcp_bridge/model_catalog.py \
+		src/mcp_bridge/model_manifest.py \
 		src/mcp_bridge/routes/resources_base.py \
 		src/mcp_bridge/tools/registry_base.py \
-		patches/mcp_bridge/model_catalog.py \
-		patches/mcp_bridge/model_manifest.py \
 		patches/mcp_bridge/routes/resources.py \
 		patches/mcp_bridge/tools/registry.py
 

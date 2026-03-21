@@ -26,11 +26,11 @@ PATCHES: tuple[RuntimePatch, ...] = (
         "/usr/local/lib/python3.11/site-packages/mcp/tools/run_verification_checks.py",
     ),
     RuntimePatch(
-        "patches/mcp_bridge/model_catalog.py",
+        "src/mcp_bridge/model_catalog.py",
         "/usr/local/lib/python3.11/site-packages/mcp_bridge/model_catalog.py",
     ),
     RuntimePatch(
-        "patches/mcp_bridge/model_manifest.py",
+        "src/mcp_bridge/model_manifest.py",
         "/usr/local/lib/python3.11/site-packages/mcp_bridge/model_manifest.py",
     ),
     RuntimePatch(
@@ -58,7 +58,7 @@ PATCHES: tuple[RuntimePatch, ...] = (
         "/usr/local/lib/python3.11/site-packages/mcp/tools/get_job_status.py",
     ),
     RuntimePatch(
-        "patches/mcp/tools/discover_models.py",
+        "src/mcp/tools/discover_models.py",
         "/usr/local/lib/python3.11/site-packages/mcp/tools/discover_models.py",
     ),
     RuntimePatch(
@@ -70,15 +70,15 @@ PATCHES: tuple[RuntimePatch, ...] = (
         "/usr/local/lib/python3.11/site-packages/mcp/tools/run_population_simulation.py",
     ),
     RuntimePatch(
-        "patches/mcp/tools/validate_model_manifest.py",
+        "src/mcp/tools/validate_model_manifest.py",
         "/usr/local/lib/python3.11/site-packages/mcp/tools/validate_model_manifest.py",
     ),
     RuntimePatch(
-        "patches/mcp/tools/get_results.py",
+        "src/mcp/tools/get_results.py",
         "/usr/local/lib/python3.11/site-packages/mcp/tools/get_results.py",
     ),
     RuntimePatch(
-        "patches/mcp/tools/ingest_external_pbpk_bundle.py",
+        "src/mcp/tools/ingest_external_pbpk_bundle.py",
         "/usr/local/lib/python3.11/site-packages/mcp/tools/ingest_external_pbpk_bundle.py",
     ),
     RuntimePatch(

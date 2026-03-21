@@ -10,13 +10,13 @@ from pathlib import Path
 
 
 WORKSPACE_ROOT = Path(__file__).resolve().parents[1]
-PATCH_ROOT = WORKSPACE_ROOT / "patches"
-MODEL_MANIFEST_PATH = PATCH_ROOT / "mcp_bridge" / "model_manifest.py"
-spec = importlib.util.spec_from_file_location("pbpk_patch_model_manifest", MODEL_MANIFEST_PATH)
+SRC_ROOT = WORKSPACE_ROOT / "src"
+MODEL_MANIFEST_PATH = SRC_ROOT / "mcp_bridge" / "model_manifest.py"
+spec = importlib.util.spec_from_file_location("pbpk_packaged_model_manifest", MODEL_MANIFEST_PATH)
 if spec is None or spec.loader is None:  # pragma: no cover - import guard
-    raise RuntimeError(f"Unable to load patch module from {MODEL_MANIFEST_PATH}")
+    raise RuntimeError(f"Unable to load packaged module from {MODEL_MANIFEST_PATH}")
 module = importlib.util.module_from_spec(spec)
-sys.modules.setdefault("pbpk_patch_model_manifest", module)
+sys.modules.setdefault("pbpk_packaged_model_manifest", module)
 spec.loader.exec_module(module)
 validate_model_manifest = module.validate_model_manifest
 

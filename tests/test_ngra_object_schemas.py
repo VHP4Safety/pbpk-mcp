@@ -9,8 +9,8 @@ from pathlib import Path
 WORKSPACE_ROOT = Path(__file__).resolve().parents[1]
 SCHEMA_ROOT = WORKSPACE_ROOT / "schemas"
 EXAMPLES_ROOT = SCHEMA_ROOT / "examples"
-PATCH_ROOT = WORKSPACE_ROOT / "patches"
-TOOL_PATH = PATCH_ROOT / "mcp" / "tools" / "ingest_external_pbpk_bundle.py"
+SRC_ROOT = WORKSPACE_ROOT / "src"
+TOOL_PATH = SRC_ROOT / "mcp" / "tools" / "ingest_external_pbpk_bundle.py"
 HAS_PYDANTIC = importlib.util.find_spec("pydantic") is not None
 HAS_JSONSCHEMA = importlib.util.find_spec("jsonschema") is not None
 
@@ -29,11 +29,11 @@ SCHEMA_FILES = {
 }
 
 if HAS_PYDANTIC:
-    spec = importlib.util.spec_from_file_location("pbpk_patch_external_bundle_schema_test", TOOL_PATH)
+    spec = importlib.util.spec_from_file_location("pbpk_packaged_external_bundle_schema_test", TOOL_PATH)
     if spec is None or spec.loader is None:  # pragma: no cover - import guard
-        raise RuntimeError(f"Unable to load patch module from {TOOL_PATH}")
+        raise RuntimeError(f"Unable to load packaged module from {TOOL_PATH}")
     module = importlib.util.module_from_spec(spec)
-    sys.modules.setdefault("pbpk_patch_external_bundle_schema_test", module)
+    sys.modules.setdefault("pbpk_packaged_external_bundle_schema_test", module)
     spec.loader.exec_module(module)
     IngestExternalPbpkBundleRequest = module.IngestExternalPbpkBundleRequest
     ingest_external_pbpk_bundle = module.ingest_external_pbpk_bundle
