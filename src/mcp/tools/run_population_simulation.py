@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
+from pathlib import Path
+from typing import Any, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -10,7 +11,11 @@ from mcp.session_registry import SessionRegistry, SessionRegistryError, registry
 from mcp.tools.load_simulation import resolve_model_path
 from mcp_bridge.adapter import AdapterError
 from mcp_bridge.adapter.interface import OspsuiteAdapter
-from mcp_bridge.adapter.schema import PopulationCohortConfig, PopulationOutputsConfig, PopulationSimulationConfig
+from mcp_bridge.adapter.schema import (
+    PopulationCohortConfig,
+    PopulationOutputsConfig,
+    PopulationSimulationConfig,
+)
 from mcp_bridge.services.job_service import BaseJobService, JobRecord
 
 
@@ -37,8 +42,8 @@ class OutputsSpec(BaseModel):
 class RunPopulationSimulationRequest(BaseModel):
     model_config = ConfigDict(populate_by_name=True, protected_namespaces=())
 
-    model_path: str = Field(alias="modelPath")
     simulation_id: str = Field(alias="simulationId", min_length=1, max_length=64)
+    model_path: Optional[str] = Field(default=None, alias="modelPath")
     cohort: CohortSpec
     outputs: OutputsSpec = Field(default_factory=OutputsSpec)
     metadata: dict[str, Any] = Field(default_factory=dict)
@@ -66,6 +71,44 @@ class RunPopulationSimulationResponse(BaseModel):
         )
 
 
+def _normalise_model_path(
+    payload: RunPopulationSimulationRequest,
+    *,
+    store: SessionRegistry,
+    allowed_roots: Optional[list[str]],
+) -> tuple[str, bool]:
+    loaded_path: str | None = None
+    if store.contains(payload.simulation_id):
+        try:
+            loaded_path = store.get(payload.simulation_id).handle.file_path
+        except SessionRegistryError as exc:  # pragma: no cover - store race
+            raise RunPopulationSimulationValidationError(str(exc)) from exc
+
+    if payload.model_path:
+        try:
+            resolved = str(resolve_model_path(payload.model_path, allowed_roots=allowed_roots))
+        except ValueError as exc:  # pragma: no cover - delegated validation
+            raise RunPopulationSimulationValidationError(str(exc)) from exc
+
+        if loaded_path is not None:
+            try:
+                loaded_resolved = str(Path(loaded_path).resolve())
+            except Exception:
+                loaded_resolved = loaded_path
+            if resolved != loaded_resolved:
+                raise RunPopulationSimulationValidationError(
+                    "modelPath does not match the file already loaded for this simulationId"
+                )
+        return resolved, loaded_path is not None
+
+    if loaded_path is not None:
+        return loaded_path, True
+
+    raise RunPopulationSimulationValidationError(
+        f"Simulation '{payload.simulation_id}' is not loaded; call load_simulation first or provide modelPath for legacy compatibility"
+    )
+
+
 def run_population_simulation(
     adapter: OspsuiteAdapter,
     job_service: BaseJobService,
@@ -79,32 +122,21 @@ def run_population_simulation(
     """Submit a population simulation job and return queued metadata."""
 
     store = session_store or registry
+    model_path, already_loaded = _normalise_model_path(
+        payload,
+        store=store,
+        allowed_roots=allowed_roots,
+    )
 
-    try:
-        resolved_path = resolve_model_path(payload.model_path, allowed_roots=allowed_roots)
-    except ValueError as exc:  # pragma: no cover - delegated validation
-        raise RunPopulationSimulationValidationError(str(exc)) from exc
-
-    handle = None
-    if not store.contains(payload.simulation_id):
+    if not already_loaded:
         try:
-            handle = adapter.load_simulation(str(resolved_path), simulation_id=payload.simulation_id)
-        except AdapterError as exc:
-            raise RunPopulationSimulationValidationError(str(exc)) from exc
-    else:
-        try:
-            handle = adapter.load_simulation(str(resolved_path), simulation_id=payload.simulation_id)
-        except AdapterError:
-            handle = None  # Already loaded; ignore duplicates.
-
-    if handle is not None:
-        try:
+            handle = adapter.load_simulation(model_path, simulation_id=payload.simulation_id)
             store.register(handle, metadata=handle.metadata, allow_replace=True)
-        except SessionRegistryError as exc:
+        except (AdapterError, SessionRegistryError) as exc:
             raise RunPopulationSimulationValidationError(str(exc)) from exc
 
     config = PopulationSimulationConfig(
-        model_path=str(resolved_path),
+        model_path=model_path,
         simulation_id=payload.simulation_id,
         cohort=PopulationCohortConfig.model_validate(payload.cohort.model_dump(by_alias=True)),
         outputs=PopulationOutputsConfig.model_validate(payload.outputs.model_dump(by_alias=True)),

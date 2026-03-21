@@ -47,7 +47,7 @@ It now carries both:
 The installed Python package also now carries a generated fallback copy of those contract artifacts. That does not replace the patch-first runtime flow, but it reduces reliance on the repo-root filesystem layout when the live resource endpoints need to expose the published contract. `scripts/check_installed_package_contract.py` is the complementary maintainer gate that verifies the generated package fallback still matches the published contract artifacts after a non-editable local install.
 The first `0.4.x` debt-reduction step also starts here: the shared schema/capability/contract-manifest route logic now lives in packaged `src/mcp_bridge/routes/resources_base.py`, and the runtime patch manifest carries that packaged module into the live stack so the patch layer only needs to add the model-catalog resource.
 The next matching step is the tool registry split: packaged `src/mcp_bridge/tools/registry_base.py` now carries the shared base tool descriptors, and the runtime patch manifest carries that module into the live stack so the patch layer only needs to add the extended discovery/verification/reporting/import descriptors.
-The next reduction step after that is the generic tool/helper migration: `src/mcp/tools/discover_models.py`, `src/mcp/tools/get_results.py`, `src/mcp/tools/ingest_external_pbpk_bundle.py`, `src/mcp/tools/validate_model_manifest.py`, `src/mcp_bridge/model_catalog.py`, and `src/mcp_bridge/model_manifest.py` are now the authoritative implementations, while the runtime patch manifest carries those packaged files into the live stack until the base image itself includes them.
+The next reduction step after that is the generic tool/helper migration: `src/mcp/tools/discover_models.py`, `src/mcp/tools/load_simulation.py`, `src/mcp/tools/get_job_status.py`, `src/mcp/tools/get_results.py`, `src/mcp/tools/ingest_external_pbpk_bundle.py`, `src/mcp/tools/run_population_simulation.py`, `src/mcp/tools/validate_model_manifest.py`, `src/mcp_bridge/model_catalog.py`, and `src/mcp_bridge/model_manifest.py` are now the authoritative implementations, while the runtime patch manifest carries those packaged files into the live stack until the base image itself includes them.
 
 The important rule is:
 
@@ -215,7 +215,7 @@ Symptom:
 
 Fix:
 
-- verify `patches/mcp/tools/load_simulation.py`
+- verify `src/mcp/tools/load_simulation.py`
 - rerun `python3 scripts/release_readiness_check.py`
 - rerun `python3 scripts/workspace_model_smoke.py`
 

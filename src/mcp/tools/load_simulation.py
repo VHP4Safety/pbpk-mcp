@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import os
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from pathlib import Path
 from typing import Optional, Tuple
 
@@ -14,8 +14,10 @@ from mcp_bridge.adapter.interface import OspsuiteAdapter
 
 from ..session_registry import SessionRegistry, SessionRegistryError, registry
 
-SUPPORTED_EXTENSIONS = {".pkml", ".pksim5"}
+SUPPORTED_EXTENSIONS = {".pkml", ".r"}
 MODEL_PATH_ENV = "MCP_MODEL_SEARCH_PATHS"
+TOOL_NAME = "load_simulation"
+CONTRACT_VERSION = "pbpk-mcp.v1"
 DEFAULT_ALLOWED_ROOTS = [
     (Path.cwd() / "tests" / "fixtures").resolve(),
     (Path.cwd() / "reference" / "models" / "standard").resolve(),
@@ -46,10 +48,10 @@ class LoadSimulationRequest(BaseModel):
     @field_validator("file_path")
     @classmethod
     def _ensure_non_empty(cls, value: str) -> str:
-        value = value.strip()
-        if not value:
+        trimmed = value.strip()
+        if not trimmed:
             raise ValueError("file_path must be provided")
-        return value
+        return trimmed
 
 
 class SimulationMetadataModel(BaseModel):
@@ -59,13 +61,36 @@ class SimulationMetadataModel(BaseModel):
     model_version: Optional[str] = Field(default=None, alias="modelVersion")
     created_by: Optional[str] = Field(default=None, alias="createdBy")
     created_at: Optional[str] = Field(default=None, alias="createdAt")
+    backend: Optional[str] = None
+
+
+def _validation_warnings(validation: Mapping[str, object] | None) -> list[str]:
+    if not validation:
+        return []
+
+    messages: list[str] = []
+    for entry in validation.get("warnings", []):
+        if isinstance(entry, Mapping):
+            message = entry.get("message")
+            if message:
+                messages.append(str(message))
+        elif entry:
+            messages.append(str(entry))
+    return messages
 
 
 class LoadSimulationResponse(BaseModel):
     model_config = ConfigDict(protected_namespaces=())
 
+    tool: str = TOOL_NAME
+    contract_version: str = Field(default=CONTRACT_VERSION, alias="contractVersion")
     simulation_id: str = Field(alias="simulationId")
+    backend: Optional[str] = None
     metadata: SimulationMetadataModel = SimulationMetadataModel()
+    capabilities: dict[str, object] = Field(default_factory=dict)
+    profile: dict[str, object] = Field(default_factory=dict)
+    validation: dict[str, object] | None = None
+    qualification_state: dict[str, object] | None = Field(default=None, alias="qualificationState")
     warnings: list[str] = Field(default_factory=list)
 
     @classmethod
@@ -74,14 +99,33 @@ class LoadSimulationResponse(BaseModel):
         simulation_id: str,
         metadata: Optional[dict[str, object]] = None,
         warnings: Optional[Sequence[str]] = None,
-    ) -> LoadSimulationResponse:
-        """Helper to construct the response from adapter metadata."""
-
-        meta = metadata or {}
+    ) -> "LoadSimulationResponse":
+        metadata_payload = dict(metadata or {})
+        capabilities = metadata_payload.get("capabilities")
+        profile = metadata_payload.get("profile")
+        validation = metadata_payload.get("validation")
+        capability_payload = dict(capabilities) if isinstance(capabilities, Mapping) else {}
+        profile_payload = dict(profile) if isinstance(profile, Mapping) else {}
+        validation_payload = dict(validation) if isinstance(validation, Mapping) else None
+        assessment = validation_payload.get("assessment") if isinstance(validation_payload, Mapping) else None
+        qualification_state = (
+            dict(assessment.get("qualificationState"))
+            if isinstance(assessment, Mapping) and isinstance(assessment.get("qualificationState"), Mapping)
+            else None
+        )
+        warning_messages = list(warnings or [])
+        warning_messages.extend(_validation_warnings(validation_payload))
         return cls(
+            tool=TOOL_NAME,
+            contractVersion=CONTRACT_VERSION,
             simulationId=simulation_id,
-            metadata=SimulationMetadataModel.model_validate(meta, from_attributes=True),
-            warnings=list(warnings or []),
+            backend=str(metadata_payload.get("backend")) if metadata_payload.get("backend") else None,
+            metadata=SimulationMetadataModel.model_validate(metadata_payload, from_attributes=True),
+            capabilities=capability_payload,
+            profile=profile_payload,
+            validation=validation_payload,
+            qualificationState=qualification_state,
+            warnings=warning_messages,
         )
 
 
@@ -93,9 +137,8 @@ def _resolve_allowed_roots() -> list[Path]:
     roots: list[Path] = []
     for chunk in raw.split(os.pathsep):
         candidate = chunk.strip()
-        if not candidate:
-            continue
-        roots.append(Path(candidate).expanduser().resolve())
+        if candidate:
+            roots.append(Path(candidate).expanduser().resolve())
     fallback = [root for root in DEFAULT_ALLOWED_ROOTS if root.exists()]
     return roots or fallback
 
@@ -104,13 +147,22 @@ def resolve_model_path(file_path: str, *, allowed_roots: Optional[Iterable[Path]
     """Resolve and validate the model path against the allowed roots."""
 
     candidate = Path(file_path).expanduser()
-    if not candidate.is_absolute():
-        candidate = (Path.cwd() / candidate).resolve()
-    else:
-        candidate = candidate.resolve()
+    candidate = (Path.cwd() / candidate).resolve() if not candidate.is_absolute() else candidate.resolve()
+    suffix = candidate.suffix.lower()
 
-    if candidate.suffix.lower() not in SUPPORTED_EXTENSIONS:
-        raise LoadSimulationValidationError("Only .pkml and .pksim5 files are supported")
+    if suffix == ".pksim5":
+        raise LoadSimulationValidationError(
+            "Direct .pksim5 loading is not supported; export the PK-Sim project to .pkml first"
+        )
+
+    if suffix == ".mmd":
+        raise LoadSimulationValidationError(
+            "Direct Berkeley Madonna .mmd loading is not supported; convert the model to .pkml or an MCP-ready .R module first"
+        )
+
+    if suffix not in SUPPORTED_EXTENSIONS:
+        supported = ", ".join(sorted(SUPPORTED_EXTENSIONS))
+        raise LoadSimulationValidationError(f"Only {supported} files are supported")
 
     if not candidate.is_file():
         raise LoadSimulationValidationError(f"Simulation file '{candidate}' does not exist")
@@ -124,8 +176,7 @@ def resolve_model_path(file_path: str, *, allowed_roots: Optional[Iterable[Path]
             candidate.relative_to(root)
         except ValueError:
             continue
-        else:
-            return candidate
+        return candidate
 
     raise LoadSimulationValidationError("Simulation path is outside the allowed directories")
 
@@ -144,8 +195,6 @@ def validate_load_simulation_request(
     *,
     allowed_roots: Optional[Iterable[Path]] = None,
 ) -> Tuple[str, Path]:
-    """Validate payload fields and return canonical values."""
-
     resolved = resolve_model_path(payload.file_path, allowed_roots=allowed_roots)
     simulation_id = _normalise_simulation_id(payload.simulation_id, resolved)
 
@@ -162,12 +211,10 @@ def load_simulation(
     session_store: SessionRegistry | None = None,
     allowed_roots: Optional[Iterable[Path]] = None,
 ) -> LoadSimulationResponse:
-    """Execute the load_simulation workflow against the adapter."""
-
     store = session_store or registry
-
     simulation_id, resolved_path = validate_load_simulation_request(
-        payload, allowed_roots=allowed_roots
+        payload,
+        allowed_roots=allowed_roots,
     )
 
     try:
@@ -187,13 +234,12 @@ def load_simulation(
 
 
 __all__ = [
-    "SUPPORTED_EXTENSIONS",
     "DuplicateSimulationError",
     "LoadSimulationRequest",
     "LoadSimulationResponse",
-    "load_simulation",
     "LoadSimulationValidationError",
-    "SimulationMetadataModel",
+    "SUPPORTED_EXTENSIONS",
+    "load_simulation",
     "resolve_model_path",
     "validate_load_simulation_request",
 ]

@@ -20,7 +20,7 @@ The `rxode2` path is a direct execution backend for PBPK models authored nativel
   - MCP-friendly cisplatin `rxode2` model module.
 - `patches/mcp_bridge/adapter/ospsuite.py`
   - Patched subprocess adapter with `.R` support and population result persistence.
-- `patches/mcp/tools/load_simulation.py`
+- `src/mcp/tools/load_simulation.py`
   - Patched tool validation so `.R` model modules are accepted.
 - `scripts/apply_rxode2_patch.py`
   - Copies the patched files into the live PBPK MCP container.

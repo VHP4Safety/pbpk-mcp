@@ -50,11 +50,11 @@ PATCHES: tuple[RuntimePatch, ...] = (
         "/usr/local/lib/python3.11/site-packages/mcp_bridge/tools/registry.py",
     ),
     RuntimePatch(
-        "patches/mcp/tools/load_simulation.py",
+        "src/mcp/tools/load_simulation.py",
         "/usr/local/lib/python3.11/site-packages/mcp/tools/load_simulation.py",
     ),
     RuntimePatch(
-        "patches/mcp/tools/get_job_status.py",
+        "src/mcp/tools/get_job_status.py",
         "/usr/local/lib/python3.11/site-packages/mcp/tools/get_job_status.py",
     ),
     RuntimePatch(
@@ -66,7 +66,7 @@ PATCHES: tuple[RuntimePatch, ...] = (
         "/usr/local/lib/python3.11/site-packages/mcp/tools/export_oecd_report.py",
     ),
     RuntimePatch(
-        "patches/mcp/tools/run_population_simulation.py",
+        "src/mcp/tools/run_population_simulation.py",
         "/usr/local/lib/python3.11/site-packages/mcp/tools/run_population_simulation.py",
     ),
     RuntimePatch(
