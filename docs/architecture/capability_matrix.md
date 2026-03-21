@@ -6,6 +6,7 @@ Machine-readable source of truth:
 
 - `docs/architecture/capability_matrix.json`
 - `/mcp/resources/capability-matrix`
+- `docs/architecture/contract_manifest.json`
 
 Status meaning:
 

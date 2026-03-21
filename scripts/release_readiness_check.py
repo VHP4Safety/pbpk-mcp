@@ -201,10 +201,30 @@ def run_release_check(base_url: str, *, skip_unit_tests: bool = False) -> dict:
         matrix_entries["pksim5-project"]["policy"] == "conversion-only",
         "Capability matrix resource should preserve the conversion-only PK-Sim boundary",
     )
+    contract_manifest_resource = http_json(f"{base_url}/mcp/resources/contract-manifest", timeout=30)
+    manifest = contract_manifest_resource["manifest"]
+    assert_true(
+        manifest.get("contractVersion") == CONTRACT_VERSION,
+        f"Contract manifest resource should advertise {CONTRACT_VERSION}: {manifest}",
+    )
+    assert_true(
+        int((manifest.get("artifactCounts") or {}).get("schemas") or 0) == len(REQUIRED_SCHEMA_IDS),
+        "Contract manifest should inventory the full published PBPK-side schema family",
+    )
+    manifest_schema_ids = {entry["schemaId"] for entry in manifest.get("schemas") or []}
+    assert_true(
+        REQUIRED_SCHEMA_IDS.issubset(manifest_schema_ids),
+        f"Contract manifest is missing published schema ids: {sorted(REQUIRED_SCHEMA_IDS - manifest_schema_ids)}",
+    )
+    assert_true(
+        "schemas/extraction-record.json" in (manifest.get("legacyArtifactsExcluded") or []),
+        "Contract manifest should explicitly exclude the legacy extraction-record schema from the PBPK-side object family",
+    )
     summary["resourceCatalog"] = {
         "schemaCount": schema_catalog["total"],
         "assessmentContextSchemaPublished": "assessmentContext.v1" in schema_ids,
         "capabilityMatrixEntries": capability_resource["entryCount"],
+        "contractManifestSchemas": int((manifest.get("artifactCounts") or {}).get("schemas") or 0),
     }
 
     full_catalog = call_tool(base_url, "discover_models", {"limit": 200}, timeout=30)

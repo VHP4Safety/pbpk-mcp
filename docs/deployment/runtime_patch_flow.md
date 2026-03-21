@@ -42,7 +42,9 @@ That manifest is consumed by:
 It now carries both:
 
 - patched runtime code
-- published contract artifacts such as the capability matrix and PBPK-side object schemas/examples used by the live MCP resource surface
+- published contract artifacts such as the capability matrix, contract manifest, and PBPK-side object schemas/examples used by the live MCP resource surface
+
+The installed Python package also now carries a generated fallback copy of those contract artifacts. That does not replace the patch-first runtime flow, but it reduces reliance on the repo-root filesystem layout when the live resource endpoints need to expose the published contract. `scripts/check_installed_package_contract.py` is the complementary maintainer gate that verifies the generated package fallback still matches the published contract artifacts after a non-editable local install.
 
 The important rule is:
 

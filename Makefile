@@ -65,6 +65,9 @@ check: lint type test ## Run full quality gate
 
 runtime-patch-check: ## Compile the patch-first runtime files used by the live stack
 	$(PY) -m py_compile \
+		scripts/check_runtime_contract_env.py \
+		scripts/check_installed_package_contract.py \
+		scripts/generate_contract_artifacts.py \
 		scripts/runtime_patch_manifest.py \
 		scripts/install_runtime_patches.py \
 		scripts/apply_rxode2_patch.py \
@@ -79,16 +82,22 @@ runtime-patch-check: ## Compile the patch-first runtime files used by the live s
 		patches/mcp/tools/validate_simulation_request.py \
 		patches/mcp/tools/export_oecd_report.py \
 		patches/mcp/tools/run_population_simulation.py \
+		src/mcp_bridge/contract/__init__.py \
+		src/mcp_bridge/contract/artifacts.py \
 		patches/mcp_bridge/model_catalog.py \
 		patches/mcp_bridge/model_manifest.py \
 		patches/mcp_bridge/routes/resources.py \
 		patches/mcp_bridge/tools/registry.py
 
 runtime-contract-test: ## Run the patch-first runtime contract tests that do not require the live stack
+	$(PY) scripts/check_runtime_contract_env.py
+	$(PY) scripts/generate_contract_artifacts.py --check
+	$(PY) scripts/check_installed_package_contract.py
 	$(PY) -m unittest -v \
 		tests/test_capability_matrix.py \
 		tests/test_deployment_profiles.py \
 		tests/test_ngra_object_schemas.py \
+		tests/test_packaged_contract_artifacts.py \
 		tests/test_load_simulation_contract.py \
 		tests/test_model_manifest.py \
 		tests/test_oecd_bridge.py \

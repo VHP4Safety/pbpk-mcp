@@ -50,6 +50,7 @@ class DeploymentProfileTests(unittest.TestCase):
         manifest_sources = {patch.source for patch in PATCHES}
         expected = {
             "docs/architecture/capability_matrix.json",
+            "docs/architecture/contract_manifest.json",
             "schemas/assessmentContext.v1.json",
             "schemas/berInputBundle.v1.json",
             "schemas/internalExposureEstimate.v1.json",

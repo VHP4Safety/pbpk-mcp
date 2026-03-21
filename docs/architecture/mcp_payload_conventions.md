@@ -40,6 +40,10 @@ The machine-readable capability matrix is exposed at:
 
 - `/mcp/resources/capability-matrix`
 
+The machine-readable contract manifest is exposed at:
+
+- `/mcp/resources/contract-manifest`
+
 ## Stable Top-Level Fields
 
 All enhanced tool responses now include:

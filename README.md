@@ -184,7 +184,14 @@ Design intent:
 - keep BER calculation and final decision policy outside PBPK MCP
 - make the PBPK-side handoff layer consumable by downstream validators and orchestrators without scraping examples out of tests
 
-See `schemas/README.md` for the short schema guide and `tests/test_ngra_object_schemas.py` for the validation gate that keeps the published schemas aligned with live payload generation. The same schema family is also exposed through the live MCP resource surface at `/mcp/resources/schemas`. In the current patch-first runtime, those contract artifacts are copied through the shared runtime patch manifest, so the live resource surface does not depend on extra documentation bind mounts.
+See `schemas/README.md` for the short schema guide and `tests/test_ngra_object_schemas.py` for the validation gate that keeps the published schemas aligned with live payload generation. The same schema family is also exposed through the live MCP resource surface at `/mcp/resources/schemas`. In the current patch-first runtime, those contract artifacts are copied through the shared runtime patch manifest, and the installed package now also carries a generated fallback copy so the live resource surface is not tied only to repo-local files. `scripts/check_installed_package_contract.py` is the maintainer gate that proves the generated package fallback still matches the published JSON artifacts after a non-editable local install.
+
+PBPK MCP now also publishes a machine-readable contract manifest in:
+
+- `docs/architecture/contract_manifest.json`
+- `/mcp/resources/contract-manifest`
+
+That manifest inventories the published PBPK-side schema family, the capability matrix, the legacy artifacts intentionally excluded from the PBPK-side object family, and the stable resource endpoints that expose the contract.
 
 ## Capability matrix
 
@@ -213,6 +220,8 @@ Current headline boundaries:
 - `.pksim5` and `.mmd` are conversion-only and do not appear as runtime-supported catalog entries
 
 The machine-readable JSON file is intentionally small and stable so downstream tooling can consume it directly without scraping prose from the README.
+
+`scripts/generate_contract_artifacts.py --check` is the maintainer gate that keeps the contract manifest and generated packaged fallback aligned with the published JSON artifacts.
 
 ## Quick start
 
@@ -527,6 +536,7 @@ The server currently produces and exposes:
 Recommended checks:
 
 ```bash
+python3 scripts/check_runtime_contract_env.py
 python3 -m unittest -v tests/test_load_simulation_contract.py
 python3 -m unittest -v tests/test_model_manifest.py
 python3 -m unittest -v tests/test_oecd_bridge.py
@@ -535,6 +545,8 @@ python3 -m unittest -v tests/test_oecd_live_stack.py
 python3 scripts/release_readiness_check.py
 python3 scripts/workspace_model_smoke.py
 ```
+
+`make runtime-contract-test` in the public repository now runs the same dependency preflight first, so missing `pydantic` or `jsonschema` causes an explicit failure instead of a quietly skipped schema-validation gate. It also performs a non-editable local install check of `mcp_bridge.contract`, so the published contract artifacts are validated as an installed package boundary rather than only as source-tree files, and it runs `scripts/generate_contract_artifacts.py --check` so the published contract manifest and generated packaged fallback cannot drift silently.
 
 Repository automation is split intentionally:
 

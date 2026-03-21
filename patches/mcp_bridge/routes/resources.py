@@ -12,6 +12,18 @@ from fastapi import APIRouter, Depends, Query, Request, Response, status
 from pydantic import BaseModel, ConfigDict, Field
 
 from mcp.session_registry import SessionRecord, SessionRegistry
+try:  # pragma: no cover - fallback depends on installed package contents
+    from mcp_bridge.contract import (
+        capability_matrix_document as packaged_capability_matrix_document,
+    )
+    from mcp_bridge.contract import contract_manifest_document as packaged_contract_manifest_document
+    from mcp_bridge.contract import schema_documents as packaged_schema_documents
+    from mcp_bridge.contract import schema_examples as packaged_schema_examples
+except Exception:  # pragma: no cover - runtime fallback when packaged artifacts are unavailable
+    packaged_capability_matrix_document = None
+    packaged_contract_manifest_document = None
+    packaged_schema_documents = None
+    packaged_schema_examples = None
 
 from ..adapter import AdapterError
 from ..adapter.interface import OspsuiteAdapter
@@ -148,6 +160,14 @@ class CapabilityMatrixResource(CamelModel):
     matrix: dict[str, Any]
 
 
+class ContractManifestResource(CamelModel):
+    id: str
+    contract_version: Optional[str] = Field(default=None, alias="contractVersion")
+    relative_path: str = Field(alias="relativePath")
+    schema_count: int = Field(alias="schemaCount")
+    manifest: dict[str, Any]
+
+
 def _isoformat(timestamp: float) -> str:
     return datetime.fromtimestamp(timestamp, tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
@@ -174,6 +194,13 @@ CAPABILITY_MATRIX_PATH = _resolve_existing_path(
         Path(__file__).resolve().parents[3] / "docs" / "architecture" / "capability_matrix.json",
     )
 )
+CONTRACT_MANIFEST_PATH = _resolve_existing_path(
+    (
+        Path("/app/var/contract/contract_manifest.json"),
+        Path("/app/docs/architecture/contract_manifest.json"),
+        Path(__file__).resolve().parents[3] / "docs" / "architecture" / "contract_manifest.json",
+    )
+)
 
 
 def _weak_etag(tokens: Sequence[str]) -> str:
@@ -198,14 +225,42 @@ def _load_json_file(path: Path) -> dict[str, Any]:
 
 def _schema_index() -> list[dict[str, Any]]:
     resources: list[dict[str, Any]] = []
-    if not SCHEMA_ROOT.exists():
+    if SCHEMA_ROOT.exists():
+        for schema_path in sorted(SCHEMA_ROOT.glob("*.v*.json")):
+            document = _load_json_file(schema_path)
+            schema_id = schema_path.stem
+            version = schema_id.rsplit(".", 1)[-1] if "." in schema_id else "v1"
+            example_path = SCHEMA_EXAMPLES_ROOT / f"{schema_id}.example.json"
+            resources.append(
+                {
+                    "id": schema_id,
+                    "schemaId": schema_id,
+                    "version": version,
+                    "title": document.get("title"),
+                    "description": document.get("description"),
+                    "relativePath": f"schemas/{schema_path.name}",
+                    "exampleRelativePath": (
+                        f"schemas/examples/{example_path.name}" if example_path.exists() else None
+                    ),
+                    "schema": document,
+                    "example": _load_json_file(example_path) if example_path.exists() else None,
+                    "_fingerprint": f"{schema_id}:{schema_path.stat().st_mtime}:{example_path.stat().st_mtime if example_path.exists() else 'none'}",
+                    "_last_modified": max(
+                        schema_path.stat().st_mtime,
+                        example_path.stat().st_mtime if example_path.exists() else 0.0,
+                    ),
+                }
+            )
+        return resources
+
+    if packaged_schema_documents is None or packaged_schema_examples is None:
         raise FileNotFoundError(SCHEMA_ROOT)
 
-    for schema_path in sorted(SCHEMA_ROOT.glob("*.v*.json")):
-        document = _load_json_file(schema_path)
-        schema_id = schema_path.stem
+    documents = packaged_schema_documents()
+    examples = packaged_schema_examples()
+    for schema_id, document in sorted(documents.items()):
         version = schema_id.rsplit(".", 1)[-1] if "." in schema_id else "v1"
-        example_path = SCHEMA_EXAMPLES_ROOT / f"{schema_id}.example.json"
+        example = examples.get(schema_id)
         resources.append(
             {
                 "id": schema_id,
@@ -213,17 +268,16 @@ def _schema_index() -> list[dict[str, Any]]:
                 "version": version,
                 "title": document.get("title"),
                 "description": document.get("description"),
-                "relativePath": f"schemas/{schema_path.name}",
+                "relativePath": f"schemas/{schema_id}.json",
                 "exampleRelativePath": (
-                    f"schemas/examples/{example_path.name}" if example_path.exists() else None
+                    f"schemas/examples/{schema_id}.example.json" if example is not None else None
                 ),
                 "schema": document,
-                "example": _load_json_file(example_path) if example_path.exists() else None,
-                "_fingerprint": f"{schema_id}:{schema_path.stat().st_mtime}:{example_path.stat().st_mtime if example_path.exists() else 'none'}",
-                "_last_modified": max(
-                    schema_path.stat().st_mtime,
-                    example_path.stat().st_mtime if example_path.exists() else 0.0,
-                ),
+                "example": example,
+                "_fingerprint": hashlib.sha1(
+                    json.dumps({"schema": document, "example": example}, sort_keys=True).encode("utf-8")
+                ).hexdigest(),
+                "_last_modified": 0.0,
             }
         )
     return resources
@@ -496,7 +550,9 @@ async def list_schema_resources(
     etag = _weak_etag([item["_fingerprint"] for item in page_items] + [str(page), str(limit), search or ""])
     headers = {"ETag": etag}
     if page_items:
-        headers["Last-Modified"] = _isoformat(max(item["_last_modified"] for item in page_items))
+        last_modified = max(item["_last_modified"] for item in page_items)
+        if last_modified > 0:
+            headers["Last-Modified"] = _isoformat(last_modified)
 
     if request.headers.get("if-none-match") == etag:
         return Response(status_code=status.HTTP_304_NOT_MODIFIED, headers=headers)
@@ -537,7 +593,9 @@ async def get_schema_resource(
         )
 
     etag = _weak_etag([match["_fingerprint"]])
-    headers = {"ETag": etag, "Last-Modified": _isoformat(match["_last_modified"])}
+    headers = {"ETag": etag}
+    if match["_last_modified"] > 0:
+        headers["Last-Modified"] = _isoformat(match["_last_modified"])
     if request.headers.get("if-none-match") == etag:
         return Response(status_code=status.HTTP_304_NOT_MODIFIED, headers=headers)
 
@@ -552,34 +610,44 @@ async def get_capability_matrix_resource(
     request: Request,
     response: Response,
 ) -> CapabilityMatrixResource:
-    if not CAPABILITY_MATRIX_PATH.exists():
-        raise _http_error(
-            status_code=status.HTTP_404_NOT_FOUND,
-            message="Capability matrix resource is not available in the current runtime",
-            code=ErrorCode.NOT_FOUND,
-            hint="Mount the repository capability matrix into the API container.",
+    if CAPABILITY_MATRIX_PATH.exists():
+        try:
+            matrix = _load_json_file(CAPABILITY_MATRIX_PATH)
+        except json.JSONDecodeError as exc:
+            raise _http_error(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                message="Capability matrix resource is malformed",
+                code=ErrorCode.INTERNAL_ERROR,
+            ) from exc
+
+        etag = _weak_etag(
+            [
+                str(CAPABILITY_MATRIX_PATH.stat().st_mtime),
+                matrix.get("contractVersion", ""),
+                str(len(matrix.get("entries", []))),
+            ]
         )
-
-    try:
-        matrix = _load_json_file(CAPABILITY_MATRIX_PATH)
-    except json.JSONDecodeError as exc:
-        raise _http_error(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            message="Capability matrix resource is malformed",
-            code=ErrorCode.INTERNAL_ERROR,
-        ) from exc
-
-    etag = _weak_etag(
-        [
-            str(CAPABILITY_MATRIX_PATH.stat().st_mtime),
-            matrix.get("contractVersion", ""),
-            str(len(matrix.get("entries", []))),
-        ]
-    )
-    headers = {
-        "ETag": etag,
-        "Last-Modified": _isoformat(CAPABILITY_MATRIX_PATH.stat().st_mtime),
-    }
+        headers = {
+            "ETag": etag,
+            "Last-Modified": _isoformat(CAPABILITY_MATRIX_PATH.stat().st_mtime),
+        }
+    else:
+        if packaged_capability_matrix_document is None:
+            raise _http_error(
+                status_code=status.HTTP_404_NOT_FOUND,
+                message="Capability matrix resource is not available in the current runtime",
+                code=ErrorCode.NOT_FOUND,
+                hint="Install the packaged contract artifacts or provide the runtime patch manifest copy.",
+            )
+        matrix = packaged_capability_matrix_document()
+        etag = _weak_etag(
+            [
+                hashlib.sha1(json.dumps(matrix, sort_keys=True).encode("utf-8")).hexdigest(),
+                matrix.get("contractVersion", ""),
+                str(len(matrix.get("entries", []))),
+            ]
+        )
+        headers = {"ETag": etag}
     if request.headers.get("if-none-match") == etag:
         return Response(status_code=status.HTTP_304_NOT_MODIFIED, headers=headers)
 
@@ -590,4 +658,60 @@ async def get_capability_matrix_resource(
         relativePath="docs/architecture/capability_matrix.json",
         entryCount=len(matrix.get("entries", [])),
         matrix=matrix,
+    )
+
+
+@router.get("/contract-manifest", response_model=ContractManifestResource)
+async def get_contract_manifest_resource(
+    request: Request,
+    response: Response,
+) -> ContractManifestResource:
+    if CONTRACT_MANIFEST_PATH.exists():
+        try:
+            manifest = _load_json_file(CONTRACT_MANIFEST_PATH)
+        except json.JSONDecodeError as exc:
+            raise _http_error(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                message="Contract manifest resource is malformed",
+                code=ErrorCode.INTERNAL_ERROR,
+            ) from exc
+
+        etag = _weak_etag(
+            [
+                str(CONTRACT_MANIFEST_PATH.stat().st_mtime),
+                manifest.get("contractVersion", ""),
+                str((manifest.get("artifactCounts") or {}).get("schemas", 0)),
+            ]
+        )
+        headers = {
+            "ETag": etag,
+            "Last-Modified": _isoformat(CONTRACT_MANIFEST_PATH.stat().st_mtime),
+        }
+    else:
+        if packaged_contract_manifest_document is None:
+            raise _http_error(
+                status_code=status.HTTP_404_NOT_FOUND,
+                message="Contract manifest resource is not available in the current runtime",
+                code=ErrorCode.NOT_FOUND,
+                hint="Install the packaged contract artifacts or provide the runtime patch manifest copy.",
+            )
+        manifest = packaged_contract_manifest_document()
+        etag = _weak_etag(
+            [
+                hashlib.sha1(json.dumps(manifest, sort_keys=True).encode("utf-8")).hexdigest(),
+                manifest.get("contractVersion", ""),
+                str((manifest.get("artifactCounts") or {}).get("schemas", 0)),
+            ]
+        )
+        headers = {"ETag": etag}
+    if request.headers.get("if-none-match") == etag:
+        return Response(status_code=status.HTTP_304_NOT_MODIFIED, headers=headers)
+
+    response.headers.update(headers)
+    return ContractManifestResource(
+        id="contract-manifest",
+        contractVersion=manifest.get("contractVersion"),
+        relativePath="docs/architecture/contract_manifest.json",
+        schemaCount=int((manifest.get("artifactCounts") or {}).get("schemas") or 0),
+        manifest=manifest,
     )

@@ -90,6 +90,16 @@ class ModelDiscoveryLiveStackTests(unittest.TestCase):
         self.assertEqual(conversion_only["policy"], "conversion-only")
         self.assertEqual(conversion_only["catalogDiscovery"], "no")
 
+    def test_contract_manifest_resource_exposes_artifact_inventory(self) -> None:
+        payload = api_json("/mcp/resources/contract-manifest")
+        self.assertEqual(payload["contractVersion"], "pbpk-mcp.v1")
+        self.assertEqual(payload["relativePath"], "docs/architecture/contract_manifest.json")
+        self.assertEqual(payload["schemaCount"], 8)
+        self.assertEqual(payload["manifest"]["artifactCounts"]["schemas"], 8)
+        self.assertIn("docs/architecture/capability_matrix.json", payload["manifest"]["capabilityMatrix"]["relativePath"])
+        self.assertIn("/mcp/resources/contract-manifest", payload["manifest"]["resourceEndpoints"]["contractManifest"])
+        self.assertIn("schemas/extraction-record.json", payload["manifest"]["legacyArtifactsExcluded"])
+
     def test_tool_catalog_exposes_documented_workflow(self) -> None:
         payload = api_json("/mcp/list_tools")
         tool_names = {tool["name"] for tool in payload["tools"]}

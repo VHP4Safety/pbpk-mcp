@@ -1,0 +1,78 @@
+{
+  "artifactCounts": {
+    "examples": 8,
+    "schemas": 8
+  },
+  "capabilityMatrix": {
+    "relativePath": "docs/architecture/capability_matrix.json",
+    "sha256": "bdc2169d99343f38c5a7dea91306d46704104d488442e4161812dfb63ac6da03"
+  },
+  "contractVersion": "pbpk-mcp.v1",
+  "id": "pbpk-contract-manifest.v1",
+  "legacyArtifactsExcluded": [
+    "schemas/extraction-record.json"
+  ],
+  "resourceEndpoints": {
+    "capabilityMatrix": "/mcp/resources/capability-matrix",
+    "contractManifest": "/mcp/resources/contract-manifest",
+    "schemaCatalog": "/mcp/resources/schemas"
+  },
+  "schemas": [
+    {
+      "exampleRelativePath": "schemas/examples/assessmentContext.v1.example.json",
+      "exampleSha256": "316fe3e7b69b1f27ade102c10444540e50fca61725c95b369c4bd48dd52b4fa6",
+      "relativePath": "schemas/assessmentContext.v1.json",
+      "schemaId": "assessmentContext.v1",
+      "sha256": "e8b4ba287879f7fddc7139c666e057256efa0190e7263721e8685c9331bb5940"
+    },
+    {
+      "exampleRelativePath": "schemas/examples/berInputBundle.v1.example.json",
+      "exampleSha256": "64399ce683596314bf9d32df20f8c42ffa02673830f477e7e78ea3a0bfa845ff",
+      "relativePath": "schemas/berInputBundle.v1.json",
+      "schemaId": "berInputBundle.v1",
+      "sha256": "a46c842bfc6dd6f1e1ef4d0f5f65371182c830d478cafae3eef9a599899e9cae"
+    },
+    {
+      "exampleRelativePath": "schemas/examples/internalExposureEstimate.v1.example.json",
+      "exampleSha256": "559f0118d012d14275141d11dbb0d968ed74a0ce39002ad1094bfe87a034009e",
+      "relativePath": "schemas/internalExposureEstimate.v1.json",
+      "schemaId": "internalExposureEstimate.v1",
+      "sha256": "830b2cf73661b67dfd0e8493c5e410e276555c05f71221db8e36722bf6cb4857"
+    },
+    {
+      "exampleRelativePath": "schemas/examples/pbpkQualificationSummary.v1.example.json",
+      "exampleSha256": "2305d9887725aac70de57e2893599aa4446ea0e81013da1f80ecf344a50c04da",
+      "relativePath": "schemas/pbpkQualificationSummary.v1.json",
+      "schemaId": "pbpkQualificationSummary.v1",
+      "sha256": "515b371dad39d241a97384a4627eca529636ea5e6378da1f01be8688d08da08d"
+    },
+    {
+      "exampleRelativePath": "schemas/examples/pointOfDepartureReference.v1.example.json",
+      "exampleSha256": "11185de168163409fb9c22dcfbf7b10c322ff8eddf521d02d1842ee7c4994dbc",
+      "relativePath": "schemas/pointOfDepartureReference.v1.json",
+      "schemaId": "pointOfDepartureReference.v1",
+      "sha256": "58a0e04e48ed716637aae12e972e0f92b858ff6f0cfde918942b97a1daa695aa"
+    },
+    {
+      "exampleRelativePath": "schemas/examples/uncertaintyHandoff.v1.example.json",
+      "exampleSha256": "ef372636efb1a13dd26151618eaf440bbde90fad5e600b0ab13945187fb0a03c",
+      "relativePath": "schemas/uncertaintyHandoff.v1.json",
+      "schemaId": "uncertaintyHandoff.v1",
+      "sha256": "4547fbcd1014e439abbf5f98ce1e19e0320be8e81eb30102d6a0099fce32d86e"
+    },
+    {
+      "exampleRelativePath": "schemas/examples/uncertaintyRegisterReference.v1.example.json",
+      "exampleSha256": "652fd3674c30263e5da3e299418327ec4d06811f75f661deff63b2d152b1841f",
+      "relativePath": "schemas/uncertaintyRegisterReference.v1.json",
+      "schemaId": "uncertaintyRegisterReference.v1",
+      "sha256": "38808ece8fa55cc3b233f5b3966d480616983d953d0f8f7290cb6191e7222bb6"
+    },
+    {
+      "exampleRelativePath": "schemas/examples/uncertaintySummary.v1.example.json",
+      "exampleSha256": "9cb008aadd06a2fb4f12dae6ea46023e6f30f30011d851ad76ad9f0f2c9bd181",
+      "relativePath": "schemas/uncertaintySummary.v1.json",
+      "schemaId": "uncertaintySummary.v1",
+      "sha256": "ea1f95e8bd2786468c0a946f0c2dbbba0045411024292affb052efd33c9e00c3"
+    }
+  ]
+}

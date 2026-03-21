@@ -15,6 +15,11 @@ Current schema family:
 
 Example payloads live under `schemas/examples/`.
 
+The published contract inventory for this schema family lives in:
+
+- `docs/architecture/contract_manifest.json`
+- `/mcp/resources/contract-manifest`
+
 Schema design rules for this family:
 
 - require only the stable core fields that downstream clients should rely on

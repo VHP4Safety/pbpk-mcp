@@ -11,6 +11,11 @@ All notable changes to this project should be documented in this file.
 - `docker-compose.hardened.yml` and `scripts/deploy_hardened_stack.sh` so the patch-first stack can be redeployed with anonymous access disabled and explicit auth settings required at startup
 - `tests/test_deployment_profiles.py` to keep the development and hardened deployment profiles aligned with their documented intent
 - live MCP resources for the published PBPK-side schema family and the machine-readable capability matrix, so agents can inspect those contract artifacts directly from the running server
+- `scripts/check_runtime_contract_env.py` so the public contract gate can fail fast when required schema-validation dependencies are missing
+- a generated `mcp_bridge.contract` package fallback plus `tests/test_packaged_contract_artifacts.py`, so published contract artifacts remain available even outside the repo-root file layout and drift is detected explicitly
+- `scripts/check_installed_package_contract.py`, so the public contract gate now proves the generated `mcp_bridge.contract` fallback still matches the published JSON artifacts after a non-editable local install
+- `docs/architecture/contract_manifest.json` plus `/mcp/resources/contract-manifest`, so the published `pbpk-mcp.v1` contract now has a machine-readable artifact inventory with hashes and explicit legacy exclusions
+- `scripts/generate_contract_artifacts.py`, so the generated packaged fallback and published contract manifest can be regenerated or checked from a single source of truth
 
 ### Changed
 
@@ -19,6 +24,11 @@ All notable changes to this project should be documented in this file.
 - published a dedicated capability matrix in `docs/architecture/capability_matrix.md` and `docs/architecture/capability_matrix.json`, so adopters can see exact discover/load/validate/run/report boundaries without inferring them from scattered docs
 - deployment docs now distinguish the development compose stack from the hardened overlay profile, including bind-host/bind-port settings and readiness waits against the configured base URL
 - the shared runtime patch manifest now carries the published capability matrix plus schema/example JSON artifacts, so the live MCP resource surface no longer depends on dedicated `docs/` or `schemas/` bind mounts
+- `make runtime-contract-test` now runs the dependency preflight before the schema/resource contract tests, so missing `pydantic` or `jsonschema` causes an explicit gate failure instead of a silent skip
+- `make runtime-contract-test` now also performs a non-editable local install check of `mcp_bridge.contract`, so the packaged contract fallback is exercised as an installed boundary instead of only as source-tree code
+- `make runtime-contract-test` now also runs `scripts/generate_contract_artifacts.py --check`, so the contract manifest and generated packaged fallback cannot drift silently from the published JSON artifacts
+- the live resource route now prefers the patched runtime copy, but can fall back to packaged contract artifacts when the repo-root JSON files are not present
+- removed the stale `mcp_bridge.schemas` package-data declaration now that the published PBPK-side contract artifacts are carried either as generated Python module content or as patched runtime JSON copies
 
 ## v0.3.5 - 2026-03-21
 

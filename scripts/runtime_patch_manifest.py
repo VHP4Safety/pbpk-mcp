@@ -82,6 +82,10 @@ PATCHES: tuple[RuntimePatch, ...] = (
         "/app/var/contract/capability_matrix.json",
     ),
     RuntimePatch(
+        "docs/architecture/contract_manifest.json",
+        "/app/var/contract/contract_manifest.json",
+    ),
+    RuntimePatch(
         "schemas/assessmentContext.v1.json",
         "/app/var/contract/schemas/assessmentContext.v1.json",
     ),
