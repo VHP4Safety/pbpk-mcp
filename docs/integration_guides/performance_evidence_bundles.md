@@ -34,6 +34,14 @@ The companion bundle may be:
 - an object with `performanceEvidence.rows`
 - a top-level array of evidence rows
 
+Optionally, the object form may also include a bundle-level `profileSupplement` block that mirrors the existing `modelPerformance` structure for traceability-only content such as:
+
+- `goodnessOfFit.datasetRecords`
+- `predictiveChecks.datasetRecords`
+- `evaluationData.datasetRecords`
+- section-level `acceptanceCriteria`
+- `targetOutputs`
+
 Each row can use fields already recognized by `performanceEvidence`, for example:
 
 - `id`
@@ -88,12 +96,16 @@ The report then computes conservative summary fields such as:
 - `supportsPredictiveDatasetEvidence`
 - `supportsExternalQualificationEvidence`
 - `traceability`
+- `predictiveDatasetSummary`
 
 `traceability` is additive. It summarizes whether the declared `modelPerformance` profile and exported evidence rows actually carry structured dataset records and explicit acceptance criteria.
+
+If a companion `profileSupplement` is present, `traceability` and `predictiveDatasetSummary` will also count its dataset records, acceptance criteria, target outputs, and declared metrics. This keeps predictive traceability reusable for authors who do not want to hard-code those declarations into the model hook itself.
 
 This is meant to prevent runtime smoke or internal reference rows from being mistaken for predictive validation.
 
 If companion bundle metadata is present, `export_oecd_report` also returns it as `performanceEvidence.bundleMetadata`.
+If a companion `profileSupplement` is present, `export_oecd_report` also returns it as `performanceEvidence.profileSupplement`.
 
 ## Static Manifest Behavior
 
@@ -106,6 +118,7 @@ For MCP-ready `R` models:
 - the manifest exposes `supplementalEvidence.performanceEvidenceSidecarPath`
 - the manifest exposes `supplementalEvidence.performanceEvidenceRowCount`
 - the manifest exposes `supplementalEvidence.performanceEvidenceBundleMetadata` when companion metadata is present
+- the manifest exposes `supplementalEvidence.performanceEvidenceProfileSupplementCoverage` when a companion `profileSupplement` is present
 
 For `.pkml` models:
 
@@ -145,6 +158,8 @@ Examples:
 - `Runtime simulation completes and returns finite concentration-time output`
 
 If the scientific profile already declares `goodnessOfFit.datasetRecords`, `predictiveChecks.datasetRecords`, or section-level `acceptanceCriteria`, the bridge now preserves those as traceability counts in the exported performance summary even when the companion bundle is the only explicit row source.
+
+If you use `profileSupplement`, treat it as a traceability supplement, not as a second hidden profile. It should add benchmark dataset records, acceptance criteria, and target outputs that are relevant to the bundled evidence rows without contradicting the declared scientific profile.
 
 ## Template
 

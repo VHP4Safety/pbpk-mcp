@@ -136,6 +136,84 @@ def _issue(code: str, message: str, *, field: str | None = None, severity: str =
     }
 
 
+def _normalize_text_values(value: Any) -> list[str]:
+    if value is None:
+        return []
+    if isinstance(value, str):
+        candidate = value.strip()
+        return [candidate] if candidate else []
+    if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
+        values: list[str] = []
+        for item in value:
+            values.extend(_normalize_text_values(item))
+        deduped: list[str] = []
+        for item in values:
+            if item not in deduped:
+                deduped.append(item)
+        return deduped
+    text = _safe_text(value)
+    return [text] if text else []
+
+
+def _record_entry_count(value: Any) -> int:
+    if isinstance(value, Mapping):
+        return 1
+    if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
+        return sum(1 for item in value if isinstance(item, Mapping))
+    return 0
+
+
+def _performance_section_dataset_records(section: Mapping[str, Any] | None) -> Any:
+    if not isinstance(section, Mapping):
+        return None
+    return (
+        section.get("datasetRecords")
+        or section.get("records")
+        or section.get("benchmarkDatasets")
+        or section.get("benchmarkRecords")
+    )
+
+
+def _performance_section_acceptance_criteria(section: Mapping[str, Any] | None) -> list[str]:
+    if not isinstance(section, Mapping):
+        return []
+    return _normalize_text_values(
+        section.get("acceptanceCriteria")
+        or section.get("acceptanceCriterion")
+        or section.get("criteria")
+    )
+
+
+def _performance_profile_supplement_coverage(
+    supplement: Mapping[str, Any] | None,
+) -> dict[str, Any] | None:
+    if not isinstance(supplement, Mapping):
+        return None
+
+    goodness = supplement.get("goodnessOfFit")
+    predictive = supplement.get("predictiveChecks")
+    evaluation = supplement.get("evaluationData")
+
+    acceptance_values = []
+    acceptance_values.extend(_normalize_text_values(supplement.get("acceptanceCriteria")))
+    acceptance_values.extend(_performance_section_acceptance_criteria(goodness if isinstance(goodness, Mapping) else None))
+    acceptance_values.extend(_performance_section_acceptance_criteria(predictive if isinstance(predictive, Mapping) else None))
+    acceptance_values.extend(_performance_section_acceptance_criteria(evaluation if isinstance(evaluation, Mapping) else None))
+
+    deduped_acceptance: list[str] = []
+    for item in acceptance_values:
+        if item not in deduped_acceptance:
+            deduped_acceptance.append(item)
+
+    return {
+        "goodnessOfFitDatasetRecordCount": _record_entry_count(_performance_section_dataset_records(goodness if isinstance(goodness, Mapping) else None)),
+        "predictiveDatasetRecordCount": _record_entry_count(_performance_section_dataset_records(predictive if isinstance(predictive, Mapping) else None)),
+        "evaluationDatasetRecordCount": _record_entry_count(_performance_section_dataset_records(evaluation if isinstance(evaluation, Mapping) else None)),
+        "acceptanceCriterionCount": len(deduped_acceptance),
+        "hasExplicitAcceptanceCriteria": bool(deduped_acceptance),
+    }
+
+
 def _section_status(section_name: str, payload: Any) -> tuple[dict[str, Any], list[dict[str, Any]]]:
     issues: list[dict[str, Any]] = []
     required_fields = _REQUIRED_SECTION_FIELDS.get(section_name, ())
@@ -401,6 +479,20 @@ def _extract_performance_evidence_metadata(payload: Any) -> dict[str, Any] | Non
     if not isinstance(metadata, Mapping):
         return None
     return dict(metadata)
+
+
+def _extract_performance_evidence_profile_supplement(payload: Any) -> dict[str, Any] | None:
+    if not isinstance(payload, Mapping):
+        return None
+    supplement = payload.get("profileSupplement")
+    if supplement is None and isinstance(payload.get("performanceEvidence"), Mapping):
+        performance_payload = payload["performanceEvidence"]
+        supplement = performance_payload.get("profileSupplement") or performance_payload.get("modelPerformance")
+    if supplement is None and isinstance(payload.get("modelPerformance"), Mapping):
+        supplement = payload.get("modelPerformance")
+    if not isinstance(supplement, Mapping):
+        return None
+    return dict(supplement)
 
 
 def _extract_uncertainty_evidence_rows(payload: Any) -> list[Any] | None:
@@ -772,7 +864,7 @@ def _validate_parameter_table_metadata(
 
 def _load_performance_evidence_sidecar(
     file_path: Path,
-) -> tuple[list[Any], dict[str, Any] | None, str | None, list[dict[str, Any]]]:
+) -> tuple[list[Any], dict[str, Any] | None, dict[str, Any] | None, str | None, list[dict[str, Any]]]:
     issues: list[dict[str, Any]] = []
     for candidate in performance_evidence_sidecar_candidates(file_path):
         if not candidate.exists():
@@ -788,10 +880,11 @@ def _load_performance_evidence_sidecar(
                     severity="warning",
                 )
             )
-            return [], None, str(candidate), issues
+            return [], None, None, str(candidate), issues
 
         rows = _extract_performance_evidence_rows(payload)
         metadata = _extract_performance_evidence_metadata(payload)
+        profile_supplement = _extract_performance_evidence_profile_supplement(payload)
         if rows is None:
             issues.append(
                 _issue(
@@ -801,12 +894,12 @@ def _load_performance_evidence_sidecar(
                     severity="warning",
                 )
             )
-            return [], metadata, str(candidate), issues
+            return [], metadata, profile_supplement, str(candidate), issues
         issues.extend(_validate_performance_evidence_metadata(metadata, field_prefix=f"{candidate}:metadata"))
         issues.extend(_validate_performance_evidence_rows(rows, field_prefix=f"{candidate}:rows"))
-        return rows, metadata, str(candidate), issues
+        return rows, metadata, profile_supplement, str(candidate), issues
 
-    return [], None, None, issues
+    return [], None, None, None, issues
 
 
 def _load_uncertainty_evidence_sidecar(
@@ -900,7 +993,13 @@ def _extract_assignment(text: str, field_name: str) -> str | None:
 def _validate_r_model(file_path: Path) -> dict[str, Any]:
     text = file_path.read_text(encoding="utf-8", errors="ignore")
     parameter_table_sidecar_rows, parameter_table_sidecar_metadata, parameter_table_sidecar_path, parameter_table_sidecar_issues = _load_parameter_table_sidecar(file_path)
-    performance_sidecar_rows, performance_sidecar_metadata, performance_sidecar_path, performance_sidecar_issues = _load_performance_evidence_sidecar(file_path)
+    (
+        performance_sidecar_rows,
+        performance_sidecar_metadata,
+        performance_sidecar_profile_supplement,
+        performance_sidecar_path,
+        performance_sidecar_issues,
+    ) = _load_performance_evidence_sidecar(file_path)
     uncertainty_sidecar_rows, uncertainty_sidecar_metadata, uncertainty_sidecar_path, uncertainty_sidecar_issues = _load_uncertainty_evidence_sidecar(file_path)
     hooks = {
         name: bool(pattern.search(text))
@@ -1046,6 +1145,9 @@ def _validate_r_model(file_path: Path) -> dict[str, Any]:
             "performanceEvidenceSidecarPath": performance_sidecar_path,
             "performanceEvidenceRowCount": len(performance_sidecar_rows),
             "performanceEvidenceBundleMetadata": performance_sidecar_metadata,
+            "performanceEvidenceProfileSupplementCoverage": _performance_profile_supplement_coverage(
+                performance_sidecar_profile_supplement
+            ),
             "uncertaintyEvidenceSidecarPath": uncertainty_sidecar_path,
             "uncertaintyEvidenceRowCount": len(uncertainty_sidecar_rows),
             "uncertaintyEvidenceBundleMetadata": uncertainty_sidecar_metadata,
@@ -1065,7 +1167,13 @@ def validate_model_manifest(file_path: str | Path) -> dict[str, Any]:
     if backend == "ospsuite":
         profile, sidecar_path, sidecar_issues = _load_sidecar_profile(path)
         parameter_table_sidecar_rows, parameter_table_sidecar_metadata, parameter_table_sidecar_path, parameter_table_sidecar_issues = _load_parameter_table_sidecar(path)
-        performance_sidecar_rows, performance_sidecar_metadata, performance_sidecar_path, performance_sidecar_issues = _load_performance_evidence_sidecar(path)
+        (
+            performance_sidecar_rows,
+            performance_sidecar_metadata,
+            performance_sidecar_profile_supplement,
+            performance_sidecar_path,
+            performance_sidecar_issues,
+        ) = _load_performance_evidence_sidecar(path)
         uncertainty_sidecar_rows, uncertainty_sidecar_metadata, uncertainty_sidecar_path, uncertainty_sidecar_issues = _load_uncertainty_evidence_sidecar(path)
         if profile is None:
             scientific_profile = False
@@ -1097,6 +1205,9 @@ def validate_model_manifest(file_path: str | Path) -> dict[str, Any]:
                         "performanceEvidenceSidecarPath": performance_sidecar_path,
                         "performanceEvidenceRowCount": len(performance_sidecar_rows),
                         "performanceEvidenceBundleMetadata": performance_sidecar_metadata,
+                        "performanceEvidenceProfileSupplementCoverage": _performance_profile_supplement_coverage(
+                            performance_sidecar_profile_supplement
+                        ),
                         "uncertaintyEvidenceSidecarPath": uncertainty_sidecar_path,
                         "uncertaintyEvidenceRowCount": len(uncertainty_sidecar_rows),
                         "uncertaintyEvidenceBundleMetadata": uncertainty_sidecar_metadata,
@@ -1118,6 +1229,9 @@ def validate_model_manifest(file_path: str | Path) -> dict[str, Any]:
             "performanceEvidenceSidecarPath": performance_sidecar_path,
             "performanceEvidenceRowCount": len(performance_sidecar_rows),
             "performanceEvidenceBundleMetadata": performance_sidecar_metadata,
+            "performanceEvidenceProfileSupplementCoverage": _performance_profile_supplement_coverage(
+                performance_sidecar_profile_supplement
+            ),
             "uncertaintyEvidenceSidecarPath": uncertainty_sidecar_path,
             "uncertaintyEvidenceRowCount": len(uncertainty_sidecar_rows),
             "uncertaintyEvidenceBundleMetadata": uncertainty_sidecar_metadata,

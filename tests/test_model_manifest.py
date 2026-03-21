@@ -172,6 +172,16 @@ class ModelManifestTests(unittest.TestCase):
                             "bundleVersion": "pbpk-performance-evidence.v1",
                             "summary": "Example companion performance bundle",
                         },
+                        "profileSupplement": {
+                            "predictiveChecks": {
+                                "datasetRecords": [
+                                    {"dataset": "external-benchmark", "route": "iv"}
+                                ],
+                                "acceptanceCriteria": [
+                                    "GMFE within 2-fold across the benchmark set"
+                                ]
+                            }
+                        },
                         "rows": [
                             {
                                 "id": "observed-predicted-cmax",
@@ -200,6 +210,14 @@ class ModelManifestTests(unittest.TestCase):
         self.assertEqual(
             manifest["supplementalEvidence"]["performanceEvidenceBundleMetadata"]["bundleVersion"],
             "pbpk-performance-evidence.v1",
+        )
+        self.assertEqual(
+            manifest["supplementalEvidence"]["performanceEvidenceProfileSupplementCoverage"]["predictiveDatasetRecordCount"],
+            1,
+        )
+        self.assertEqual(
+            manifest["supplementalEvidence"]["performanceEvidenceProfileSupplementCoverage"]["acceptanceCriterionCount"],
+            1,
         )
         codes = {issue["code"] for issue in manifest["issues"]}
         self.assertNotIn("performance_evidence_hook_missing", codes)

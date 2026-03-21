@@ -1199,6 +1199,89 @@ class OecdBridgeTests(unittest.TestCase):
         self.assertEqual(payload["bundleMetadata"]["bundleVersion"], "pbpk-performance-evidence.v1")
         self.assertTrue(str(payload["sidecarPath"]).endswith("example_model.performance.json"))
 
+    def test_record_performance_evidence_merges_sidecar_profile_supplement(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            model_path = root / "example_model.R"
+            model_path.write_text("# example model", encoding="utf-8")
+            (root / "example_model.performance.json").write_text(
+                json.dumps(
+                    {
+                        "metadata": {
+                            "bundleVersion": "pbpk-performance-evidence.v1",
+                            "summary": "Example benchmark bundle",
+                        },
+                        "profileSupplement": {
+                            "goodnessOfFit": {
+                                "metrics": ["Cmax"],
+                                "datasetRecords": [
+                                    {"dataset": "adult-iv-study", "matrix": "plasma"}
+                                ],
+                                "acceptanceCriteria": [
+                                    "Relative error <= 20% for plasma Cmax"
+                                ],
+                            },
+                            "predictiveChecks": {
+                                "datasetRecords": [
+                                    {"dataset": "external-benchmark", "route": "iv"}
+                                ],
+                                "acceptanceCriteria": [
+                                    "GMFE within 2-fold across the benchmark set"
+                                ],
+                            },
+                            "targetOutputs": ["Plasma|Compound|Concentration"],
+                        },
+                        "rows": [
+                            {
+                                "id": "obs-vs-pred-cmax",
+                                "kind": "observed-vs-predicted",
+                                "status": "declared",
+                                "metric": "Cmax",
+                                "targetOutput": "Plasma|Compound|Concentration",
+                                "observedValue": 1.0,
+                                "predictedValue": 1.1,
+                                "dataset": "adult-iv-study",
+                                "acceptanceCriterion": "Relative error <= 20% for plasma Cmax",
+                            }
+                        ],
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            payload = run_r_json(
+                f"""
+                record <- list(
+                  backend = "rxode2",
+                  simulation_id = "example-sidecar-supplement",
+                  file_path = {json.dumps(str(model_path))},
+                  metadata = list(name = "Example model"),
+                  profile = list(modelPerformance = list(status = "limited-internal-evaluation")),
+                  capabilities = list(scientificProfile = TRUE),
+                  parameters = list(),
+                  parameter_catalog = list()
+                )
+                record_performance_evidence(record, limit = 10)
+                """
+            )
+
+        self.assertTrue(payload["traceability"]["profileSupplementAttached"])
+        self.assertEqual(payload["traceability"]["goodnessOfFitDatasetRecordCount"], 1)
+        self.assertEqual(payload["traceability"]["predictiveDatasetRecordCount"], 1)
+        self.assertEqual(payload["predictiveDatasetSummary"]["datasetCount"], 2)
+        self.assertEqual(payload["predictiveDatasetSummary"]["metricCount"], 1)
+        self.assertEqual(payload["predictiveDatasetSummary"]["acceptanceCriterionCount"], 2)
+        self.assertIn("adult-iv-study", payload["predictiveDatasetSummary"]["datasets"])
+        self.assertIn("external-benchmark", payload["predictiveDatasetSummary"]["datasets"])
+        self.assertIn(
+            "Plasma|Compound|Concentration",
+            payload["predictiveDatasetSummary"]["targetOutputs"],
+        )
+        self.assertEqual(
+            payload["profileSupplement"]["predictiveChecks"]["datasetRecords"][0]["dataset"],
+            "external-benchmark",
+        )
+
     def test_record_performance_evidence_reports_profile_traceability(self) -> None:
         payload = run_r_json(
             """

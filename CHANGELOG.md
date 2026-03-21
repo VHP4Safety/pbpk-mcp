@@ -8,11 +8,13 @@ All notable changes to this project should be documented in this file.
 
 - additive `uncertaintyHandoff.v1` PBPK-side NGRA object in both native and external-normalization flows, so downstream orchestrators can consume a typed PBPK uncertainty handoff without giving PBPK MCP ownership of cross-domain uncertainty synthesis
 - additive `uncertaintyRegisterReference.v1` handoff object for optional external uncertainty-register provenance in both native and external-normalization flows
+- companion performance bundles can now add a traceability-only `profileSupplement` so predictive dataset records, acceptance criteria, and target outputs can be documented without writing new bridge code
 
 ### Changed
 
 - release-readiness and live-stack tests now assert the new uncertainty handoff boundary alongside BER and PoD handoff semantics
 - removed product-specific downstream-orchestrator references from the public documentation in favor of generic integration language
+- `performanceEvidence` now reports a `predictiveDatasetSummary` and merges companion `profileSupplement` content into traceability counts without changing qualification scoring
 
 ## v0.3.4 - 2026-03-21
 

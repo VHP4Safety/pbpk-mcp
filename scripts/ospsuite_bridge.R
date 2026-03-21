@@ -1529,6 +1529,27 @@ performance_section_dataset_names <- function(section) {
   )
 }
 
+performance_section_dataset_record_names <- function(section) {
+  records <- performance_section_dataset_records(section)
+  if (!is.list(records)) {
+    return(character())
+  }
+
+  unique(unlist(lapply(records, function(entry) {
+    if (!is.list(entry)) {
+      return(character())
+    }
+    normalize_text_values(
+      entry$dataset %||%
+        entry$datasetId %||%
+        entry$datasetName %||%
+        entry$study %||%
+        entry$studyId %||%
+        entry$id
+    )
+  }), use.names = FALSE))
+}
+
 performance_section_acceptance_criteria <- function(section) {
   normalize_text_values(
     exact_list_field(section, "acceptanceCriteria") %||%
@@ -1570,6 +1591,93 @@ performance_traceability_summary <- function(performance, rows = list()) {
     evaluationDatasetRecordCount = as.integer(record_entry_count(performance_section_dataset_records(evaluation))),
     acceptanceCriterionCount = as.integer(length(acceptance_values)),
     hasExplicitAcceptanceCriteria = length(acceptance_values) > 0
+  )
+}
+
+merge_model_performance_traceability <- function(primary, supplement = NULL) {
+  primary_normalized <- if (is.list(primary)) {
+    normalize_model_performance_section(primary, list())
+  } else {
+    list()
+  }
+
+  if (!is.list(supplement) || length(supplement) == 0) {
+    return(primary_normalized)
+  }
+
+  supplement_normalized <- normalize_model_performance_section(supplement, list())
+  normalize_model_performance_section(
+    utils::modifyList(supplement_normalized, primary_normalized),
+    list()
+  )
+}
+
+performance_predictive_dataset_summary <- function(performance, rows = list()) {
+  performance_section <- if (is.list(performance)) performance else list()
+  goodness <- exact_list_field(performance_section, "goodnessOfFit") %||% list()
+  predictive <- exact_list_field(performance_section, "predictiveChecks") %||% list()
+  evaluation <- exact_list_field(performance_section, "evaluationData") %||% list()
+
+  profile_dataset_names <- unique(c(
+    performance_section_dataset_names(goodness),
+    performance_section_dataset_record_names(goodness),
+    performance_section_dataset_names(predictive),
+    performance_section_dataset_record_names(predictive),
+    performance_section_dataset_names(evaluation),
+    performance_section_dataset_record_names(evaluation)
+  ))
+
+  row_dataset_names <- unique(unlist(lapply(rows %||% list(), function(entry) {
+    if (!is.list(entry)) {
+      return(character())
+    }
+    normalize_text_values(entry$dataset %||% entry$datasetId %||% entry$study)
+  }), use.names = FALSE))
+
+  profile_target_outputs <- normalize_text_values(
+    exact_list_field(performance_section, "targetOutputs")
+  )
+  row_target_outputs <- unique(unlist(lapply(rows %||% list(), function(entry) {
+    if (!is.list(entry)) {
+      return(character())
+    }
+    normalize_text_values(entry$targetOutput)
+  }), use.names = FALSE))
+
+  profile_metrics <- unique(c(
+    normalize_text_values(exact_list_field(goodness, "metrics")),
+    normalize_text_values(exact_list_field(predictive, "metrics")),
+    normalize_text_values(exact_list_field(evaluation, "metrics"))
+  ))
+  row_metrics <- unique(unlist(lapply(rows %||% list(), function(entry) {
+    if (!is.list(entry)) {
+      return(character())
+    }
+    normalize_text_values(entry$metric)
+  }), use.names = FALSE))
+
+  row_classes <- vapply(
+    rows %||% list(),
+    function(entry) safe_chr(entry$evidenceClass, "other"),
+    character(1)
+  )
+
+  datasets <- unique(c(profile_dataset_names, row_dataset_names))
+  target_outputs <- unique(c(profile_target_outputs, row_target_outputs))
+  metrics <- unique(c(profile_metrics, row_metrics))
+  acceptance_criteria <- performance_acceptance_criteria_values(performance_section, rows)
+
+  list(
+    datasetCount = as.integer(length(datasets)),
+    datasets = as.list(datasets),
+    targetOutputCount = as.integer(length(target_outputs)),
+    targetOutputs = as.list(target_outputs),
+    metricCount = as.integer(length(metrics)),
+    metrics = as.list(metrics),
+    acceptanceCriterionCount = as.integer(length(acceptance_criteria)),
+    observedVsPredictedRowCount = as.integer(sum(row_classes == "observed-vs-predicted")),
+    predictiveDatasetRowCount = as.integer(sum(row_classes == "predictive-dataset")),
+    externalQualificationRowCount = as.integer(sum(row_classes == "external-qualification"))
   )
 }
 
@@ -3081,6 +3189,26 @@ extract_performance_evidence_metadata <- function(payload) {
   metadata
 }
 
+extract_performance_evidence_profile_supplement <- function(payload) {
+  if (!is.list(payload) || is.null(names(payload))) {
+    return(NULL)
+  }
+
+  supplement <- payload$profileSupplement
+  if (is.null(supplement) && is.list(payload$performanceEvidence)) {
+    supplement <- payload$performanceEvidence$profileSupplement %||%
+      payload$performanceEvidence$modelPerformance
+  }
+  if (is.null(supplement) && is.list(payload$modelPerformance)) {
+    supplement <- payload$modelPerformance
+  }
+  if (!is.list(supplement)) {
+    return(NULL)
+  }
+
+  normalize_model_performance_section(supplement, list())
+}
+
 extract_uncertainty_evidence_rows_payload <- function(payload) {
   candidate <- payload$rows %||%
     payload$uncertaintyEvidence$rows %||%
@@ -3165,11 +3293,18 @@ performance_evidence_sidecar <- function(file_path) {
         field = candidate,
         severity = "warning"
       )
-      return(list(path = candidate, rows = list(), issues = issues))
+      return(list(
+        path = candidate,
+        rows = list(),
+        metadata = NULL,
+        profileSupplement = NULL,
+        issues = issues
+      ))
     }
 
     rows <- extract_performance_evidence_rows_payload(payload)
     metadata <- extract_performance_evidence_metadata(payload)
+    profile_supplement <- extract_performance_evidence_profile_supplement(payload)
     if (is.null(rows)) {
       issues[[length(issues) + 1]] <- list(
         code = "performance_sidecar_rows_missing",
@@ -3180,13 +3315,25 @@ performance_evidence_sidecar <- function(file_path) {
         field = candidate,
         severity = "warning"
       )
-      return(list(path = candidate, rows = list(), metadata = metadata, issues = issues))
+      return(list(
+        path = candidate,
+        rows = list(),
+        metadata = metadata,
+        profileSupplement = profile_supplement,
+        issues = issues
+      ))
     }
 
-    return(list(path = candidate, rows = rows, metadata = metadata, issues = issues))
+    return(list(
+      path = candidate,
+      rows = rows,
+      metadata = metadata,
+      profileSupplement = profile_supplement,
+      issues = issues
+    ))
   }
 
-  list(path = NULL, rows = list(), metadata = NULL, issues = issues)
+  list(path = NULL, rows = list(), metadata = NULL, profileSupplement = NULL, issues = issues)
 }
 
 uncertainty_evidence_sidecar <- function(file_path) {
@@ -4320,7 +4467,17 @@ record_performance_evidence <- function(record, limit = 200L) {
   rows <- normalize_performance_evidence_rows(collected_rows)
   rows <- ensure_unique_evidence_row_ids(rows, prefix = "performance-evidence")
   summary <- performance_evidence_summary(rows)
-  traceability <- performance_traceability_summary(performance, rows)
+  supplemented_performance <- merge_model_performance_traceability(
+    performance,
+    sidecar$profileSupplement
+  )
+  traceability <- performance_traceability_summary(supplemented_performance, rows)
+  traceability$profileSupplementAttached <- is.list(sidecar$profileSupplement) &&
+    length(sidecar$profileSupplement) > 0
+  predictive_dataset_summary <- performance_predictive_dataset_summary(
+    supplemented_performance,
+    rows
+  )
   metadata_issues <- if (!is.null(sidecar$path)) {
     performance_evidence_metadata_issues(sidecar$metadata, source = "performanceEvidence.bundleMetadata")
   } else {
@@ -4334,10 +4491,12 @@ record_performance_evidence <- function(record, limit = 200L) {
 
   utils::modifyList(summary, list(
     traceability = traceability,
+    predictiveDatasetSummary = predictive_dataset_summary,
     source = if (length(unique(sources)) == 1) unique(sources)[[1]] else "combined",
     sources = as.list(unique(sources)),
     sidecarPath = sidecar$path,
     bundleMetadata = sidecar$metadata,
+    profileSupplement = sidecar$profileSupplement,
     issues = c(sidecar$issues %||% list(), metadata_issues, quality_issues),
     issueCount = length(c(sidecar$issues %||% list(), metadata_issues, quality_issues)),
     included = TRUE,

@@ -10,6 +10,33 @@
       "Acceptance criteria should describe the exact comparison rule and threshold used for each row."
     ]
   },
+  "profileSupplement": {
+    "goodnessOfFit": {
+      "datasetRecords": [
+        {
+          "dataset": "replace-with-fit-study-id",
+          "matrix": "plasma"
+        }
+      ],
+      "acceptanceCriteria": [
+        "Relative error <= 20% for plasma Cmax in the declared study."
+      ]
+    },
+    "predictiveChecks": {
+      "datasetRecords": [
+        {
+          "dataset": "replace-with-predictive-benchmark-set",
+          "route": "iv"
+        }
+      ],
+      "acceptanceCriteria": [
+        "GMFE within 2-fold across the declared predictive benchmark set."
+      ]
+    },
+    "targetOutputs": [
+      "Plasma|Compound|Concentration"
+    ]
+  },
   "rows": [
     {
       "id": "runtime-smoke-plasma-cmax",
