@@ -8,7 +8,8 @@ from pathlib import Path
 
 from runtime_patch_manifest import (
     DEFAULT_PATCH_CONTAINERS,
-    iter_patch_mappings,
+    HOT_PATCHES,
+    iter_hot_patch_mappings,
     pth_target_paths,
     python_target_paths,
     r_target_paths,
@@ -28,7 +29,7 @@ def run(cmd: list[str], *, capture: bool = True) -> subprocess.CompletedProcess[
 
 
 def ensure_container_dirs(container: str) -> None:
-    directories = " ".join(target_directories())
+    directories = " ".join(target_directories(HOT_PATCHES))
     run(
         [
             "docker",
@@ -42,15 +43,15 @@ def ensure_container_dirs(container: str) -> None:
 
 
 def copy_files(container: str) -> None:
-    for source, target in iter_patch_mappings(WORKSPACE_ROOT):
+    for source, target in iter_hot_patch_mappings(WORKSPACE_ROOT):
         if not source.is_file():
             raise FileNotFoundError(source)
         run(["docker", "cp", str(source), f"{container}:{target}"])
 
 
 def verify_python(container: str) -> None:
-    file_list = ", ".join(repr(path) for path in python_target_paths())
-    pth_list = ", ".join(repr(path) for path in pth_target_paths())
+    file_list = ", ".join(repr(path) for path in python_target_paths(HOT_PATCHES))
+    pth_list = ", ".join(repr(path) for path in pth_target_paths(HOT_PATCHES))
     run(
         [
             "docker",
@@ -73,8 +74,11 @@ def verify_python(container: str) -> None:
 
 
 def verify_r_parsing(container: str) -> None:
+    targets = r_target_paths(HOT_PATCHES)
+    if not targets:
+        return
     parse_calls = "; ".join(
-        f"invisible(parse(file='{path}'))" for path in r_target_paths()
+        f"invisible(parse(file='{path}'))" for path in targets
     )
     run(
         [
@@ -110,7 +114,7 @@ def restart_container(container: str) -> None:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Copy the rxode2 bridge and server patches into a PBPK MCP container."
+        description="Refresh the live runtime-specific PBPK MCP hot patches inside a container."
     )
     parser.add_argument(
         "--container",

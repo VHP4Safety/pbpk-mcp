@@ -22,6 +22,7 @@ module = importlib.util.module_from_spec(spec)
 sys.modules.setdefault("pbpk_runtime_patch_manifest_test", module)
 spec.loader.exec_module(module)
 PATCHES = module.PATCHES
+HOT_PATCHES = module.HOT_PATCHES
 WORKER_DOCKERFILE = WORKSPACE_ROOT / "docker" / "rxode2-worker.Dockerfile"
 
 
@@ -80,6 +81,10 @@ class DeploymentProfileTests(unittest.TestCase):
         self.assertNotIn("src/mcp/__init__.py", file_sources)
         self.assertNotIn("src/mcp_bridge/adapter/interface.py", file_sources)
         self.assertNotIn("src/mcp_bridge/routes/resources_base.py", file_sources)
+
+    def test_runtime_hot_patch_manifest_only_refreshes_overlay_hook(self) -> None:
+        hot_sources = {patch.source for patch in HOT_PATCHES}
+        self.assertEqual(hot_sources, {"scripts/runtime_src_overlay.pth"})
 
     def test_worker_image_carries_src_overlay_material(self) -> None:
         text = WORKER_DOCKERFILE.read_text(encoding="utf-8")

@@ -45,6 +45,11 @@ It now carries only:
 - the runtime overlay `.pth`
 - any remaining runtime-specific patched files
 
+The same manifest is used in two modes:
+
+- image-build patching through `scripts/install_runtime_patches.py`, which still installs the runtime-specific bridge/model files into the baked image layout
+- live hot patching through `scripts/apply_rxode2_patch.py`, which now refreshes only `scripts/runtime_src_overlay.pth`
+
 The installed Python package also now carries a generated fallback copy of the published contract artifacts, and the live schema/capability/contract-manifest resources treat that packaged contract as authoritative. That does not replace the patch-first runtime flow, but it reduces reliance on copied JSON under `/app/var/contract` when the live resource endpoints need to expose the published contract. `scripts/check_installed_package_contract.py` is the complementary maintainer gate that verifies the generated package fallback still matches the published contract artifacts after a non-editable local install.
 The first `0.4.x` debt-reduction step also starts here: the shared schema/capability/contract-manifest route logic now lives in packaged `src/mcp_bridge/routes/resources_base.py`, and packaged `src/mcp_bridge/routes/resources.py` now owns the full generic `/mcp/resources` surface, including the model catalog.
 The next matching step is the tool registry split: packaged `src/mcp_bridge/tools/registry_base.py` now carries the shared base tool descriptors, and packaged `src/mcp_bridge/tools/registry.py` now owns the full generic workflow registry, including discovery, static manifest validation, deterministic result retrieval, and external PBPK normalization.
@@ -118,6 +123,8 @@ By default it patches:
 
 - `pbpk_mcp-api-1`
 - `pbpk_mcp-worker-1`
+
+Because the local compose stack already bind-mounts `./scripts`, `./src`, and `./var`, this hot-patch step no longer recopies those trees into the running containers. It now exists only to refresh the `.pth` overlay hook inside `site-packages` when needed.
 
 ### 4. Rebuild the worker image baseline
 
