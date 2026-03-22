@@ -80,13 +80,12 @@ The current implementation follows a layered model:
 
 See `docs/architecture/dual_backend_pbpk_mcp.md` for the fuller architecture narrative, `docs/architecture/capability_matrix.md` for the published support matrix, `docs/architecture/mcp_payload_conventions.md` for the response contract, and `docs/deployment/runtime_patch_flow.md` for the operator path behind the current local deployment model.
 
-## What's new in v0.4.0
+## What's new in v0.4.1
 
-- Formalized `pbpk-mcp.v1` with published PBPK-side object schemas, example payloads, a capability matrix, a machine-readable contract manifest, and integrity-hashed live MCP contract resources.
-- Hardened packaging and release gates with explicit dependency preflight, installed-package validation, `sdist`/wheel validation, release-metadata consistency checks, and retained release-artifact evidence.
-- Added a hardened deployment overlay with explicit auth requirements while preserving the same documented MCP contract as the development stack.
-- Moved the generic MCP runtime surface into packaged `src/`, including shared resources, tool registry, workflow tools, and adapter/runtime boundaries.
-- Retired the tracked patch-copy runtime flow: the local stack now uses a source overlay on top of the packaged worker image baseline while keeping the public PBPK/NGRA boundary unchanged.
+- Made the local runtime packaged by default instead of source-overlay first, so the documented development stack now matches the installed package boundary more honestly.
+- Added an explicit maintainer-only source-overlay profile through `docker-compose.overlay.yml` and `scripts/deploy_source_overlay_stack.sh`.
+- Updated the `rxode2` worker image to install the current `mcp-bridge` package into site-packages and use `/app/src` only when `PBPK_ENABLE_SRC_OVERLAY=true`.
+- Kept the public `pbpk-mcp.v1` contract, PBPK/NGRA boundary, and live tool/resource surface unchanged while tightening local runtime convergence.
 
 ## Why this project exists
 
@@ -308,7 +307,7 @@ The default local packaged stack is defined in `docker-compose.celery.yml`. An e
 | `R_MAX_VSIZE` | `2G` | Caps R virtual memory use inside the current local worker setup. |
 | `DOTNET_GCHeapLimitPercent` | `60` | Constrains the .NET heap used by the OSPSuite runtime. |
 | `PBPK_ENABLE_SRC_OVERLAY` | `false` | Keeps `/app/src` out of import precedence by default; `docker-compose.overlay.yml` sets it to `true` for workspace-override development. |
-| `SERVICE_VERSION` | `0.4.0` | Exposed through `/health` and compose-level runtime metadata. |
+| `SERVICE_VERSION` | `0.4.1` | Exposed through `/health` and compose-level runtime metadata. |
 | `AUTH_ALLOW_ANONYMOUS` | `true` | Development-friendly local default; do not expose beyond localhost without hardening. |
 | `PBPK_BIND_HOST` | `127.0.0.1` | Host/interface used by the hardened overlay when publishing the API port. |
 | `PBPK_BIND_PORT` | `8000` | Host port used by the hardened overlay when publishing the API port. |

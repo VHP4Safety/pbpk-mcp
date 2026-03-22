@@ -4,11 +4,18 @@ All notable changes to this project should be documented in this file.
 
 ## Unreleased
 
+## v0.4.1 - 2026-03-22
+
 ### Changed
 
 - `docker-compose.celery.yml` now runs the packaged local runtime by default, while `docker-compose.overlay.yml` and `scripts/deploy_source_overlay_stack.sh` provide the explicit source-overlay maintainer path
-- `scripts/runtime_src_overlay.pth` is now conditional on `PBPK_ENABLE_SRC_OVERLAY`, so the worker image can run in either packaged or overlay mode without changing the public contract
+- the `rxode2` worker image now installs the current `mcp-bridge` package into site-packages during the image build and keeps `/app/src` for the explicit overlay path only
+- `scripts/runtime_src_overlay.pth` is now conditional on `PBPK_ENABLE_SRC_OVERLAY`, so the same worker image can run in packaged or overlay mode without changing the public contract
 - deployment docs now describe the packaged-default local runtime with an opt-in overlay profile, rather than treating the source overlay as the only local mode
+
+### Notes
+
+- `v0.4.1` closes the main remaining runtime-convergence gap from `v0.4.0`: the documented local development stack is now packaged by default, while source overlay is an explicit maintainer workflow
 
 ## v0.4.0 - 2026-03-22
 
