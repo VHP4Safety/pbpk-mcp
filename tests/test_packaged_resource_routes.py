@@ -21,9 +21,10 @@ except ModuleNotFoundError as exc:  # pragma: no cover - local lightweight envs
 
 class PackagedResourceRouteTests(unittest.TestCase):
     @unittest.skipIf(router is None, "fastapi is required for packaged route import checks")
-    def test_packaged_router_exposes_shared_contract_resource_surface(self) -> None:
+    def test_packaged_router_exposes_full_generic_resource_surface(self) -> None:
         paths = {route.path for route in router.routes}
         expected = {
+            "/mcp/resources/models",
             "/mcp/resources/simulations",
             "/mcp/resources/parameters",
             "/mcp/resources/schemas",
@@ -32,11 +33,6 @@ class PackagedResourceRouteTests(unittest.TestCase):
             "/mcp/resources/contract-manifest",
         }
         self.assertTrue(expected.issubset(paths))
-
-    @unittest.skipIf(router is None, "fastapi is required for packaged route import checks")
-    def test_packaged_router_does_not_expose_patch_only_model_catalog_endpoint(self) -> None:
-        paths = {route.path for route in router.routes}
-        self.assertNotIn("/mcp/resources/models", paths)
 
 
 if __name__ == "__main__":

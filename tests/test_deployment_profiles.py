@@ -64,7 +64,9 @@ class DeploymentProfileTests(unittest.TestCase):
             "src/mcp/tools/validate_model_manifest.py",
             "src/mcp_bridge/model_catalog.py",
             "src/mcp_bridge/model_manifest.py",
+            "src/mcp_bridge/routes/resources.py",
             "src/mcp_bridge/routes/resources_base.py",
+            "src/mcp_bridge/tools/registry.py",
             "src/mcp_bridge/tools/registry_base.py",
             "schemas/assessmentContext.v1.json",
             "schemas/berInputBundle.v1.json",
@@ -96,6 +98,8 @@ class DeploymentProfileTests(unittest.TestCase):
         self.assertNotIn("patches/mcp/tools/validate_model_manifest.py", manifest_sources)
         self.assertNotIn("patches/mcp_bridge/model_catalog.py", manifest_sources)
         self.assertNotIn("patches/mcp_bridge/model_manifest.py", manifest_sources)
+        self.assertNotIn("patches/mcp_bridge/routes/resources.py", manifest_sources)
+        self.assertNotIn("patches/mcp_bridge/tools/registry.py", manifest_sources)
 
     def test_release_artifacts_workflow_validates_and_uploads_distribution_boundary(self) -> None:
         text = RELEASE_ARTIFACTS_WORKFLOW.read_text(encoding="utf-8")

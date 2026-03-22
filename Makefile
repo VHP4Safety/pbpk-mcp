@@ -90,10 +90,10 @@ runtime-patch-check: ## Compile the patch-first runtime files used by the live s
 		src/mcp_bridge/contract/artifacts.py \
 		src/mcp_bridge/model_catalog.py \
 		src/mcp_bridge/model_manifest.py \
+		src/mcp_bridge/routes/resources.py \
 		src/mcp_bridge/routes/resources_base.py \
+		src/mcp_bridge/tools/registry.py \
 		src/mcp_bridge/tools/registry_base.py \
-		patches/mcp_bridge/routes/resources.py \
-		patches/mcp_bridge/tools/registry.py
 
 runtime-contract-test: ## Run the patch-first runtime contract tests that do not require the live stack
 	$(PY) scripts/check_runtime_contract_env.py

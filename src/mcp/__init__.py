@@ -6,16 +6,23 @@ from .tools.calculate_pk_parameters import (
     CalculatePkParametersResponse,
     calculate_pk_parameters,
 )
+from .tools.discover_models import DiscoverModelsRequest, DiscoverModelsResponse, discover_models
 from .tools.export_oecd_report import (
     ExportOecdReportRequest,
     ExportOecdReportResponse,
     export_oecd_report,
 )
 from .tools.get_job_status import GetJobStatusRequest, GetJobStatusResponse, get_job_status
+from .tools.get_results import GetResultsRequest, GetResultsResponse, get_results
 from .tools.get_parameter_value import (
     GetParameterValueRequest,
     GetParameterValueResponse,
     get_parameter_value,
+)
+from .tools.ingest_external_pbpk_bundle import (
+    IngestExternalPbpkBundleRequest,
+    IngestExternalPbpkBundleResponse,
+    ingest_external_pbpk_bundle,
 )
 from .tools.list_parameters import ListParametersRequest, ListParametersResponse, list_parameters
 from .tools.run_simulation import RunSimulationRequest, RunSimulationResponse, run_simulation
@@ -39,6 +46,11 @@ from .tools.set_parameter_value import (
     SetParameterValueResponse,
     set_parameter_value,
 )
+from .tools.validate_model_manifest import (
+    ValidateModelManifestRequest,
+    ValidateModelManifestResponse,
+    validate_model_manifest,
+)
 from .tools.validate_simulation_request import (
     ValidateSimulationRequestRequest,
     ValidateSimulationRequestResponse,
@@ -53,6 +65,9 @@ __all__ = [
     "CalculatePkParametersRequest",
     "CalculatePkParametersResponse",
     "calculate_pk_parameters",
+    "DiscoverModelsRequest",
+    "DiscoverModelsResponse",
+    "discover_models",
     "ExportOecdReportRequest",
     "ExportOecdReportResponse",
     "export_oecd_report",
@@ -65,6 +80,12 @@ __all__ = [
     "GetJobStatusRequest",
     "GetJobStatusResponse",
     "get_job_status",
+    "GetResultsRequest",
+    "GetResultsResponse",
+    "get_results",
+    "IngestExternalPbpkBundleRequest",
+    "IngestExternalPbpkBundleResponse",
+    "ingest_external_pbpk_bundle",
     "SetParameterValueRequest",
     "SetParameterValueResponse",
     "set_parameter_value",
@@ -83,4 +104,7 @@ __all__ = [
     "ValidateSimulationRequestRequest",
     "ValidateSimulationRequestResponse",
     "validate_simulation_request",
+    "ValidateModelManifestRequest",
+    "ValidateModelManifestResponse",
+    "validate_model_manifest",
 ]

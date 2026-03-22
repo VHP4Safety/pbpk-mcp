@@ -195,8 +195,8 @@ PBPK MCP now also publishes a machine-readable contract manifest in:
 
 That manifest inventories the published PBPK-side schema family, the capability matrix, the legacy artifacts intentionally excluded from the PBPK-side object family, and the stable resource endpoints that expose the contract.
 The live schema, capability-matrix, and contract-manifest resources now also expose SHA-256 values so downstream clients can verify that the running API matches the published artifact inventory.
-The shared schema/capability/contract-manifest route logic now lives in packaged `src/mcp_bridge/routes/resources_base.py`, while the patch layer only extends `/mcp/resources` with the model-catalog endpoint that is still patch-only in the current convergence stage.
-The same split now starts to exist for tools as well: packaged `src/mcp_bridge/tools/registry_base.py` owns the shared base tool descriptors, while the patch layer only adds the remaining discovery/static-manifest/result/import descriptors that still need runtime overlay in the current convergence stage.
+The shared schema/capability/contract-manifest route logic now lives in packaged `src/mcp_bridge/routes/resources_base.py`, and packaged `src/mcp_bridge/routes/resources.py` now owns the full generic `/mcp/resources` surface including `/mcp/resources/models`.
+The same is now true for tools as well: packaged `src/mcp_bridge/tools/registry_base.py` and `src/mcp_bridge/tools/registry.py` now own the generic discovery/static-manifest/result/import descriptors alongside the rest of the documented PBPK workflow surface.
 The next `0.4.x` debt-reduction slices are now live too: generic discovery, manifest, load/session-status, preflight validation, executable verification, dossier export, deterministic-result retrieval, external-import normalization, population workflow tools, and the shared `model_catalog` / `model_manifest` helpers now live in packaged `src/`, while the patch manifest carries those packaged files into the live stack until the base image catches up.
 
 ## Capability matrix
