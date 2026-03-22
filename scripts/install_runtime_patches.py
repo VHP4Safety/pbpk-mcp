@@ -11,9 +11,8 @@ from pathlib import Path
 
 from runtime_patch_manifest import (
     iter_patch_mappings,
-    iter_patch_tree_mappings,
+    pth_target_paths,
     python_target_paths,
-    python_tree_targets,
     r_target_paths,
 )
 
@@ -29,12 +28,6 @@ def install_patches(source_root: Path, target_root: Path) -> None:
         target_path = resolve_target_path(target_root, absolute_target)
         target_path.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(source_path, target_path)
-    for source_path, absolute_target in iter_patch_tree_mappings(source_root):
-        if not source_path.is_dir():
-            raise NotADirectoryError(source_path)
-        target_path = resolve_target_path(target_root, absolute_target)
-        target_path.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copytree(source_path, target_path, dirs_exist_ok=True)
 
 
 def verify_python_targets(target_root: Path) -> None:
@@ -44,15 +37,26 @@ def verify_python_targets(target_root: Path) -> None:
             resolve_target_path(target_root, absolute_target)
             for absolute_target in python_target_paths()
         ]
-        for tree_target in python_tree_targets():
-            tree_root = resolve_target_path(target_root, tree_target)
-            python_targets.extend(sorted(tree_root.rglob("*.py")))
         for index, target_path in enumerate(python_targets):
             py_compile.compile(
                 str(target_path),
                 cfile=str(tmp_path / f"{index}.pyc"),
                 doraise=True,
             )
+
+
+def verify_pth_targets(target_root: Path) -> None:
+    original_path = list(sys.path)
+    try:
+        for absolute_target in pth_target_paths():
+            target_path = resolve_target_path(target_root, absolute_target)
+            statement = target_path.read_text(encoding="utf-8").strip()
+            if not statement:
+                continue
+            sys.path[:] = ["keep-a", "/app/src", "keep-b"]
+            exec(statement, {})
+    finally:
+        sys.path[:] = original_path
 
 
 def verify_r_targets(target_root: Path) -> None:
@@ -103,6 +107,7 @@ def main() -> int:
     install_patches(source_root, target_root)
     if args.compile_python:
         verify_python_targets(target_root)
+        verify_pth_targets(target_root)
     if args.verify_r:
         verify_r_targets(target_root)
     return 0

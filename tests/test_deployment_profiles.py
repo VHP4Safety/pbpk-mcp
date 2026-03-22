@@ -22,7 +22,6 @@ module = importlib.util.module_from_spec(spec)
 sys.modules.setdefault("pbpk_runtime_patch_manifest_test", module)
 spec.loader.exec_module(module)
 PATCHES = module.PATCHES
-PATCH_TREES = module.PATCH_TREES
 WORKER_DOCKERFILE = WORKSPACE_ROOT / "docker" / "rxode2-worker.Dockerfile"
 
 
@@ -51,15 +50,12 @@ class DeploymentProfileTests(unittest.TestCase):
         self.assertIn('PBPK_BIND_PORT:-8000', text)
         self.assertIn('wait_for_runtime_ready.py" --base-url "${base_url}"', text)
 
-    def test_runtime_patch_manifest_uses_packaged_src_overlay_for_contract_surface(self) -> None:
+    def test_runtime_patch_manifest_keeps_only_runtime_specific_file_patches(self) -> None:
         file_sources = {patch.source for patch in PATCHES}
-        tree_sources = {patch.source for patch in PATCH_TREES}
-        expected_trees = {
-            "src/mcp",
-            "src/mcp_bridge",
-        }
         self.assertIn("scripts/runtime_src_overlay.pth", file_sources)
-        self.assertEqual(expected_trees, tree_sources)
+        self.assertIn("scripts/ospsuite_bridge.R", file_sources)
+        self.assertIn("cisplatin_models/cisplatin_population_rxode2_model.R", file_sources)
+        self.assertEqual(len(PATCHES), 3)
         self.assertNotIn("docs/architecture/capability_matrix.json", file_sources)
         self.assertNotIn("docs/architecture/contract_manifest.json", file_sources)
         self.assertNotIn("schemas/assessmentContext.v1.json", file_sources)
@@ -83,16 +79,16 @@ class DeploymentProfileTests(unittest.TestCase):
         self.assertNotIn("patches/mcp_bridge/tools/registry.py", file_sources)
         self.assertNotIn("src/mcp/__init__.py", file_sources)
         self.assertNotIn("src/mcp_bridge/adapter/interface.py", file_sources)
-        self.assertNotIn("src/mcp", file_sources)
+        self.assertNotIn("src/mcp_bridge/routes/resources_base.py", file_sources)
 
     def test_worker_image_carries_src_overlay_material(self) -> None:
         text = WORKER_DOCKERFILE.read_text(encoding="utf-8")
         self.assertIn("COPY src /app/src", text)
-        self.assertIn("COPY src /tmp/pbpk_runtime_source/src", text)
         self.assertIn(
             "COPY scripts/runtime_src_overlay.pth /tmp/pbpk_runtime_source/scripts/runtime_src_overlay.pth",
             text,
         )
+        self.assertNotIn("COPY patches /tmp/pbpk_runtime_source/patches", text)
 
     def test_runtime_src_overlay_pth_executes_cleanly_and_keeps_app_src_first(self) -> None:
         overlay_line = (WORKSPACE_ROOT / "scripts" / "runtime_src_overlay.pth").read_text(encoding="utf-8").strip()

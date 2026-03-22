@@ -39,8 +39,6 @@ RUN mkdir -p /root/.R \
 RUN Rscript -e "options(Ncpus=1L); install.packages('rxode2', repos='https://cloud.r-project.org')"
 
 COPY src /app/src
-COPY src /tmp/pbpk_runtime_source/src
-COPY patches /tmp/pbpk_runtime_source/patches
 COPY scripts/install_runtime_patches.py /tmp/pbpk_runtime_source/scripts/install_runtime_patches.py
 COPY scripts/runtime_patch_manifest.py /tmp/pbpk_runtime_source/scripts/runtime_patch_manifest.py
 COPY scripts/runtime_src_overlay.pth /tmp/pbpk_runtime_source/scripts/runtime_src_overlay.pth

@@ -11,12 +11,6 @@ class RuntimePatch:
     target: str
 
 
-@dataclass(frozen=True)
-class RuntimePatchTree:
-    source: str
-    target: str
-
-
 PATCHES: tuple[RuntimePatch, ...] = (
     RuntimePatch(
         "scripts/runtime_src_overlay.pth",
@@ -29,11 +23,6 @@ PATCHES: tuple[RuntimePatch, ...] = (
     ),
 )
 
-PATCH_TREES: tuple[RuntimePatchTree, ...] = (
-    RuntimePatchTree("src/mcp", "/app/src/mcp"),
-    RuntimePatchTree("src/mcp_bridge", "/app/src/mcp_bridge"),
-)
-
 DEFAULT_PATCH_CONTAINERS: tuple[str, ...] = ("pbpk_mcp-api-1", "pbpk_mcp-worker-1")
 
 
@@ -42,15 +31,8 @@ def iter_patch_mappings(workspace_root: Path) -> Iterable[tuple[Path, str]]:
         yield workspace_root / patch.source, patch.target
 
 
-def iter_patch_tree_mappings(workspace_root: Path) -> Iterable[tuple[Path, str]]:
-    for patch in PATCH_TREES:
-        yield workspace_root / patch.source, patch.target
-
-
 def target_directories() -> tuple[str, ...]:
     directories = {str(Path(patch.target).parent) for patch in PATCHES}
-    directories.update(str(Path(patch.target)) for patch in PATCH_TREES)
-    directories.update(str(Path(patch.target).parent) for patch in PATCH_TREES)
     directories = sorted(directories)
     return tuple(directories)
 
@@ -59,26 +41,21 @@ def python_target_paths() -> tuple[str, ...]:
     return tuple(patch.target for patch in PATCHES if patch.target.endswith(".py"))
 
 
-def python_tree_targets() -> tuple[str, ...]:
-    return tuple(
-        patch.target for patch in PATCH_TREES if patch.target.startswith("/app/src/")
-    )
-
-
 def r_target_paths() -> tuple[str, ...]:
     return tuple(patch.target for patch in PATCHES if patch.target.endswith(".R"))
+
+
+def pth_target_paths() -> tuple[str, ...]:
+    return tuple(patch.target for patch in PATCHES if patch.target.endswith(".pth"))
 
 
 __all__ = [
     "DEFAULT_PATCH_CONTAINERS",
     "PATCHES",
-    "PATCH_TREES",
     "RuntimePatch",
-    "RuntimePatchTree",
     "iter_patch_mappings",
-    "iter_patch_tree_mappings",
+    "pth_target_paths",
     "python_target_paths",
-    "python_tree_targets",
     "r_target_paths",
     "target_directories",
 ]

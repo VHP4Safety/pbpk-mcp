@@ -6,8 +6,8 @@
 
 That means the authoritative live MCP contract is currently defined by a combination of:
 
-- packaged `src/` modules mounted at `/app/src` and activated through the runtime overlay `.pth`
-- the remaining runtime-specific files in `patches/`
+- packaged `src/` modules copied into the image or mounted at `/app/src` and activated through the runtime overlay `.pth`
+- the remaining runtime-specific patched files
 - `scripts/ospsuite_bridge.R`
 - bundled MCP-ready `.R` model modules such as `cisplatin_models/cisplatin_population_rxode2_model.R`
 
@@ -40,15 +40,16 @@ That manifest is consumed by:
 - `scripts/apply_rxode2_patch.py`
 - `docker/rxode2-worker.Dockerfile`
 
-It now carries:
+It now carries only:
 
-- the runtime overlay and any remaining runtime-specific patched files
+- the runtime overlay `.pth`
+- any remaining runtime-specific patched files
 
 The installed Python package also now carries a generated fallback copy of the published contract artifacts, and the live schema/capability/contract-manifest resources treat that packaged contract as authoritative. That does not replace the patch-first runtime flow, but it reduces reliance on copied JSON under `/app/var/contract` when the live resource endpoints need to expose the published contract. `scripts/check_installed_package_contract.py` is the complementary maintainer gate that verifies the generated package fallback still matches the published contract artifacts after a non-editable local install.
 The first `0.4.x` debt-reduction step also starts here: the shared schema/capability/contract-manifest route logic now lives in packaged `src/mcp_bridge/routes/resources_base.py`, and packaged `src/mcp_bridge/routes/resources.py` now owns the full generic `/mcp/resources` surface, including the model catalog.
 The next matching step is the tool registry split: packaged `src/mcp_bridge/tools/registry_base.py` now carries the shared base tool descriptors, and packaged `src/mcp_bridge/tools/registry.py` now owns the full generic workflow registry, including discovery, static manifest validation, deterministic result retrieval, and external PBPK normalization.
 The next reduction step after that is the generic tool/helper migration: `src/mcp/tools/discover_models.py`, `src/mcp/tools/load_simulation.py`, `src/mcp/tools/get_job_status.py`, `src/mcp/tools/validate_simulation_request.py`, `src/mcp/tools/run_verification_checks.py`, `src/mcp/tools/export_oecd_report.py`, `src/mcp/tools/get_results.py`, `src/mcp/tools/ingest_external_pbpk_bundle.py`, `src/mcp/tools/run_population_simulation.py`, `src/mcp/tools/validate_model_manifest.py`, `src/mcp_bridge/model_catalog.py`, and `src/mcp_bridge/model_manifest.py` are now the authoritative implementations, while the runtime patch manifest carries those packaged files into the live stack until the base image itself includes them.
-The current reduction step moves the generic top-level namespace and adapter boundary too: `src/mcp/__init__.py`, `src/mcp_bridge/adapter/__init__.py`, `src/mcp_bridge/adapter/interface.py`, and `src/mcp_bridge/adapter/ospsuite.py` now own the generic MCP namespace and subprocess adapter runtime, and the runtime patch manifest now overlays the whole `src/mcp` and `src/mcp_bridge` trees through `/app/src` plus `scripts/runtime_src_overlay.pth` instead of copying those Python files into `site-packages` one by one.
+The current reduction step moves one layer further: the runtime patch manifest no longer re-copies the `src/mcp` and `src/mcp_bridge` trees at patch time. Those packaged modules now come directly from the image build or the development bind mount at `/app/src`, while `scripts/runtime_src_overlay.pth` remains the only Python overlay hook that promotes `/app/src` ahead of the installed package.
 
 The important rule is:
 
