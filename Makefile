@@ -71,7 +71,6 @@ runtime-patch-check: ## Compile the patch-first runtime files used by the live s
 		scripts/check_installed_package_contract.py \
 		scripts/generate_contract_artifacts.py \
 		scripts/runtime_patch_manifest.py \
-		scripts/install_runtime_patches.py \
 		scripts/apply_rxode2_patch.py \
 		scripts/release_readiness_check.py \
 		scripts/wait_for_runtime_ready.py \

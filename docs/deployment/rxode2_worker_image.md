@@ -25,10 +25,12 @@ It extends:
 and then bakes in:
 
 - the `rxode2` R package
-- the patch-first runtime contract defined by `scripts/runtime_patch_manifest.py`
-- the installer in `scripts/install_runtime_patches.py`
+- the packaged `src/` tree at `/app/src`
+- the runtime overlay hook in `scripts/runtime_src_overlay.pth`
 - the hybrid bridge in `scripts/ospsuite_bridge.R`
 - the reference cisplatin model module in `cisplatin_models/cisplatin_population_rxode2_model.R`
+
+The current `0.4.x` debt-reduction step removes the old image-build patch installer from this path. The worker Dockerfile now copies those baseline runtime assets directly into their final locations and validates the overlay hook plus both R files during the image build itself.
 
 ## Build
 

@@ -23,7 +23,8 @@ So for this stage:
 
 - the user-facing and tested runtime contract is real
 - the local stack is reproducible
-- the image build and hot-patch flow use the same patch manifest
+- the worker image now bakes the remaining baseline R assets directly
+- the live hot-patch flow only refreshes the Python overlay hook
 - migration into a pure packaged `src/` implementation is explicitly deferred
 
 This is an operating model, not the long-term destination.
@@ -36,25 +37,29 @@ The shared runtime patch set is defined in:
 
 That manifest is consumed by:
 
-- `scripts/install_runtime_patches.py`
 - `scripts/apply_rxode2_patch.py`
-- `docker/rxode2-worker.Dockerfile`
 
 It now carries only:
 
 - the runtime overlay `.pth`
-- any remaining runtime-specific patched files
 
-The same manifest is used in two modes:
+The worker image now owns its baked baseline assets directly through:
 
-- image-build patching through `scripts/install_runtime_patches.py`, which still installs the runtime-specific bridge/model files into the baked image layout
-- live hot patching through `scripts/apply_rxode2_patch.py`, which now refreshes only `scripts/runtime_src_overlay.pth`
+- `docker/rxode2-worker.Dockerfile`
+
+That image build copies:
+
+- `scripts/runtime_src_overlay.pth`
+- `scripts/ospsuite_bridge.R`
+- `cisplatin_models/cisplatin_population_rxode2_model.R`
+
+directly into their runtime locations and validates both the overlay hook and the R assets during the image build. Live hot patching through `scripts/apply_rxode2_patch.py` now refreshes only `scripts/runtime_src_overlay.pth`.
 
 The installed Python package also now carries a generated fallback copy of the published contract artifacts, and the live schema/capability/contract-manifest resources treat that packaged contract as authoritative. That does not replace the patch-first runtime flow, but it reduces reliance on copied JSON under `/app/var/contract` when the live resource endpoints need to expose the published contract. `scripts/check_installed_package_contract.py` is the complementary maintainer gate that verifies the generated package fallback still matches the published contract artifacts after a non-editable local install.
 The first `0.4.x` debt-reduction step also starts here: the shared schema/capability/contract-manifest route logic now lives in packaged `src/mcp_bridge/routes/resources_base.py`, and packaged `src/mcp_bridge/routes/resources.py` now owns the full generic `/mcp/resources` surface, including the model catalog.
 The next matching step is the tool registry split: packaged `src/mcp_bridge/tools/registry_base.py` now carries the shared base tool descriptors, and packaged `src/mcp_bridge/tools/registry.py` now owns the full generic workflow registry, including discovery, static manifest validation, deterministic result retrieval, and external PBPK normalization.
 The next reduction step after that is the generic tool/helper migration: `src/mcp/tools/discover_models.py`, `src/mcp/tools/load_simulation.py`, `src/mcp/tools/get_job_status.py`, `src/mcp/tools/validate_simulation_request.py`, `src/mcp/tools/run_verification_checks.py`, `src/mcp/tools/export_oecd_report.py`, `src/mcp/tools/get_results.py`, `src/mcp/tools/ingest_external_pbpk_bundle.py`, `src/mcp/tools/run_population_simulation.py`, `src/mcp/tools/validate_model_manifest.py`, `src/mcp_bridge/model_catalog.py`, and `src/mcp_bridge/model_manifest.py` are now the authoritative implementations, while the runtime patch manifest carries those packaged files into the live stack until the base image itself includes them.
-The current reduction step moves one layer further: the runtime patch manifest no longer re-copies the `src/mcp` and `src/mcp_bridge` trees at patch time. Those packaged modules now come directly from the image build or the development bind mount at `/app/src`, while `scripts/runtime_src_overlay.pth` remains the only Python overlay hook that promotes `/app/src` ahead of the installed package.
+The current reduction step moves one layer further: the runtime patch manifest no longer re-copies the `src/mcp` and `src/mcp_bridge` trees at patch time, and it no longer carries the bridge/model R assets for the worker image build. Those packaged modules now come directly from the image build or the development bind mount at `/app/src`, `scripts/ospsuite_bridge.R` and the bundled reference model are copied directly by the worker Dockerfile, and `scripts/runtime_src_overlay.pth` remains the only live patch artifact that promotes `/app/src` ahead of the installed package.
 
 The important rule is:
 
@@ -80,7 +85,7 @@ Use this when:
 What it does:
 
 - recreates `redis`, `api`, and `worker`
-- reapplies the shared runtime patch set to `pbpk_mcp-api-1` and `pbpk_mcp-worker-1`
+- reapplies the overlay-only runtime patch set to `pbpk_mcp-api-1` and `pbpk_mcp-worker-1`
 - restarts the patched containers
 - waits for stable `/health` and `/mcp/list_tools` responses before returning so follow-on live checks do not race a still-settling API process
 
@@ -104,7 +109,7 @@ What it does:
 - layers `docker-compose.hardened.yml` over `docker-compose.celery.yml`
 - requires explicit auth settings before compose startup will succeed
 - sets `AUTH_ALLOW_ANONYMOUS=false` and `ENVIRONMENT=production`
-- reapplies the shared runtime patch set to `pbpk_mcp-api-1` and `pbpk_mcp-worker-1`
+- reapplies the overlay-only runtime patch set to `pbpk_mcp-api-1` and `pbpk_mcp-worker-1`
 - waits for stable `/health` and `/mcp/list_tools` responses at the configured bind host/port before returning
 
 ### 3. Patch-only recovery

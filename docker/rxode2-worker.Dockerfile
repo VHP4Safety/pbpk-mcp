@@ -39,14 +39,12 @@ RUN mkdir -p /root/.R \
 RUN Rscript -e "options(Ncpus=1L); install.packages('rxode2', repos='https://cloud.r-project.org')"
 
 COPY src /app/src
-COPY scripts/install_runtime_patches.py /tmp/pbpk_runtime_source/scripts/install_runtime_patches.py
-COPY scripts/runtime_patch_manifest.py /tmp/pbpk_runtime_source/scripts/runtime_patch_manifest.py
-COPY scripts/runtime_src_overlay.pth /tmp/pbpk_runtime_source/scripts/runtime_src_overlay.pth
-COPY scripts/ospsuite_bridge.R /tmp/pbpk_runtime_source/scripts/ospsuite_bridge.R
-COPY cisplatin_models/cisplatin_population_rxode2_model.R /tmp/pbpk_runtime_source/cisplatin_models/cisplatin_population_rxode2_model.R
+COPY scripts/runtime_src_overlay.pth /usr/local/lib/python3.11/site-packages/pbpk_mcp_runtime_src.pth
+COPY scripts/ospsuite_bridge.R /app/scripts/ospsuite_bridge.R
+COPY cisplatin_models/cisplatin_population_rxode2_model.R /app/var/models/rxode2/cisplatin/cisplatin_population_rxode2_model.R
 
-RUN python /tmp/pbpk_runtime_source/scripts/install_runtime_patches.py --source-root /tmp/pbpk_runtime_source --target-root / --compile-python --verify-r \
-    && Rscript -e "stopifnot(requireNamespace('rxode2', quietly=TRUE)); cat('rxode2 worker image ready\n')"
+RUN python -c "import sys; from pathlib import Path; statement = Path('/usr/local/lib/python3.11/site-packages/pbpk_mcp_runtime_src.pth').read_text(encoding='utf-8').strip(); original = list(sys.path); sys.path[:] = ['keep-a', '/app/src', 'keep-b']; exec(statement, {}); assert sys.path[0] == '/app/src'; assert sys.path.count('/app/src') == 1; sys.path[:] = original" \
+    && Rscript -e "invisible(parse(file='/app/scripts/ospsuite_bridge.R')); invisible(parse(file='/app/var/models/rxode2/cisplatin/cisplatin_population_rxode2_model.R')); stopifnot(requireNamespace('rxode2', quietly=TRUE)); cat('rxode2 worker image ready\n')"
 
 RUN chown -R mcp:mcp /app/scripts /app/var/models/rxode2
 

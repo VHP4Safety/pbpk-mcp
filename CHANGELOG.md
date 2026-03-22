@@ -22,7 +22,7 @@ All notable changes to this project should be documented in this file.
 - `scripts/check_release_metadata.py`, so release prep now fails fast when version markers drift between package metadata, compose/env runtime metadata, README, the changelog, and the matching release note
 - a retained `release-artifact-report.json` from the tag-oriented distribution check, so release evidence now includes `sdist`/wheel hashes plus the linked contract-manifest identity
 - explicit `.pth` overlay execution checks in the runtime patch installers and deployment-profile tests, so `/app/src` activation failures are caught before live redeploy
-- a separate hot-patch subset in the runtime patch manifest, so local live patching only refreshes the `/app/src` overlay hook while image-build patching still installs the bridge/model files
+- direct worker-image validation of `scripts/ospsuite_bridge.R` and the bundled reference `.R` model, so those runtime-specific assets are verified during image build without routing them through the patch installer
 
 ### Changed
 
@@ -52,6 +52,7 @@ All notable changes to this project should be documented in this file.
 - live contract resources now treat the packaged `mcp_bridge.contract` content as authoritative, so schema/capability/manifest endpoints no longer depend on copying contract JSON into `/app/var/contract`
 - the runtime patch manifest now leaves the packaged `src/mcp` and `src/mcp_bridge` trees to the image build or `/app/src` bind mount, reducing the hot-patch step to the overlay hook plus genuinely runtime-specific files
 - `scripts/apply_rxode2_patch.py` now uses the hot-patch subset instead of the full image-build patch list, so bind-mounted `scripts/`, `src/`, and `var/` content are no longer redundantly recopied during local redeploy
+- the runtime patch manifest is now overlay-only, and `docker/rxode2-worker.Dockerfile` now copies the bridge script plus bundled reference model directly into the worker image instead of invoking `scripts/install_runtime_patches.py`
 - removed the stale `mcp_bridge.schemas` package-data declaration now that the published PBPK-side contract artifacts are carried either as generated Python module content or as patched runtime JSON copies
 
 ## v0.3.5 - 2026-03-21

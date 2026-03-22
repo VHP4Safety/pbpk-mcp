@@ -197,7 +197,7 @@ That manifest inventories the published PBPK-side schema family, the capability 
 The live schema, capability-matrix, and contract-manifest resources now also expose SHA-256 values so downstream clients can verify that the running API matches the published artifact inventory.
 The shared schema/capability/contract-manifest route logic now lives in packaged `src/mcp_bridge/routes/resources_base.py`, and packaged `src/mcp_bridge/routes/resources.py` now owns the full generic `/mcp/resources` surface including `/mcp/resources/models`.
 The same is now true for tools as well: packaged `src/mcp_bridge/tools/registry_base.py` and `src/mcp_bridge/tools/registry.py` now own the generic discovery/static-manifest/result/import descriptors alongside the rest of the documented PBPK workflow surface.
-The next `0.4.x` debt-reduction slices are now live too: generic discovery, manifest, load/session-status, preflight validation, executable verification, dossier export, deterministic-result retrieval, external-import normalization, population workflow tools, the shared `model_catalog` / `model_manifest` helpers, the top-level `mcp` namespace, and the generic adapter contract/runtime now live in packaged `src/`. The current runtime patch flow now relies on the packaged `src/` tree already present in the image or bind-mounted at `/app/src`, with `scripts/runtime_src_overlay.pth` acting as the only Python overlay hook instead of re-copying those trees during patch install. The live hot-patch step has been narrowed further too: `scripts/apply_rxode2_patch.py` now refreshes only that overlay hook, while `scripts/`, `src/`, and `var/` changes come through the compose bind mounts.
+The next `0.4.x` debt-reduction slices are now live too: generic discovery, manifest, load/session-status, preflight validation, executable verification, dossier export, deterministic-result retrieval, external-import normalization, population workflow tools, the shared `model_catalog` / `model_manifest` helpers, the top-level `mcp` namespace, and the generic adapter contract/runtime now live in packaged `src/`. The current runtime patch flow now relies on the packaged `src/` tree already present in the image or bind-mounted at `/app/src`, with `scripts/runtime_src_overlay.pth` acting as the only Python overlay hook instead of re-copying those trees during patch install. The live hot-patch step has been narrowed fully to that overlay hook, while the worker image now bakes `scripts/ospsuite_bridge.R` and the bundled reference `.R` model directly into their runtime locations instead of routing them through the patch manifest.
 
 ## Capability matrix
 
@@ -588,15 +588,16 @@ Important boundaries:
 - `scripts/deploy_rxode2_stack.sh` is the preferred local operator entrypoint.
 - `scripts/deploy_hardened_stack.sh` is the stricter operator entrypoint when you need non-anonymous auth defaults on the same patch-first stack.
 - `scripts/apply_rxode2_patch.py` is the lower-level recovery tool if you need to reapply the current contract without a full recreate.
-- `scripts/install_runtime_patches.py` and `scripts/runtime_patch_manifest.py` define the shared patch set used by both the worker image build and the runtime patch flow.
+- `scripts/runtime_patch_manifest.py` now defines the live overlay-only patch set used by the local hot-patch flow.
+- `docker/rxode2-worker.Dockerfile` now owns the baked baseline worker assets directly, including `scripts/ospsuite_bridge.R` and the bundled reference `.R` model.
 - the live stack is still patch-first in `v0.3.5`, but more of the generic contract surface now lives in packaged `src/`; pure `src/` runtime packaging is still intentionally deferred.
 
 ### Useful repository guideposts
 
 - `scripts/ospsuite_bridge.R`
 - `scripts/runtime_patch_manifest.py`
-- `scripts/install_runtime_patches.py`
 - `scripts/apply_rxode2_patch.py`
+- `docker/rxode2-worker.Dockerfile`
 - `scripts/workspace_model_smoke.py`
 - `src/mcp_bridge/model_catalog.py`
 - `src/mcp_bridge/model_manifest.py`

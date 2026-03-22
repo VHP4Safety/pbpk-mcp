@@ -22,7 +22,6 @@ module = importlib.util.module_from_spec(spec)
 sys.modules.setdefault("pbpk_runtime_patch_manifest_test", module)
 spec.loader.exec_module(module)
 PATCHES = module.PATCHES
-HOT_PATCHES = module.HOT_PATCHES
 WORKER_DOCKERFILE = WORKSPACE_ROOT / "docker" / "rxode2-worker.Dockerfile"
 
 
@@ -51,12 +50,9 @@ class DeploymentProfileTests(unittest.TestCase):
         self.assertIn('PBPK_BIND_PORT:-8000', text)
         self.assertIn('wait_for_runtime_ready.py" --base-url "${base_url}"', text)
 
-    def test_runtime_patch_manifest_keeps_only_runtime_specific_file_patches(self) -> None:
+    def test_runtime_patch_manifest_keeps_only_overlay_hook(self) -> None:
         file_sources = {patch.source for patch in PATCHES}
-        self.assertIn("scripts/runtime_src_overlay.pth", file_sources)
-        self.assertIn("scripts/ospsuite_bridge.R", file_sources)
-        self.assertIn("cisplatin_models/cisplatin_population_rxode2_model.R", file_sources)
-        self.assertEqual(len(PATCHES), 3)
+        self.assertEqual(file_sources, {"scripts/runtime_src_overlay.pth"})
         self.assertNotIn("docs/architecture/capability_matrix.json", file_sources)
         self.assertNotIn("docs/architecture/contract_manifest.json", file_sources)
         self.assertNotIn("schemas/assessmentContext.v1.json", file_sources)
@@ -82,18 +78,21 @@ class DeploymentProfileTests(unittest.TestCase):
         self.assertNotIn("src/mcp_bridge/adapter/interface.py", file_sources)
         self.assertNotIn("src/mcp_bridge/routes/resources_base.py", file_sources)
 
-    def test_runtime_hot_patch_manifest_only_refreshes_overlay_hook(self) -> None:
-        hot_sources = {patch.source for patch in HOT_PATCHES}
-        self.assertEqual(hot_sources, {"scripts/runtime_src_overlay.pth"})
-
     def test_worker_image_carries_src_overlay_material(self) -> None:
         text = WORKER_DOCKERFILE.read_text(encoding="utf-8")
         self.assertIn("COPY src /app/src", text)
         self.assertIn(
-            "COPY scripts/runtime_src_overlay.pth /tmp/pbpk_runtime_source/scripts/runtime_src_overlay.pth",
+            "COPY scripts/runtime_src_overlay.pth /usr/local/lib/python3.11/site-packages/pbpk_mcp_runtime_src.pth",
+            text,
+        )
+        self.assertIn("COPY scripts/ospsuite_bridge.R /app/scripts/ospsuite_bridge.R", text)
+        self.assertIn(
+            "COPY cisplatin_models/cisplatin_population_rxode2_model.R /app/var/models/rxode2/cisplatin/cisplatin_population_rxode2_model.R",
             text,
         )
         self.assertNotIn("COPY patches /tmp/pbpk_runtime_source/patches", text)
+        self.assertNotIn("install_runtime_patches.py", text)
+        self.assertNotIn("/tmp/pbpk_runtime_source", text)
 
     def test_runtime_src_overlay_pth_executes_cleanly_and_keeps_app_src_first(self) -> None:
         overlay_line = (WORKSPACE_ROOT / "scripts" / "runtime_src_overlay.pth").read_text(encoding="utf-8").strip()
