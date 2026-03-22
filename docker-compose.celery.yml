@@ -36,7 +36,7 @@ services:
       ADAPTER_TIMEOUT_SECONDS: "10"
       R_MAX_VSIZE: 2G
       PBPK_ENABLE_SRC_OVERLAY: "false"
-      SERVICE_VERSION: "0.4.1"
+      SERVICE_VERSION: "0.4.2"
     volumes:
       - ./var:/app/var
     healthcheck:

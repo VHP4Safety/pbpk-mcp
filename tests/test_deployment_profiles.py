@@ -93,7 +93,8 @@ class DeploymentProfileTests(unittest.TestCase):
         self.assertIn("COPY pyproject.toml README.md /app/", text)
         self.assertIn("COPY src /app/src", text)
         self.assertIn("python -m pip install --no-deps /app", text)
-        self.assertIn("metadata.version('mcp-bridge') == '0.4.0'", text)
+        self.assertIn("tomllib.loads(Path('/app/pyproject.toml').read_text(encoding='utf-8'))['project']['version']", text)
+        self.assertNotIn("metadata.version('mcp-bridge') == '0.4.0'", text)
         self.assertIn(
             "COPY scripts/runtime_src_overlay.pth /usr/local/lib/python3.11/site-packages/pbpk_mcp_runtime_src.pth",
             text,

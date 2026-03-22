@@ -4,6 +4,17 @@ All notable changes to this project should be documented in this file.
 
 ## Unreleased
 
+## v0.4.2 - 2026-03-22
+
+### Fixed
+
+- the `rxode2` worker image build now validates the installed `mcp-bridge` version dynamically from `pyproject.toml`, instead of hardcoding the previous release version
+- deployment-profile regression coverage now enforces that the worker image version check stays dynamic across future release bumps
+
+### Notes
+
+- `v0.4.2` is the clean packaged-runtime hotfix release after `v0.4.1`; it fixes fresh worker-image rebuilds without changing the public PBPK MCP contract or workflow surface
+
 ## v0.4.1 - 2026-03-22
 
 ### Changed
@@ -15,7 +26,7 @@ All notable changes to this project should be documented in this file.
 
 ### Notes
 
-- `v0.4.1` closes the main remaining runtime-convergence gap from `v0.4.0`: the documented local development stack is now packaged by default, while source overlay is an explicit maintainer workflow
+- `v0.4.1` closed the main remaining runtime-convergence gap from `v0.4.0`: the documented local development stack became packaged by default, while source overlay remained an explicit maintainer workflow
 
 ## v0.4.0 - 2026-03-22
 
