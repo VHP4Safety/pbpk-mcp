@@ -10,7 +10,7 @@ This is the recommended path because:
 - `rxode2` and its compiled dependencies are significantly heavier than the OSPSuite runtime
 - source-compiling `rxode2` inside a capped runtime worker is likely to fail under memory pressure
 
-For the patch-first local operator workflow layered on top of this image, see [`runtime_patch_flow.md`](runtime_patch_flow.md).
+For the current local source-overlay operator workflow layered on top of this image, see [`runtime_patch_flow.md`](runtime_patch_flow.md).
 
 ## Image Layout
 
@@ -113,7 +113,7 @@ Current local runtime behavior:
 - `pbpk_mcp-worker-1` runs with a `4 GiB` memory cap
 - the worker healthcheck uses `pgrep` against the Celery worker process
 - PK-Sim / MoBi `.pkml` models remain supported on the same worker
-- `scripts/deploy_rxode2_stack.sh` recreates the stack and reapplies the current workspace patch set to the API and worker
-- the local implementation is therefore patch-first for this convergence stage, even though the image also carries a baked baseline patch set
+- `scripts/deploy_rxode2_stack.sh` recreates the stack, bind-mounts the current workspace `src/`, `scripts/`, and `var/` trees, and waits for stable readiness
+- the local implementation is therefore a source-overlay development stack for this convergence stage, even though the image also carries a baked baseline runtime
 
 Longer-term, separate worker pools are still the cleaner production shape when OSPSuite-only and `rxode2` workloads need different scaling or isolation.

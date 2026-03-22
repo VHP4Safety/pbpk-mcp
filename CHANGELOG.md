@@ -8,7 +8,7 @@ All notable changes to this project should be documented in this file.
 
 - published versioned JSON Schemas plus example payloads for the PBPK-side NGRA object family under `schemas/` and `schemas/examples/`
 - `tests/test_ngra_object_schemas.py` so the published schema layer is validated against both example payloads and the live external-bundle normalization output
-- `docker-compose.hardened.yml` and `scripts/deploy_hardened_stack.sh` so the patch-first stack can be redeployed with anonymous access disabled and explicit auth settings required at startup
+- `docker-compose.hardened.yml` and `scripts/deploy_hardened_stack.sh` so the local source-overlay stack can be redeployed with anonymous access disabled and explicit auth settings required at startup
 - `tests/test_deployment_profiles.py` to keep the development and hardened deployment profiles aligned with their documented intent
 - live MCP resources for the published PBPK-side schema family and the machine-readable capability matrix, so agents can inspect those contract artifacts directly from the running server
 - `scripts/check_runtime_contract_env.py` so the public contract gate can fail fast when required schema-validation dependencies are missing
@@ -30,7 +30,7 @@ All notable changes to this project should be documented in this file.
 - package metadata now describes PBPK MCP as a dual-backend PBPK qualification and reporting server rather than an OSPSuite-only bridge
 - published a dedicated capability matrix in `docs/architecture/capability_matrix.md` and `docs/architecture/capability_matrix.json`, so adopters can see exact discover/load/validate/run/report boundaries without inferring them from scattered docs
 - deployment docs now distinguish the development compose stack from the hardened overlay profile, including bind-host/bind-port settings and readiness waits against the configured base URL
-- the shared runtime patch manifest now carries the published capability matrix plus schema/example JSON artifacts, so the live MCP resource surface no longer depends on dedicated `docs/` or `schemas/` bind mounts
+- the worker image and packaged contract fallback now carry the published capability matrix plus schema/example JSON artifacts, so the live MCP resource surface no longer depends on dedicated `docs/` or `schemas/` bind mounts
 - `make runtime-contract-test` now runs the dependency preflight before the schema/resource contract tests, so missing `pydantic` or `jsonschema` causes an explicit gate failure instead of a silent skip
 - `make runtime-contract-test` now also performs a non-editable local install check of `mcp_bridge.contract`, so the packaged contract fallback is exercised as an installed boundary instead of only as source-tree code
 - `make runtime-contract-test` now also runs `scripts/generate_contract_artifacts.py --check`, so the contract manifest and generated packaged fallback cannot drift silently from the published JSON artifacts
@@ -39,20 +39,20 @@ All notable changes to this project should be documented in this file.
 - the tag-oriented `Release Artifacts` workflow now runs the release-metadata consistency check before building and uploading retained `sdist` and wheel files
 - the tag-oriented `Release Artifacts` workflow now also uploads `release-artifact-report.json`, tying the built distribution hashes back to the published contract manifest
 - the contract manifest now classifies published schemas and the capability matrix as normative, inventories supporting docs/scripts with hashes, and publishes the legacy-excluded extraction-record policy explicitly
-- the live resource route now prefers the patched runtime copy, but can fall back to packaged contract artifacts when the repo-root JSON files are not present
+- the live resource route now serves the packaged contract artifacts as the authoritative runtime source, while the repo-root JSON files remain the publishable source of truth
 - the live schema, capability-matrix, and contract-manifest resources now expose SHA-256 values derived from the published contract inventory, so downstream clients can verify artifact integrity directly from the running API
 - the shared schema/capability/contract-manifest resource logic now lives in packaged `src/mcp_bridge/routes/resources_base.py`, and packaged `src/mcp_bridge/routes/resources.py` now owns the full generic `/mcp/resources` surface including `/mcp/resources/models`
 - the shared base tool-registry logic now lives in packaged `src/mcp_bridge/tools/registry_base.py`, and packaged `src/mcp_bridge/tools/registry.py` now owns the full generic workflow registry including discovery, static manifest validation, deterministic result retrieval, and external PBPK normalization
-- generic discovery/manifest/result/import implementation modules now live in packaged `src/mcp/tools/` and `src/mcp_bridge/`, while the runtime patch manifest carries those packaged files into the live stack so the patch layer can shrink without changing the live public contract
-- generic load/session-status/population implementation modules now also live in packaged `src/mcp/tools/`, while the runtime patch manifest carries those packaged files into the live stack so the remaining patch layer is closer to genuinely runtime-specific deltas
+- generic discovery/manifest/result/import implementation modules now live in packaged `src/mcp/tools/` and `src/mcp_bridge/`, so the public contract is no longer defined by patch-only copies of those modules
+- generic load/session-status/population implementation modules now also live in packaged `src/mcp/tools/`, so the remaining runtime-specific surface is narrower
 - generic preflight-validation, executable-verification, and OECD-report export modules now also live in packaged `src/mcp/tools/`, and `registry_base` now treats them as part of the packaged base tool surface rather than patch-only extensions
-- the generic top-level `mcp` namespace and subprocess adapter boundary now also live in packaged `src/`, with `src/mcp/__init__.py`, `src/mcp_bridge/adapter/interface.py`, and `src/mcp_bridge/adapter/ospsuite.py` carried into the live stack through the shared runtime patch manifest instead of patch-only copies
-- the local runtime now overlays the packaged `src/mcp` and `src/mcp_bridge` trees through `scripts/runtime_src_overlay.pth` and tree-based runtime patch mappings, reducing per-file Python patching in `site-packages` while keeping the live contract unchanged
+- the generic top-level `mcp` namespace and subprocess adapter boundary now also live in packaged `src/`, with `src/mcp/__init__.py`, `src/mcp_bridge/adapter/interface.py`, and `src/mcp_bridge/adapter/ospsuite.py` serving as the authoritative implementations
+- the local runtime now overlays the packaged `src/` tree through `scripts/runtime_src_overlay.pth`, reducing per-file patching in `site-packages` while keeping the live contract unchanged
 - staged-source packaging checks now ignore local virtual environments, build outputs, and Codex scratch directories so maintainer-local scratch state cannot cause false contract failures
 - live contract resources now treat the packaged `mcp_bridge.contract` content as authoritative, so schema/capability/manifest endpoints no longer depend on copying contract JSON into `/app/var/contract`
-- the runtime patch manifest now leaves the packaged `src/mcp` and `src/mcp_bridge` trees to the image build or `/app/src` bind mount, reducing the hot-patch step to the overlay hook plus genuinely runtime-specific files
-- `scripts/apply_rxode2_patch.py` now uses the hot-patch subset instead of the full image-build patch list, so bind-mounted `scripts/`, `src/`, and `var/` content are no longer redundantly recopied during local redeploy
-- the runtime patch manifest is now overlay-only, and `docker/rxode2-worker.Dockerfile` now copies the bridge script plus bundled reference model directly into the worker image instead of invoking `scripts/install_runtime_patches.py`
+- the local stack now bind-mounts `scripts/runtime_src_overlay.pth` directly into `site-packages`, so local redeploy no longer includes any live patch-copy step
+- `scripts/deploy_rxode2_stack.sh` and `scripts/deploy_hardened_stack.sh` now recreate the stack and wait for stable readiness without calling a separate patch installer
+- `docker/rxode2-worker.Dockerfile` now copies the bridge script plus bundled reference model directly into the worker image, and the obsolete runtime patch installers/manifests have been removed from the local operator path
 - removed the stale `mcp_bridge.schemas` package-data declaration now that the published PBPK-side contract artifacts are carried either as generated Python module content or as patched runtime JSON copies
 
 ## v0.3.5 - 2026-03-21

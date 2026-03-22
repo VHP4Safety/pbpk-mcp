@@ -1,74 +1,64 @@
-# Runtime Patch Flow
+# Runtime Overlay Flow
 
 ## Purpose
 
-`v0.3.1` keeps a patch-first runtime on purpose.
+The local PBPK MCP stack now runs as a source-overlay development runtime.
 
-That means the authoritative live MCP contract is currently defined by a combination of:
+That means the authoritative live contract comes from:
 
-- packaged `src/` modules copied into the image or mounted at `/app/src` and activated through the runtime overlay `.pth`
-- the remaining runtime-specific patched files
-- `scripts/ospsuite_bridge.R`
-- bundled MCP-ready `.R` model modules such as `cisplatin_models/cisplatin_population_rxode2_model.R`
+- the packaged `src/` implementation in the image
+- the workspace `src/` tree bind-mounted at `/app/src`
+- `scripts/runtime_src_overlay.pth`, which promotes `/app/src` ahead of the installed package
+- the worker-image baseline assets baked by `docker/rxode2-worker.Dockerfile`
+- the published packaged contract artifacts exposed through `mcp_bridge.contract`
 
-and then applied into the running API and worker containers.
-
-This document explains how that patch-first deployment works and how to operate it safely.
+This document explains how that local overlay deployment works and how to operate it safely.
 
 ## Why This Exists
 
-The current PBPK MCP contract converged faster than the underlying packaged source layout.
+The `0.4.x` line is reducing patch-first debt without breaking the live contract.
 
-So for this stage:
+At the current stage:
 
-- the user-facing and tested runtime contract is real
-- the local stack is reproducible
-- the worker image now bakes the remaining baseline R assets directly
-- the live hot-patch flow only refreshes the Python overlay hook
-- migration into a pure packaged `src/` implementation is explicitly deferred
+- the user-facing and tested MCP contract is real
+- the generic runtime now lives in packaged `src/`
+- the worker image bakes the baseline R assets directly
+- the local compose stack overlays workspace source through bind mounts instead of patch-copying files into running containers
+- pure packaged runtime deployment is still the longer-term destination
 
-This is an operating model, not the long-term destination.
+This is a transitional operator model, but it is now materially simpler than the earlier hot-patch flow.
 
 ## Canonical Files
 
-The shared runtime patch set is defined in:
+The local source-overlay stack is defined by:
 
-- `scripts/runtime_patch_manifest.py`
-
-That manifest is consumed by:
-
-- `scripts/apply_rxode2_patch.py`
-
-It now carries only:
-
-- the runtime overlay `.pth`
-
-The worker image now owns its baked baseline assets directly through:
-
+- `docker-compose.celery.yml`
+- `docker-compose.hardened.yml`
+- `scripts/deploy_rxode2_stack.sh`
+- `scripts/deploy_hardened_stack.sh`
+- `scripts/wait_for_runtime_ready.py`
+- `scripts/runtime_src_overlay.pth`
 - `docker/rxode2-worker.Dockerfile`
 
-That image build copies:
+The worker image now bakes:
 
+- `src/` at `/app/src`
 - `scripts/runtime_src_overlay.pth`
 - `scripts/ospsuite_bridge.R`
 - `cisplatin_models/cisplatin_population_rxode2_model.R`
 
-directly into their runtime locations and validates both the overlay hook and the R assets during the image build. Live hot patching through `scripts/apply_rxode2_patch.py` now refreshes only `scripts/runtime_src_overlay.pth`.
+The local compose stack then bind-mounts:
 
-The installed Python package also now carries a generated fallback copy of the published contract artifacts, and the live schema/capability/contract-manifest resources treat that packaged contract as authoritative. That does not replace the patch-first runtime flow, but it reduces reliance on copied JSON under `/app/var/contract` when the live resource endpoints need to expose the published contract. `scripts/check_installed_package_contract.py` is the complementary maintainer gate that verifies the generated package fallback still matches the published contract artifacts after a non-editable local install.
-The first `0.4.x` debt-reduction step also starts here: the shared schema/capability/contract-manifest route logic now lives in packaged `src/mcp_bridge/routes/resources_base.py`, and packaged `src/mcp_bridge/routes/resources.py` now owns the full generic `/mcp/resources` surface, including the model catalog.
-The next matching step is the tool registry split: packaged `src/mcp_bridge/tools/registry_base.py` now carries the shared base tool descriptors, and packaged `src/mcp_bridge/tools/registry.py` now owns the full generic workflow registry, including discovery, static manifest validation, deterministic result retrieval, and external PBPK normalization.
-The next reduction step after that is the generic tool/helper migration: `src/mcp/tools/discover_models.py`, `src/mcp/tools/load_simulation.py`, `src/mcp/tools/get_job_status.py`, `src/mcp/tools/validate_simulation_request.py`, `src/mcp/tools/run_verification_checks.py`, `src/mcp/tools/export_oecd_report.py`, `src/mcp/tools/get_results.py`, `src/mcp/tools/ingest_external_pbpk_bundle.py`, `src/mcp/tools/run_population_simulation.py`, `src/mcp/tools/validate_model_manifest.py`, `src/mcp_bridge/model_catalog.py`, and `src/mcp_bridge/model_manifest.py` are now the authoritative implementations, while the runtime patch manifest carries those packaged files into the live stack until the base image itself includes them.
-The current reduction step moves one layer further: the runtime patch manifest no longer re-copies the `src/mcp` and `src/mcp_bridge` trees at patch time, and it no longer carries the bridge/model R assets for the worker image build. Those packaged modules now come directly from the image build or the development bind mount at `/app/src`, `scripts/ospsuite_bridge.R` and the bundled reference model are copied directly by the worker Dockerfile, and `scripts/runtime_src_overlay.pth` remains the only live patch artifact that promotes `/app/src` ahead of the installed package.
+- `./src:/app/src`
+- `./scripts:/app/scripts`
+- `./var:/app/var`
+- `./scripts/runtime_src_overlay.pth:/usr/local/lib/python3.11/site-packages/pbpk_mcp_runtime_src.pth:ro`
 
-The important rule is:
-
-- do not duplicate the runtime patch file list in new places
-- update the shared manifest instead
+The live schema, capability-matrix, and contract-manifest resources now treat packaged `mcp_bridge.contract` content as authoritative. `scripts/check_installed_package_contract.py` is the maintainer gate that proves the generated package fallback still matches the published JSON artifacts after a non-editable local install.
 
 ## Operator Entry Points
 
-Use these in order of preference:
+Use these in order of preference.
 
 ### 1. Normal local redeploy
 
@@ -78,15 +68,14 @@ Use these in order of preference:
 
 Use this when:
 
-- you changed the current workspace patch set
+- you changed the current workspace source or runtime helper files
 - you want the running API and worker to match the current workspace state
 - you recreated the containers and want the live MCP surface to stay aligned
 
 What it does:
 
 - recreates `redis`, `api`, and `worker`
-- reapplies the overlay-only runtime patch set to `pbpk_mcp-api-1` and `pbpk_mcp-worker-1`
-- restarts the patched containers
+- keeps the local `src/`, `scripts/`, `var/`, and overlay `.pth` bind mounts in place
 - waits for stable `/health` and `/mcp/list_tools` responses before returning so follow-on live checks do not race a still-settling API process
 
 ### 2. Hardened local or operator redeploy
@@ -100,7 +89,7 @@ AUTH_JWKS_URL="https://issuer.example/.well-known/jwks.json" \
 
 Use this when:
 
-- you want the same patch-first runtime contract with stricter auth defaults
+- you want the same local runtime contract with stricter auth defaults
 - you are testing a non-anonymous deployment posture locally
 - you want the API port bound through `PBPK_BIND_HOST` / `PBPK_BIND_PORT` instead of the base compose defaults
 
@@ -109,29 +98,9 @@ What it does:
 - layers `docker-compose.hardened.yml` over `docker-compose.celery.yml`
 - requires explicit auth settings before compose startup will succeed
 - sets `AUTH_ALLOW_ANONYMOUS=false` and `ENVIRONMENT=production`
-- reapplies the overlay-only runtime patch set to `pbpk_mcp-api-1` and `pbpk_mcp-worker-1`
 - waits for stable `/health` and `/mcp/list_tools` responses at the configured bind host/port before returning
 
-### 3. Patch-only recovery
-
-```bash
-python3 scripts/apply_rxode2_patch.py --restart
-```
-
-Use this when:
-
-- the containers are already running
-- you changed only the patch-first runtime files
-- you do not want a full stack recreate
-
-By default it patches:
-
-- `pbpk_mcp-api-1`
-- `pbpk_mcp-worker-1`
-
-Because the local compose stack already bind-mounts `./scripts`, `./src`, and `./var`, this hot-patch step no longer recopies those trees into the running containers. It now exists only to refresh the `.pth` overlay hook inside `site-packages` when needed.
-
-### 4. Rebuild the worker image baseline
+### 3. Rebuild the worker image baseline
 
 ```bash
 ./scripts/build_rxode2_worker_image.sh
@@ -140,14 +109,14 @@ Because the local compose stack already bind-mounts `./scripts`, `./src`, and `.
 Use this when:
 
 - the baked baseline image itself should change
-- `rxode2` or image-baked patch assets need to be updated
-- you want the image and the hot-patch path to start from the same newer baseline
+- `rxode2` or image-baked runtime assets need to be updated
+- you want the image baseline to catch up with the current packaged runtime
 
-This does not replace the patch-first flow. It updates the baseline image that the patch-first flow starts from.
+This does not replace the source-overlay workflow. It updates the baseline image that local overlays build on top of.
 
 ## Verification Workflow
 
-After deploy or patch:
+After deploy:
 
 ```bash
 curl -s http://127.0.0.1:8000/health
@@ -164,7 +133,7 @@ These checks should confirm:
 - `.pksim5` rejection still carries explicit conversion guidance
 - the currently discovered runtime-supported models still load and execute through the live API
 
-`./scripts/deploy_rxode2_stack.sh` now includes a built-in readiness wait through `scripts/wait_for_runtime_ready.py`. That helper requires several consecutive successful `/health` and `/mcp/list_tools` probes before the deploy command exits, which reduces transient connection resets immediately after patch-driven restarts.
+`./scripts/deploy_rxode2_stack.sh` includes a built-in readiness wait through `scripts/wait_for_runtime_ready.py`. That helper requires several consecutive successful `/health` and `/mcp/list_tools` probes before the deploy command exits, which reduces transient connection resets immediately after container recreate.
 
 `./scripts/deploy_hardened_stack.sh` uses the same readiness helper, but targets the base URL derived from `PBPK_BIND_HOST` and `PBPK_BIND_PORT`. This lets the hardened overlay validate the same runtime contract without assuming the default `127.0.0.1:8000` bind target.
 
@@ -184,42 +153,42 @@ This emits `var/workspace_model_smoke_report.json` and gives you a catalog-wide 
 
 In the GitHub repository, the same smoke path should be treated as a release-grade verification step rather than a lightweight PR check. The recommended automation split is:
 
-- lightweight CI for patch/runtime contract checks
+- lightweight CI for contract and packaging checks
 - separate model-smoke workflow for Docker-backed live execution and uploaded smoke artifacts
 
 ## Failure Modes To Watch
 
-### Container recreate dropped new tools
+### Container recreate is serving stale behavior
 
 Symptom:
 
-- `/mcp/list_tools` is missing a documented tool such as `validate_model_manifest`
+- `/mcp/list_tools` or `/mcp/resources/contract-manifest` does not reflect the current workspace state
 
 Typical cause:
 
-- the containers were recreated from the image but the runtime patch set was not reapplied
+- the stack was not recreated after changing the local source-overlay files
+- the wrong compose project or stale container is still running
 
 Fix:
 
-```bash
-python3 scripts/apply_rxode2_patch.py --restart
-```
+- rerun `./scripts/deploy_rxode2_stack.sh`
+- verify `/health` and `/mcp/list_tools` again
 
-### Image build and hot-patch path diverged
+### Image baseline and local overlay diverged
 
 Symptom:
 
-- the image behaves differently from the patched running stack
+- the local stack works, but a clean image-based run does not
 
 Typical cause:
 
-- a file list was changed in one place but not in the shared manifest-driven flow
+- the workspace overlay is masking an out-of-date worker image baseline
 
 Fix:
 
-- update `scripts/runtime_patch_manifest.py`
-- rebuild the image if needed
-- redeploy with `./scripts/deploy_rxode2_stack.sh`
+- rebuild with `./scripts/build_rxode2_worker_image.sh`
+- rerun `./scripts/deploy_rxode2_stack.sh`
+- rerun `python3 scripts/release_readiness_check.py`
 
 ### Runtime format policy drift
 
@@ -254,12 +223,12 @@ Fix:
 
 ## Deferred Work
 
-This flow should eventually be retired in favor of a pure packaged implementation.
+This local overlay flow should eventually give way to a cleaner packaged runtime boundary.
 
 That later milestone should:
 
-- move the active runtime code out of `patches/`
-- make `src/` the canonical implementation surface
-- remove the need for runtime hot patching in normal local operation
+- keep reducing the remaining runtime-specific files under `patches/`
+- make the packaged image/runtime boundary authoritative by default
+- reduce the amount of local source overlay needed for normal development
 
-Until then, this runtime patch flow is the supported maintainership path for the local PBPK MCP stack.
+Until then, this source-overlay flow is the supported maintainership path for the local PBPK MCP stack.

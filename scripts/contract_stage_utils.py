@@ -20,6 +20,11 @@ COPY_IGNORE_GLOBS = (
     "build",
     "dist",
     "*.egg-info",
+    "var",
+    "reports",
+    "cisplatin_models",
+    "figures",
+    "~",
 )
 
 

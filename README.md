@@ -100,7 +100,7 @@ The PBPK MCP server wraps those workflows in a **single, programmable interface*
 - **NGRA-ready PBPK objects** – validation and dossier export expose PBPK-side typed objects such as `assessmentContext`, `pbpkQualificationSummary`, `uncertaintySummary`, `uncertaintyHandoff`, `internalExposureEstimate`, a typed external uncertainty-register reference, and a typed external PoD reference handoff, now with explicit boundary/support metadata plus additive `semanticCoverage` for PBPK-side uncertainty semantics, without collapsing PBPK MCP into a full decision engine.
 - **Traceable predictive evidence** – performance bundles can now carry traceability supplements, and the report path now warns when bundled benchmark rows do not actually line up with the declared datasets, target outputs, or acceptance criteria.
 - **Discovery before execution** – models are discoverable from disk before they are loaded into a live session.
-- **Release-tested local deployment** – the patch-first runtime is continuously exercised with unit tests, live-stack tests, and a readiness check.
+- **Release-tested local deployment** – the local source-overlay runtime is continuously exercised with unit tests, live-stack tests, and a readiness check.
 - **Model-specific executable qualification checks** – MCP-ready models can add runtime verification hooks for checks such as flow/volume consistency, mass balance, or numerical stability without overstating regulatory qualification.
 
 > `rxode2` is a native PBPK execution engine in this project. It is not limited to Berkeley Madonna conversion workflows.
@@ -120,7 +120,7 @@ The PBPK MCP server wraps those workflows in a **single, programmable interface*
 | ✅ **Executable verification** | Run `run_verification_checks` to capture preflight validation, parameter coverage, parameter-unit consistency, structural flow/volume consistency, deterministic smoke, deterministic result integrity, repeat-run reproducibility, optional population smoke, and verification-evidence summaries in one payload. |
 | 📈 **Deterministic and population jobs** | Submit asynchronous deterministic and population simulations, then retrieve result handles, stored results, and PK summaries. |
 | 🧾 **Dossier export** | Export a structured OECD-style report with model metadata, validation context, checklist state, parameter provenance, performance evidence, uncertainty evidence, verification evidence, and software-platform qualification evidence when declared. |
-| ⚙️ **Patch-first deployment hygiene** | Recreate the local stack and reapply the exact documented runtime patch set through shared patch-install tooling. |
+| ⚙️ **Source-overlay deployment hygiene** | Recreate the local stack through the documented compose entrypoints and validate the live contract with readiness and smoke gates. |
 | 🤖 **Agent friendly** | Verified through MCP HTTP surfaces such as `/mcp/list_tools`, `/mcp/call_tool`, and `/mcp/resources/models`, with live-stack regression checks. |
 
 ---
@@ -186,7 +186,7 @@ Design intent:
 - keep BER calculation and final decision policy outside PBPK MCP
 - make the PBPK-side handoff layer consumable by downstream validators and orchestrators without scraping examples out of tests
 
-See `schemas/README.md` for the short schema guide and `tests/test_ngra_object_schemas.py` for the validation gate that keeps the published schemas aligned with live payload generation. The same schema family is also exposed through the live MCP resource surface at `/mcp/resources/schemas`. In the current patch-first runtime, the generic Python runtime now comes from the packaged `src/` tree exposed at `/app/src` and activated through `scripts/runtime_src_overlay.pth`, and the live schema/capability/contract-manifest resources now treat the packaged `mcp_bridge.contract` content as authoritative rather than depending on copied JSON under `/app/var/contract`. `scripts/check_installed_package_contract.py` is the maintainer gate that proves the generated package fallback still matches the published JSON artifacts after a non-editable local install.
+See `schemas/README.md` for the short schema guide and `tests/test_ngra_object_schemas.py` for the validation gate that keeps the published schemas aligned with live payload generation. The same schema family is also exposed through the live MCP resource surface at `/mcp/resources/schemas`. In the current local source-overlay runtime, the generic Python runtime comes from the packaged `src/` tree exposed at `/app/src` and activated through `scripts/runtime_src_overlay.pth`, and the live schema/capability/contract-manifest resources now treat the packaged `mcp_bridge.contract` content as authoritative rather than depending on copied JSON under `/app/var/contract`. `scripts/check_installed_package_contract.py` is the maintainer gate that proves the generated package fallback still matches the published JSON artifacts after a non-editable local install.
 
 PBPK MCP now also publishes a machine-readable contract manifest in:
 
@@ -197,7 +197,7 @@ That manifest inventories the published PBPK-side schema family, the capability 
 The live schema, capability-matrix, and contract-manifest resources now also expose SHA-256 values so downstream clients can verify that the running API matches the published artifact inventory.
 The shared schema/capability/contract-manifest route logic now lives in packaged `src/mcp_bridge/routes/resources_base.py`, and packaged `src/mcp_bridge/routes/resources.py` now owns the full generic `/mcp/resources` surface including `/mcp/resources/models`.
 The same is now true for tools as well: packaged `src/mcp_bridge/tools/registry_base.py` and `src/mcp_bridge/tools/registry.py` now own the generic discovery/static-manifest/result/import descriptors alongside the rest of the documented PBPK workflow surface.
-The next `0.4.x` debt-reduction slices are now live too: generic discovery, manifest, load/session-status, preflight validation, executable verification, dossier export, deterministic-result retrieval, external-import normalization, population workflow tools, the shared `model_catalog` / `model_manifest` helpers, the top-level `mcp` namespace, and the generic adapter contract/runtime now live in packaged `src/`. The current runtime patch flow now relies on the packaged `src/` tree already present in the image or bind-mounted at `/app/src`, with `scripts/runtime_src_overlay.pth` acting as the only Python overlay hook instead of re-copying those trees during patch install. The live hot-patch step has been narrowed fully to that overlay hook, while the worker image now bakes `scripts/ospsuite_bridge.R` and the bundled reference `.R` model directly into their runtime locations instead of routing them through the patch manifest.
+The next `0.4.x` debt-reduction slices are now live too: generic discovery, manifest, load/session-status, preflight validation, executable verification, dossier export, deterministic-result retrieval, external-import normalization, population workflow tools, the shared `model_catalog` / `model_manifest` helpers, the top-level `mcp` namespace, and the generic adapter contract/runtime now live in packaged `src/`. The local runtime no longer needs a patch-copy step: the compose stack bind-mounts `src/`, `scripts/`, `var/`, and `scripts/runtime_src_overlay.pth` directly, while the worker image bakes `scripts/ospsuite_bridge.R` and the bundled reference `.R` model into their runtime locations.
 
 ## Capability matrix
 
@@ -316,7 +316,7 @@ The default developer stack is defined in `docker-compose.celery.yml`. A stricte
 | `AUTH_AUDIENCE` | unset | Required by the hardened overlay. Audience expected in bearer tokens. |
 | `AUTH_JWKS_URL` | unset | Required by the hardened overlay. JWKS endpoint used to validate bearer tokens. |
 
-For local development, keep using `docker-compose.celery.yml` through `./scripts/deploy_rxode2_stack.sh`. For a more production-like local or operator-managed deployment, use `./scripts/deploy_hardened_stack.sh`, which layers `docker-compose.hardened.yml` over the same patch-first runtime flow and waits for stable readiness before returning.
+For local development, keep using `docker-compose.celery.yml` through `./scripts/deploy_rxode2_stack.sh`. For a more production-like local or operator-managed deployment, use `./scripts/deploy_hardened_stack.sh`, which layers `docker-compose.hardened.yml` over the same local source-overlay runtime flow and waits for stable readiness before returning.
 
 See `docker-compose.celery.yml`, `docker-compose.hardened.yml`, `docs/deployment/runtime_patch_flow.md`, and `docs/deployment/rxode2_worker_image.md` for the current operator-facing deployment surface.
 
@@ -496,7 +496,7 @@ The server currently produces and exposes:
 - ✅ Dual-backend runtime policy is explicit: `.pkml` and MCP-ready `.R` are supported; `.pksim5` and `.mmd` are conversion-only.
 - ✅ Discovery, manifest validation, runtime validation, and OECD dossier export are exposed as separate tool surfaces.
 - ✅ `capabilities`, `profile`, `validation`, and `qualificationState` remain distinct, so runtime support is not mislabeled as scientific qualification.
-- ✅ The shared runtime patch manifest keeps image builds and hot-patch deployment aligned in the current patch-first stage.
+- ✅ The local source-overlay deployment path is explicit: the worker image carries the baseline runtime, compose bind-mounts the workspace overlay, and readiness checks validate the live contract after recreate.
 - ✅ Live readiness checks verify `/mcp/list_tools`, `/mcp/resources/models`, discovery parity, and conversion-only rejection behavior.
 - ✅ A documented hardened overlay now disables anonymous access by default and requires explicit auth settings before the stack will start.
 - 🔲 The default compose file is still development-oriented; keep it on localhost and use the hardened overlay plus environment-specific ingress controls when moving beyond local development.
@@ -556,7 +556,7 @@ python3 scripts/workspace_model_smoke.py
 
 Repository automation is split intentionally:
 
-- normal CI should catch contract drift in the patch-first runtime layer quickly
+- normal CI should catch contract drift in the local runtime layer quickly
 - the dedicated `Release Artifacts` workflow should be used on tags or release-prep runs to validate and retain the exact published `sdist` and wheel
 - the heavier catalog-wide model smoke should run as a dedicated workflow or release gate because it builds the full worker image and executes the live stack
 
@@ -586,17 +586,14 @@ If you are maintaining the local stack in the current convergence stage:
 Important boundaries:
 
 - `scripts/deploy_rxode2_stack.sh` is the preferred local operator entrypoint.
-- `scripts/deploy_hardened_stack.sh` is the stricter operator entrypoint when you need non-anonymous auth defaults on the same patch-first stack.
-- `scripts/apply_rxode2_patch.py` is the lower-level recovery tool if you need to reapply the current contract without a full recreate.
-- `scripts/runtime_patch_manifest.py` now defines the live overlay-only patch set used by the local hot-patch flow.
+- `scripts/deploy_hardened_stack.sh` is the stricter operator entrypoint when you need non-anonymous auth defaults on the same local source-overlay stack.
 - `docker/rxode2-worker.Dockerfile` now owns the baked baseline worker assets directly, including `scripts/ospsuite_bridge.R` and the bundled reference `.R` model.
-- the live stack is still patch-first in `v0.3.5`, but more of the generic contract surface now lives in packaged `src/`; pure `src/` runtime packaging is still intentionally deferred.
+- the local stack now uses direct bind mounts plus the overlay `.pth` instead of a patch-copy flow, but pure packaged `src/` runtime packaging is still intentionally deferred.
 
 ### Useful repository guideposts
 
 - `scripts/ospsuite_bridge.R`
-- `scripts/runtime_patch_manifest.py`
-- `scripts/apply_rxode2_patch.py`
+- `scripts/runtime_src_overlay.pth`
 - `docker/rxode2-worker.Dockerfile`
 - `scripts/workspace_model_smoke.py`
 - `src/mcp_bridge/model_catalog.py`

@@ -38,21 +38,22 @@ The internal architecture should therefore keep:
 
 ## Contract-Convergence Stage
 
-The `v0.3.x` line is intentionally a contract-convergence milestone, not a packaging-cleanup milestone.
+The `v0.3.x` line started as a contract-convergence milestone, and the `0.4.x` line is now reducing the packaging debt behind that contract.
 
 For this stage:
 
-- the live MCP surface is defined by `patches/`
-- the runtime patch set is applied through a shared manifest
-- the worker image and the hot-patch flow are expected to converge on the same file map
+- the live MCP surface is defined by the packaged `src/` implementation plus a local `/app/src` source overlay
+- the worker image carries the baseline runtime assets directly
+- the compose-based local stack uses direct bind mounts and a `.pth` overlay hook instead of patch-copying files into running containers
 
-This is deliberate because the published PBPK workflow and the live tests were already aligned around the patch-first surface, while a full packaged `src/` migration would be a larger structural refactor with more risk.
+This is deliberate because the published PBPK workflow and the live tests were already aligned around the converged public contract, while a full packaging cleanup still needs to happen carefully.
 
 The current maintainability rule is:
 
-- change the canonical runtime contract in `patches/`
+- change the canonical generic runtime contract in `src/`
+- reserve `patches/` only for genuinely runtime-specific deltas that have not been migrated yet
 - verify it on the live stack
-- defer “retire the patch-first runtime and move the active implementation into `src/`” to a later milestone after the contract is stable
+- keep shrinking the remaining runtime-specific overlay surface until the packaged boundary is authoritative by default
 
 ## Logical Architecture
 

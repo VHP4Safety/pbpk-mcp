@@ -63,15 +63,13 @@ retention-report: ## Generate artefact retention & integrity report
 
 check: lint type test ## Run full quality gate
 
-runtime-patch-check: ## Compile the patch-first runtime files used by the live stack
+runtime-patch-check: ## Compile the local runtime/deploy helper files used by the live stack
 	$(PY) -m py_compile \
 		scripts/check_runtime_contract_env.py \
 		scripts/check_distribution_artifacts.py \
 		scripts/check_release_metadata.py \
 		scripts/check_installed_package_contract.py \
 		scripts/generate_contract_artifacts.py \
-		scripts/runtime_patch_manifest.py \
-		scripts/apply_rxode2_patch.py \
 		scripts/release_readiness_check.py \
 		scripts/wait_for_runtime_ready.py \
 		scripts/workspace_model_smoke.py \
@@ -97,9 +95,10 @@ runtime-patch-check: ## Compile the patch-first runtime files used by the live s
 		src/mcp_bridge/routes/resources.py \
 		src/mcp_bridge/routes/resources_base.py \
 		src/mcp_bridge/tools/registry.py \
-		src/mcp_bridge/tools/registry_base.py \
+		src/mcp_bridge/tools/registry_base.py
+	bash -n scripts/deploy_rxode2_stack.sh scripts/deploy_hardened_stack.sh
 
-runtime-contract-test: ## Run the patch-first runtime contract tests that do not require the live stack
+runtime-contract-test: ## Run the local runtime contract tests that do not require the live stack
 	$(PY) scripts/check_runtime_contract_env.py
 	$(PY) scripts/generate_contract_artifacts.py --check
 	$(PY) scripts/check_release_metadata.py

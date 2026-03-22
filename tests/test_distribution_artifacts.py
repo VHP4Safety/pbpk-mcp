@@ -86,6 +86,31 @@ class DistributionArtifactTests(unittest.TestCase):
             self.assertFalse((staged_root / ".tmp_codex_overlay").exists())
             self.assertFalse((staged_root / "src" / "mcp_bridge.egg-info").exists())
 
+    def test_stage_source_tree_excludes_runtime_only_and_local_private_assets(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="pbpk_stage_src_") as source_dir, tempfile.TemporaryDirectory(
+            prefix="pbpk_stage_dst_"
+        ) as destination_dir:
+            source_root = Path(source_dir)
+            destination_root = Path(destination_dir)
+
+            (source_root / "README.md").write_text("example\n", encoding="utf-8")
+            (source_root / "var" / "models").mkdir(parents=True)
+            (source_root / "var" / "models" / "example.pkml").write_text("pkml\n", encoding="utf-8")
+            (source_root / "cisplatin_models").mkdir()
+            (source_root / "cisplatin_models" / "local_model.R").write_text("model\n", encoding="utf-8")
+            (source_root / "docs" / "figures").mkdir(parents=True)
+            (source_root / "docs" / "figures" / "figure.png").write_bytes(b"png")
+            (source_root / "reports").mkdir()
+            (source_root / "reports" / "note.txt").write_text("report\n", encoding="utf-8")
+
+            staged_root = stage_source_tree(source_root, destination_root)
+
+            self.assertTrue((staged_root / "README.md").exists())
+            self.assertFalse((staged_root / "var").exists())
+            self.assertFalse((staged_root / "cisplatin_models").exists())
+            self.assertFalse((staged_root / "docs" / "figures").exists())
+            self.assertFalse((staged_root / "reports").exists())
+
 
 if __name__ == "__main__":
     unittest.main()

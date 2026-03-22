@@ -18,12 +18,12 @@ The `rxode2` path is a direct execution backend for PBPK models authored nativel
   - Hybrid bridge process used by the Python adapter.
 - `cisplatin_models/cisplatin_population_rxode2_model.R`
   - MCP-friendly cisplatin `rxode2` model module.
-- `patches/mcp_bridge/adapter/ospsuite.py`
-  - Patched subprocess adapter with `.R` support and population result persistence.
+- `src/mcp_bridge/adapter/ospsuite.py`
+  - Packaged subprocess adapter with `.R` support and population result persistence.
 - `src/mcp/tools/load_simulation.py`
-  - Patched tool validation so `.R` model modules are accepted.
-- `scripts/apply_rxode2_patch.py`
-  - Copies the patched files into the live PBPK MCP container.
+  - Packaged tool validation so `.R` model modules are accepted.
+- `docker/rxode2-worker.Dockerfile`
+  - Bakes the runtime overlay hook, bridge script, and bundled reference model into the dedicated worker image.
 
 ## Expected rxode2 model-module contract
 
@@ -123,26 +123,24 @@ Current MCP surfaces that use this data:
 - `run_simulation` / `get_results`
   - preserve the validation assessment on deterministic result metadata
 
-## Applying the patch
+## Refreshing the local stack
 
-Patch the live worker container:
-
-```bash
-python scripts/apply_rxode2_patch.py --container pbpk_mcp-worker-1
-```
-
-Patch and restart a container:
+Recreate the local unified stack:
 
 ```bash
-python scripts/apply_rxode2_patch.py --container pbpk_mcp-worker-1 --restart
+./scripts/deploy_rxode2_stack.sh
 ```
 
-If an API container exists separately, patch that container too.
+For stricter auth defaults on the same stack:
 
-Recommended long-term path:
+```bash
+AUTH_ISSUER_URL="https://issuer.example" \
+AUTH_AUDIENCE="pbpk-mcp" \
+AUTH_JWKS_URL="https://issuer.example/.well-known/jwks.json" \
+./scripts/deploy_hardened_stack.sh
+```
 
-- use `scripts/apply_rxode2_patch.py` for development patching only
-- use the prebuilt worker image from `docker/rxode2-worker.Dockerfile` for normal deployment
+The local stack now mounts the `src/`, `scripts/`, `var/`, and runtime overlay `.pth` files directly, so there is no separate patch-copy step for day-to-day development.
 
 ## Model path to use
 
