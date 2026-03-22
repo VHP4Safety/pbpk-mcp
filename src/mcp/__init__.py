@@ -6,7 +6,12 @@ from .tools.calculate_pk_parameters import (
     CalculatePkParametersResponse,
     calculate_pk_parameters,
 )
-from .tools.discover_models import DiscoverModelsRequest, DiscoverModelsResponse, discover_models
+from .tools.discover_models import (
+    DiscoverModelsRequest,
+    DiscoverModelsResponse,
+    DiscoverableModelModel,
+    discover_models,
+)
 from .tools.export_oecd_report import (
     ExportOecdReportRequest,
     ExportOecdReportResponse,
@@ -25,6 +30,7 @@ from .tools.ingest_external_pbpk_bundle import (
     ingest_external_pbpk_bundle,
 )
 from .tools.list_parameters import ListParametersRequest, ListParametersResponse, list_parameters
+from .tools.load_simulation import LoadSimulationRequest, LoadSimulationResponse, load_simulation
 from .tools.run_simulation import RunSimulationRequest, RunSimulationResponse, run_simulation
 from .tools.run_population_simulation import (
     RunPopulationSimulationRequest,
@@ -67,6 +73,7 @@ __all__ = [
     "calculate_pk_parameters",
     "DiscoverModelsRequest",
     "DiscoverModelsResponse",
+    "DiscoverableModelModel",
     "discover_models",
     "ExportOecdReportRequest",
     "ExportOecdReportResponse",
@@ -86,6 +93,9 @@ __all__ = [
     "IngestExternalPbpkBundleRequest",
     "IngestExternalPbpkBundleResponse",
     "ingest_external_pbpk_bundle",
+    "LoadSimulationRequest",
+    "LoadSimulationResponse",
+    "load_simulation",
     "SetParameterValueRequest",
     "SetParameterValueResponse",
     "set_parameter_value",

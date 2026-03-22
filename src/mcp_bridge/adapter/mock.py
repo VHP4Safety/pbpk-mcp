@@ -5,7 +5,7 @@ from __future__ import annotations
 import time
 import uuid
 from collections import defaultdict
-from typing import Optional
+from typing import Any, Mapping, Optional
 
 from .environment import REnvironmentStatus, detect_environment
 from .errors import AdapterError, AdapterErrorCode
@@ -138,6 +138,101 @@ class InMemoryAdapter(OspsuiteAdapter):
             return self._results[results_id]
         except KeyError as exc:
             raise AdapterError(AdapterErrorCode.NOT_FOUND, "Results not found") from exc
+
+    def validate_simulation_request(
+        self,
+        simulation_id: str,
+        *,
+        request: Mapping[str, Any] | None = None,
+        stage: str | None = None,
+    ) -> dict[str, Any]:
+        handle = self._get_simulation(simulation_id)
+        return {
+            "simulationId": handle.simulation_id,
+            "backend": "mock",
+            "stage": stage,
+            "request": dict(request or {}),
+            "validation": {
+                "status": "passed",
+                "decision": "within-declared-guardrails",
+            },
+            "profile": {"name": handle.file_path.rsplit("/", 1)[-1]},
+            "capabilities": {
+                "validationHook": True,
+                "runtimeVerificationHook": True,
+                "scientificProfile": True,
+            },
+        }
+
+    def run_verification_checks(
+        self,
+        simulation_id: str,
+        *,
+        request: Mapping[str, Any] | None = None,
+        include_population_smoke: bool = False,
+        population_cohort: Mapping[str, Any] | None = None,
+        population_outputs: Mapping[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        handle = self._get_simulation(simulation_id)
+        verification: dict[str, Any] = {
+            "status": "passed",
+            "checks": [
+                {"name": "deterministic-smoke", "status": "passed"},
+            ],
+        }
+        if include_population_smoke:
+            verification["checks"].append(
+                {
+                    "name": "population-smoke",
+                    "status": "passed",
+                    "cohort": dict(population_cohort or {}),
+                    "outputs": dict(population_outputs or {}),
+                }
+            )
+        return {
+            "simulationId": handle.simulation_id,
+            "backend": "mock",
+            "request": dict(request or {}),
+            "verification": verification,
+            "validation": {"status": "passed"},
+            "profile": {"name": handle.file_path.rsplit("/", 1)[-1]},
+            "capabilities": {"runtimeVerificationHook": True},
+        }
+
+    def export_oecd_report(
+        self,
+        simulation_id: str,
+        *,
+        request: Mapping[str, Any] | None = None,
+        include_parameter_table: bool = True,
+        parameter_pattern: str | None = None,
+        parameter_limit: int = 200,
+    ) -> dict[str, Any]:
+        handle = self._get_simulation(simulation_id)
+        parameter_rows = [
+            {
+                "path": value.path,
+                "value": value.value,
+                "unit": value.unit,
+            }
+            for value in list(self._parameters.get(handle.simulation_id, {}).values())[:parameter_limit]
+            if parameter_pattern is None or parameter_pattern in value.path
+        ]
+        return {
+            "simulationId": handle.simulation_id,
+            "backend": "mock",
+            "report": {
+                "request": dict(request or {}),
+                "profile": {"name": handle.file_path.rsplit("/", 1)[-1]},
+                "validation": {"status": "passed"},
+                "capabilities": {
+                    "validationHook": True,
+                    "runtimeVerificationHook": True,
+                    "scientificProfile": True,
+                },
+                "parameterTable": parameter_rows if include_parameter_table else [],
+            },
+        }
 
     def run_population_simulation_sync(
         self, config: PopulationSimulationConfig

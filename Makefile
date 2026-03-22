@@ -76,6 +76,7 @@ runtime-patch-check: ## Compile the patch-first runtime files used by the live s
 		scripts/release_readiness_check.py \
 		scripts/wait_for_runtime_ready.py \
 		scripts/workspace_model_smoke.py \
+		src/mcp/__init__.py \
 		src/mcp/tools/discover_models.py \
 		src/mcp/tools/load_simulation.py \
 		src/mcp/tools/get_job_status.py \
@@ -86,6 +87,10 @@ runtime-patch-check: ## Compile the patch-first runtime files used by the live s
 		src/mcp/tools/run_verification_checks.py \
 		src/mcp/tools/validate_model_manifest.py \
 		src/mcp/tools/validate_simulation_request.py \
+		src/mcp_bridge/adapter/__init__.py \
+		src/mcp_bridge/adapter/interface.py \
+		src/mcp_bridge/adapter/mock.py \
+		src/mcp_bridge/adapter/ospsuite.py \
 		src/mcp_bridge/contract/__init__.py \
 		src/mcp_bridge/contract/artifacts.py \
 		src/mcp_bridge/model_catalog.py \
@@ -107,7 +112,9 @@ runtime-contract-test: ## Run the patch-first runtime contract tests that do not
 		tests/test_distribution_artifacts.py \
 		tests/test_export_api_docs.py \
 		tests/test_ngra_object_schemas.py \
+		tests/test_packaged_adapter_namespace.py \
 		tests/test_packaged_resource_routes.py \
+		tests/test_packaged_mcp_namespace.py \
 		tests/test_packaged_tool_registry.py \
 		tests/test_release_metadata.py \
 		tests/test_packaged_contract_artifacts.py \
@@ -115,6 +122,7 @@ runtime-contract-test: ## Run the patch-first runtime contract tests that do not
 		tests/test_model_manifest.py \
 		tests/test_oecd_bridge.py \
 		tests/test_external_pbpk_bundle.py
+	$(PY) -m pytest tests/unit/test_adapter_interface.py tests/unit/test_subprocess_adapter.py
 
 workspace-smoke: ## Run the live workspace model smoke with rxode2 population enabled
 	$(PY) scripts/workspace_model_smoke.py --include-population

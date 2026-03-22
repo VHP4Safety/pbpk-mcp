@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import abc
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Mapping
 
 if TYPE_CHECKING:  # pragma: no cover - used for type checking only
     from ..storage.population_store import PopulationResultStore
@@ -93,6 +93,40 @@ class OspsuiteAdapter(abc.ABC):
     @abc.abstractmethod
     def get_results(self, results_id: str) -> SimulationResult:
         """Retrieve stored results by handle."""
+
+    @abc.abstractmethod
+    def validate_simulation_request(
+        self,
+        simulation_id: str,
+        *,
+        request: Mapping[str, Any] | None = None,
+        stage: str | None = None,
+    ) -> dict[str, Any]:
+        """Run a preflight applicability/guardrail validation for a loaded simulation."""
+
+    @abc.abstractmethod
+    def run_verification_checks(
+        self,
+        simulation_id: str,
+        *,
+        request: Mapping[str, Any] | None = None,
+        include_population_smoke: bool = False,
+        population_cohort: Mapping[str, Any] | None = None,
+        population_outputs: Mapping[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Run executable verification checks for a loaded simulation."""
+
+    @abc.abstractmethod
+    def export_oecd_report(
+        self,
+        simulation_id: str,
+        *,
+        request: Mapping[str, Any] | None = None,
+        include_parameter_table: bool = True,
+        parameter_pattern: str | None = None,
+        parameter_limit: int = 200,
+    ) -> dict[str, Any]:
+        """Export an OECD-style dossier for a loaded simulation."""
 
     # Population simulation -------------------------------------------
     @abc.abstractmethod

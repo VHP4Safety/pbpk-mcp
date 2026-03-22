@@ -52,6 +52,7 @@ class DeploymentProfileTests(unittest.TestCase):
         expected = {
             "docs/architecture/capability_matrix.json",
             "docs/architecture/contract_manifest.json",
+            "src/mcp/__init__.py",
             "src/mcp/tools/discover_models.py",
             "src/mcp/tools/export_oecd_report.py",
             "src/mcp/tools/get_job_status.py",
@@ -62,6 +63,9 @@ class DeploymentProfileTests(unittest.TestCase):
             "src/mcp/tools/run_population_simulation.py",
             "src/mcp/tools/validate_simulation_request.py",
             "src/mcp/tools/validate_model_manifest.py",
+            "src/mcp_bridge/adapter/__init__.py",
+            "src/mcp_bridge/adapter/interface.py",
+            "src/mcp_bridge/adapter/ospsuite.py",
             "src/mcp_bridge/model_catalog.py",
             "src/mcp_bridge/model_manifest.py",
             "src/mcp_bridge/routes/resources.py",
@@ -86,6 +90,7 @@ class DeploymentProfileTests(unittest.TestCase):
             "schemas/examples/uncertaintySummary.v1.example.json",
         }
         self.assertTrue(expected.issubset(manifest_sources))
+        self.assertNotIn("patches/mcp/__init__.py", manifest_sources)
         self.assertNotIn("patches/mcp/tools/discover_models.py", manifest_sources)
         self.assertNotIn("patches/mcp/tools/export_oecd_report.py", manifest_sources)
         self.assertNotIn("patches/mcp/tools/get_job_status.py", manifest_sources)
@@ -96,6 +101,8 @@ class DeploymentProfileTests(unittest.TestCase):
         self.assertNotIn("patches/mcp/tools/run_verification_checks.py", manifest_sources)
         self.assertNotIn("patches/mcp/tools/validate_simulation_request.py", manifest_sources)
         self.assertNotIn("patches/mcp/tools/validate_model_manifest.py", manifest_sources)
+        self.assertNotIn("patches/mcp_bridge/adapter/interface.py", manifest_sources)
+        self.assertNotIn("patches/mcp_bridge/adapter/ospsuite.py", manifest_sources)
         self.assertNotIn("patches/mcp_bridge/model_catalog.py", manifest_sources)
         self.assertNotIn("patches/mcp_bridge/model_manifest.py", manifest_sources)
         self.assertNotIn("patches/mcp_bridge/routes/resources.py", manifest_sources)
