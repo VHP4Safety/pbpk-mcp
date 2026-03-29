@@ -290,7 +290,7 @@ _CONTRACT_MANIFEST_JSON = r"""
       "classification": "supporting",
       "relativePath": "docs/architecture/release_bundle_manifest.json",
       "role": "whole release bundle hash inventory",
-      "sha256": "a0dab98537c1a0f6d45d889a713f514d84cd926d7c1b8f1294c4ce77f7d5122c"
+      "sha256": "78e8157659eaf6199944c820b9261b5a8ee323d74707d640091c335cbbef7873"
     },
     {
       "classification": "supporting",
@@ -374,7 +374,7 @@ _CONTRACT_MANIFEST_JSON = r"""
       "classification": "supporting",
       "relativePath": "scripts/generate_contract_artifacts.py",
       "role": "contract artifact generator",
-      "sha256": "d279e12ce72fc682088403fb515460990e90e2311752d6573d42aa0ce0f606ee"
+      "sha256": "1dcde156ef5105247cfd7b08a0c36c42c624720a3c2d8c847696397fd402d880"
     },
     {
       "classification": "supporting",
@@ -436,16 +436,10 @@ _CONTRACT_MANIFEST_JSON = r"""
 
 _RELEASE_BUNDLE_MANIFEST_JSON = r"""
 {
-  "bundleSha256": "68497af3ea42ba4514e7e68a8909ef550b552bf0c68e546daa254e0d25f19241",
+  "bundleSha256": "c1a9194226bfcdb365b4d012567a88fb5f858dcd6e4f60473dca264b41b59d9c",
   "contractVersion": "pbpk-mcp.v1",
-  "fileCount": 563,
+  "fileCount": 562,
   "files": [
-    {
-      "group": "root",
-      "relativePath": ".DS_Store",
-      "sha256": "b2137c2c942e4f0230409e63e7207f151f49cbbec6bdbdaae314c6bae8ae909e",
-      "sizeBytes": 6148
-    },
     {
       "group": "root",
       "relativePath": ".dockerignore",
@@ -2477,8 +2471,8 @@ _RELEASE_BUNDLE_MANIFEST_JSON = r"""
     {
       "group": "operations",
       "relativePath": "scripts/contract_stage_utils.py",
-      "sha256": "56e4c7236e5a343ffddc5cfce5b52ca48ffaf13b28325b4d29cb8c2ec5b63c3c",
-      "sizeBytes": 1208
+      "sha256": "19908ba9a5e9b8df0627f7cabfb8947be203e211e1500e51a7374d4e9cf2d8dd",
+      "sizeBytes": 1253
     },
     {
       "group": "operations",
@@ -2531,8 +2525,8 @@ _RELEASE_BUNDLE_MANIFEST_JSON = r"""
     {
       "group": "operations",
       "relativePath": "scripts/generate_contract_artifacts.py",
-      "sha256": "d279e12ce72fc682088403fb515460990e90e2311752d6573d42aa0ce0f606ee",
-      "sizeBytes": 16201
+      "sha256": "1dcde156ef5105247cfd7b08a0c36c42c624720a3c2d8c847696397fd402d880",
+      "sizeBytes": 16486
     },
     {
       "group": "operations",
@@ -3825,7 +3819,7 @@ _RELEASE_BUNDLE_MANIFEST_JSON = r"""
     "documentation": 125,
     "governance": 5,
     "operations": 34,
-    "root": 185,
+    "root": 184,
     "source": 95,
     "verification": 100
   },
@@ -3839,6 +3833,9 @@ _RELEASE_BUNDLE_MANIFEST_JSON = r"""
     ],
     "excludedPatterns": [
       ".git",
+      ".DS_Store",
+      "._*",
+      "Thumbs.db",
       ".mypy_cache",
       ".pytest_cache",
       ".ruff_cache",
@@ -3864,7 +3861,7 @@ _RELEASE_BUNDLE_MANIFEST_JSON = r"""
     ],
     "mode": "staged-source-tree-equivalent"
   },
-  "totalBytes": 11680353
+  "totalBytes": 11674535
 }
 """
 

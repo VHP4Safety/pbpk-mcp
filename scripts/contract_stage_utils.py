@@ -7,6 +7,9 @@ from pathlib import Path
 
 COPY_IGNORE_GLOBS = (
     ".git",
+    ".DS_Store",
+    "._*",
+    "Thumbs.db",
     ".mypy_cache",
     ".pytest_cache",
     ".ruff_cache",
