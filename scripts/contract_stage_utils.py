@@ -10,6 +10,7 @@ COPY_IGNORE_GLOBS = (
     ".DS_Store",
     "._*",
     "Thumbs.db",
+    "OECD_PBPK_guidelines.pdf",
     ".mypy_cache",
     ".pytest_cache",
     ".ruff_cache",

@@ -290,7 +290,7 @@ _CONTRACT_MANIFEST_JSON = r"""
       "classification": "supporting",
       "relativePath": "docs/architecture/release_bundle_manifest.json",
       "role": "whole release bundle hash inventory",
-      "sha256": "78e8157659eaf6199944c820b9261b5a8ee323d74707d640091c335cbbef7873"
+      "sha256": "d33375c071496f2e42e7d8dc6818ef5598a4a65df718da426df9b5c8da5b2012"
     },
     {
       "classification": "supporting",
@@ -436,9 +436,9 @@ _CONTRACT_MANIFEST_JSON = r"""
 
 _RELEASE_BUNDLE_MANIFEST_JSON = r"""
 {
-  "bundleSha256": "c1a9194226bfcdb365b4d012567a88fb5f858dcd6e4f60473dca264b41b59d9c",
+  "bundleSha256": "b505c4cc2fb0f9bb8193ebcfa917e20430280993906ab20776c3cf40ab5cd4c4",
   "contractVersion": "pbpk-mcp.v1",
-  "fileCount": 562,
+  "fileCount": 561,
   "files": [
     {
       "group": "root",
@@ -517,12 +517,6 @@ _RELEASE_BUNDLE_MANIFEST_JSON = r"""
       "relativePath": "Makefile",
       "sha256": "6a65e3663af5d32ac6afb60a5398885c495332af5a4ade146d6889cdb13ae0ab",
       "sizeBytes": 6524
-    },
-    {
-      "group": "root",
-      "relativePath": "OECD_PBPK_guidelines.pdf",
-      "sha256": "8624df7a04bef600b325fed55f1fe70ac5af1ffdee77d6283d9dfba73d7b4ab6",
-      "sizeBytes": 8122921
     },
     {
       "group": "root",
@@ -2471,8 +2465,8 @@ _RELEASE_BUNDLE_MANIFEST_JSON = r"""
     {
       "group": "operations",
       "relativePath": "scripts/contract_stage_utils.py",
-      "sha256": "19908ba9a5e9b8df0627f7cabfb8947be203e211e1500e51a7374d4e9cf2d8dd",
-      "sizeBytes": 1253
+      "sha256": "cfc762fb21d8b6d2133677076a91da489349420b438773ba1ab8d2295df2dc7d",
+      "sizeBytes": 1285
     },
     {
       "group": "operations",
@@ -3819,7 +3813,7 @@ _RELEASE_BUNDLE_MANIFEST_JSON = r"""
     "documentation": 125,
     "governance": 5,
     "operations": 34,
-    "root": 184,
+    "root": 183,
     "source": 95,
     "verification": 100
   },
@@ -3836,6 +3830,7 @@ _RELEASE_BUNDLE_MANIFEST_JSON = r"""
       ".DS_Store",
       "._*",
       "Thumbs.db",
+      "OECD_PBPK_guidelines.pdf",
       ".mypy_cache",
       ".pytest_cache",
       ".ruff_cache",
@@ -3861,7 +3856,7 @@ _RELEASE_BUNDLE_MANIFEST_JSON = r"""
     ],
     "mode": "staged-source-tree-equivalent"
   },
-  "totalBytes": 11674535
+  "totalBytes": 3551646
 }
 """
 

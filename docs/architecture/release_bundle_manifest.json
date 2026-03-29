@@ -1,7 +1,7 @@
 {
-  "bundleSha256": "c1a9194226bfcdb365b4d012567a88fb5f858dcd6e4f60473dca264b41b59d9c",
+  "bundleSha256": "b505c4cc2fb0f9bb8193ebcfa917e20430280993906ab20776c3cf40ab5cd4c4",
   "contractVersion": "pbpk-mcp.v1",
-  "fileCount": 562,
+  "fileCount": 561,
   "files": [
     {
       "group": "root",
@@ -80,12 +80,6 @@
       "relativePath": "Makefile",
       "sha256": "6a65e3663af5d32ac6afb60a5398885c495332af5a4ade146d6889cdb13ae0ab",
       "sizeBytes": 6524
-    },
-    {
-      "group": "root",
-      "relativePath": "OECD_PBPK_guidelines.pdf",
-      "sha256": "8624df7a04bef600b325fed55f1fe70ac5af1ffdee77d6283d9dfba73d7b4ab6",
-      "sizeBytes": 8122921
     },
     {
       "group": "root",
@@ -2034,8 +2028,8 @@
     {
       "group": "operations",
       "relativePath": "scripts/contract_stage_utils.py",
-      "sha256": "19908ba9a5e9b8df0627f7cabfb8947be203e211e1500e51a7374d4e9cf2d8dd",
-      "sizeBytes": 1253
+      "sha256": "cfc762fb21d8b6d2133677076a91da489349420b438773ba1ab8d2295df2dc7d",
+      "sizeBytes": 1285
     },
     {
       "group": "operations",
@@ -3382,7 +3376,7 @@
     "documentation": 125,
     "governance": 5,
     "operations": 34,
-    "root": 184,
+    "root": 183,
     "source": 95,
     "verification": 100
   },
@@ -3399,6 +3393,7 @@
       ".DS_Store",
       "._*",
       "Thumbs.db",
+      "OECD_PBPK_guidelines.pdf",
       ".mypy_cache",
       ".pytest_cache",
       ".ruff_cache",
@@ -3424,5 +3419,5 @@
     ],
     "mode": "staged-source-tree-equivalent"
   },
-  "totalBytes": 11674535
+  "totalBytes": 3551646
 }
