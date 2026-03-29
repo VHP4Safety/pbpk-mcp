@@ -11,7 +11,7 @@ from pathlib import Path
 
 WORKSPACE_ROOT = Path(__file__).resolve().parents[1]
 BRIDGE_PATH = WORKSPACE_ROOT / "scripts" / "ospsuite_bridge.R"
-CISPLATIN_MODEL_PATH = WORKSPACE_ROOT / "cisplatin_models" / "cisplatin_population_rxode2_model.R"
+CISPLATIN_MODEL_PATH = WORKSPACE_ROOT / "reference_models" / "reference_compound_population_rxode2_model.R"
 
 
 def has_r_package(package_name: str) -> bool:
@@ -247,7 +247,7 @@ class OecdBridgeTests(unittest.TestCase):
                   status = "limited-internal-evaluation",
                   goodnessOfFit = list(status = "not-bundled", summary = "No formal fit metrics"),
                   predictiveChecks = list(status = "smoke-only", summary = "Smoke tests only"),
-                  targetOutputs = list("Plasma|Cisplatin|Concentration")
+                  targetOutputs = list("Plasma|Reference compound|Concentration")
                 ),
                 parameterProvenance = list(
                   status = "partially-declared",
@@ -326,7 +326,7 @@ class OecdBridgeTests(unittest.TestCase):
                   status = "limited-internal-evaluation",
                   goodnessOfFit = list(status = "not-bundled", summary = "No formal fit metrics"),
                   predictiveChecks = list(status = "smoke-only", summary = "Smoke tests only"),
-                  targetOutputs = list("Plasma|Cisplatin|Concentration")
+                  targetOutputs = list("Plasma|Reference compound|Concentration")
                 ),
                 parameterProvenance = list(
                   status = "partially-declared",
@@ -455,6 +455,116 @@ class OecdBridgeTests(unittest.TestCase):
         self.assertIn("Prior regulatory or external use traceability", missing_evidence)
         self.assertIn("Revision or change history", missing_evidence)
 
+    def test_with_profile_assessment_surfaces_unresolved_reviewer_dissent(self) -> None:
+        payload = run_r_json(
+            """
+            profile <- normalize_model_profile(
+              list(
+                contextOfUse = list(
+                  scientificPurpose = "Kidney PBPK research",
+                  decisionContext = "Exploratory use",
+                  regulatoryUse = "research-only"
+                ),
+                applicabilityDomain = list(
+                  type = "declared-with-runtime-guardrails",
+                  qualificationLevel = "research-use",
+                  species = "human",
+                  routes = "iv-infusion"
+                ),
+                modelPerformance = list(status = "limited-internal-evaluation"),
+                parameterProvenance = list(status = "partially-declared", sourceTable = "pbpk_parameter_table"),
+                uncertainty = list(status = "partially-characterized"),
+                implementationVerification = list(status = "basic-internal-checks", verifiedChecks = list("smoke test")),
+                platformQualification = list(
+                  status = "runtime-platform-documented",
+                  softwareName = "rxode2",
+                  runtime = "R",
+                  qualificationBasis = "Runtime only"
+                ),
+                peerReview = list(
+                  status = "declared",
+                  reviewRecords = list(
+                    list(
+                      reviewer = "Independent reviewer",
+                      reviewOutcome = "request-changes",
+                      resolutionState = "unresolved",
+                      topic = "Transporter scaling"
+                    )
+                  ),
+                  priorRegulatoryUse = list(
+                    list(jurisdiction = "OECD", context = "consumer safety")
+                  ),
+                  revisionHistory = list(
+                    list(version = "1.1", summary = "Updated reviewer note handling")
+                  ),
+                  revisionStatus = "actively-maintained"
+                ),
+                profileSource = list(type = "module-self-declared", path = "example_model.R")
+              ),
+              "rxode2",
+              "/tmp/example_model.R"
+            )
+            with_profile_assessment(
+              list(ok = TRUE, errors = list(), warnings = list()),
+              profile,
+              list(scientificProfile = TRUE)
+            )
+            """
+        )
+
+        assessment = payload["assessment"]
+        warning_codes = {entry["code"] for entry in payload["warnings"]}
+        review_status = assessment["reviewStatus"]
+
+        self.assertEqual(review_status["status"], "declared-with-unresolved-dissent")
+        self.assertEqual(review_status["unresolvedDissentCount"], 1)
+        self.assertEqual(review_status["focusTopics"], ["Transporter scaling"])
+        self.assertEqual(review_status["openTopics"], ["Transporter scaling"])
+        self.assertEqual(
+            review_status["interventionSummary"]["status"],
+            "open-review-interventions",
+        )
+        self.assertTrue(review_status["requiresReviewerAttention"])
+        self.assertIn("peer_review_unresolved_dissent", warning_codes)
+        self.assertIn(
+            "Resolution of explicit reviewer dissent or change requests",
+            set(assessment["missingEvidence"]),
+        )
+
+    def test_derive_qualification_state_downgrades_unresolved_reviewer_dissent(self) -> None:
+        payload = run_r_json(
+            """
+            derive_qualification_state(
+              normalize_model_profile(
+                list(
+                  applicabilityDomain = list(
+                    qualificationLevel = "qualified",
+                    type = "declared-with-runtime-guardrails"
+                  ),
+                  profileSource = list(type = "module-self-declared", path = "example_model.R")
+                ),
+                "rxode2",
+                "/tmp/example_model.R"
+              ),
+              list(scientificProfile = TRUE),
+              list(
+                decision = "within-declared-profile",
+                oecdChecklistScore = 1,
+                missingEvidence = list(),
+                reviewStatus = list(
+                  status = "declared-with-unresolved-dissent",
+                  unresolvedDissentCount = 1
+                )
+              )
+            )
+            """
+        )
+
+        self.assertEqual(payload["state"], "regulatory-candidate")
+        self.assertFalse(payload["riskAssessmentReady"])
+        self.assertEqual(payload["reviewStatus"]["unresolvedDissentCount"], 1)
+        self.assertIn("unresolved reviewer dissent", payload["summary"].lower())
+
     def test_with_profile_assessment_promotes_structured_performance_traceability(self) -> None:
         payload = run_r_json(
             """
@@ -488,7 +598,7 @@ class OecdBridgeTests(unittest.TestCase):
                     ),
                     acceptanceCriterion = "GMFE within 2-fold across the benchmark set"
                   ),
-                  targetOutputs = list("Plasma|Cisplatin|Concentration")
+                  targetOutputs = list("Plasma|Reference compound|Concentration")
                 ),
                 parameterProvenance = list(
                   status = "partially-declared",
@@ -716,7 +826,7 @@ class OecdBridgeTests(unittest.TestCase):
                   status = "limited-internal-evaluation",
                   goodnessOfFit = list(status = "not-bundled", summary = "No formal fit metrics"),
                   predictiveChecks = list(status = "smoke-only", summary = "Smoke tests only"),
-                  targetOutputs = list("Plasma|Cisplatin|Concentration")
+                  targetOutputs = list("Plasma|Reference compound|Concentration")
                 ),
                 parameterProvenance = list(
                   status = "partially-declared",
@@ -798,7 +908,7 @@ class OecdBridgeTests(unittest.TestCase):
                 metadata = list(engine = "rxode2"),
                 series = list(
                   list(
-                    parameter = "Plasma|Cisplatin|Concentration",
+                    parameter = "Plasma|Reference compound|Concentration",
                     unit = "mg/L",
                     values = list(
                       list(time = 0, value = 0),
@@ -824,9 +934,91 @@ class OecdBridgeTests(unittest.TestCase):
         self.assertEqual(payload["oecdChecklist"]["modelPerformanceAndPredictivity"]["status"], "partial")
         self.assertEqual(payload["qualificationState"]["state"], "research-use")
         self.assertIn("oecdCoverage", payload)
+        self.assertIn("humanReviewSummary", payload)
         self.assertEqual(payload["oecdCoverage"]["coverageVersion"], "pbpk-oecd-coverage.v1")
         self.assertFalse(payload["oecdCoverage"]["affectsChecklistScore"])
         self.assertFalse(payload["oecdCoverage"]["affectsQualificationState"])
+        self.assertTrue(payload["humanReviewSummary"]["humanReviewRequired"])
+        self.assertIn("misreadRiskSummary", payload)
+        self.assertIn("cautionSummary", payload)
+        self.assertEqual(
+            payload["humanReviewSummary"]["intendedWorkflow"]["workflow"],
+            "exposure-led-ngra",
+        )
+        self.assertEqual(
+            payload["humanReviewSummary"]["claimBoundaries"]["directRegulatoryDoseDerivation"],
+            "not-supported",
+        )
+        self.assertEqual(
+            payload["humanReviewSummary"]["reviewStatus"]["status"],
+            "not-declared",
+        )
+        self.assertEqual(
+            payload["humanReviewSummary"]["cautionSummary"]["highestSeverity"],
+            "high",
+        )
+        self.assertIn(
+            "ivive-linkage-limited",
+            {entry["code"] for entry in payload["humanReviewSummary"]["cautionSummary"]["cautions"]},
+        )
+        self.assertEqual(
+            payload["humanReviewSummary"]["summaryTransportRisk"]["riskLevel"],
+            "high",
+        )
+        self.assertEqual(
+            payload["humanReviewSummary"]["renderingGuardrails"]["actionIfRequiredFieldsMissing"],
+            "refuse-rendering",
+        )
+        self.assertEqual(
+            payload["exportBlockPolicy"]["defaultAction"],
+            "block-lossy-or-decision-leaning-exports",
+        )
+        self.assertIn(
+            "detached-summary-blocked",
+            {entry["code"] for entry in payload["exportBlockPolicy"]["blockReasons"]},
+        )
+        self.assertIn(
+            "direct-regulatory-dose-derivation-blocked",
+            {entry["code"] for entry in payload["humanReviewSummary"]["exportBlockPolicy"]["blockReasons"]},
+        )
+        self.assertIn(
+            "human review is still required",
+            payload["humanReviewSummary"]["plainLanguageSummary"].lower(),
+        )
+        self.assertEqual(
+            payload["misreadRiskSummary"]["sectionTitle"],
+            "How this output could be misread",
+        )
+        self.assertTrue(payload["misreadRiskSummary"]["requiredReading"])
+        self.assertIn(
+            "direct regulatory dose derivation",
+            payload["misreadRiskSummary"]["plainLanguageSummary"].lower(),
+        )
+        risk_messages = [entry["message"] for entry in payload["misreadRiskSummary"]["riskStatements"]]
+        self.assertTrue(
+            any("direct regulatory dose derivation" in message.lower() for message in risk_messages)
+        )
+        self.assertTrue(
+            any("short report cards" in message.lower() for message in risk_messages)
+        )
+        self.assertTrue(
+            any(
+                "context of use" in item.lower()
+                for item in payload["misreadRiskSummary"]["requiredReviewerChecks"]
+            )
+        )
+        self.assertEqual(
+            payload["ngraObjects"]["pbpkQualificationSummary"]["reviewStatus"]["status"],
+            "not-declared",
+        )
+        self.assertIn(
+            "exportBlockPolicy",
+            payload["ngraObjects"]["pbpkQualificationSummary"],
+        )
+        self.assertIn(
+            "cautionSummary",
+            payload["ngraObjects"]["pbpkQualificationSummary"],
+        )
         self.assertEqual(
             payload["oecdCoverage"]["reportingTemplate"]["sections"]["modelPerformance"]["status"],
             "partial",
@@ -867,6 +1059,14 @@ class OecdBridgeTests(unittest.TestCase):
         self.assertIn("ngraObjects", payload)
         self.assertEqual(payload["ngraObjects"]["assessmentContext"]["objectType"], "assessmentContext.v1")
         self.assertEqual(
+            payload["ngraObjects"]["assessmentContext"]["workflowRole"]["workflow"],
+            "exposure-led-ngra",
+        )
+        self.assertEqual(
+            payload["ngraObjects"]["assessmentContext"]["populationSupport"]["extrapolationPolicy"],
+            "outside-declared-population-context-requires-human-review",
+        )
+        self.assertEqual(
             payload["ngraObjects"]["pbpkQualificationSummary"]["state"],
             "research-use",
         )
@@ -876,6 +1076,14 @@ class OecdBridgeTests(unittest.TestCase):
         )
         self.assertFalse(
             payload["ngraObjects"]["pbpkQualificationSummary"]["supports"]["regulatoryDecision"],
+        )
+        self.assertEqual(
+            payload["ngraObjects"]["pbpkQualificationSummary"]["evidenceBasis"]["inVivoSupportStatus"],
+            "not-declared",
+        )
+        self.assertEqual(
+            payload["ngraObjects"]["pbpkQualificationSummary"]["workflowClaimBoundaries"]["directRegulatoryDoseDerivation"],
+            "not-supported",
         )
         self.assertIn(
             "higher-level NGRA decision policy or orchestrator outside PBPK MCP",
@@ -1713,9 +1921,9 @@ class OecdBridgeTests(unittest.TestCase):
         self.assertEqual(payload["semanticCoverage"]["quantifiedRowCount"], 0)
         self.assertEqual(payload["semanticCoverage"]["declaredOnlyRowCount"], 1)
 
-    def test_cisplatin_uncertainty_evidence_includes_variability_propagation(self) -> None:
+    def test_reference_model_uncertainty_evidence_includes_variability_propagation(self) -> None:
         if not has_r_package("rxode2"):
-            self.skipTest("rxode2 is required for the cisplatin uncertainty hook test")
+            self.skipTest("rxode2 is required for the reference_compound uncertainty hook test")
         payload = run_r_json(
             f"""
             source({json.dumps(str(CISPLATIN_MODEL_PATH))})

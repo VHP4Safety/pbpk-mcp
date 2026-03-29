@@ -8,6 +8,11 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
+try:  # pragma: no cover - import fallback for direct module loading in tests
+    from .benchmarking.regulatory_goldset import derive_manifest_benchmark_readiness
+except ImportError:  # pragma: no cover - direct module loading fallback
+    from mcp_bridge.benchmarking.regulatory_goldset import derive_manifest_benchmark_readiness
+
 SUPPORTED_MODEL_EXTENSIONS = {
     ".pkml": "ospsuite",
     ".r": "rxode2",
@@ -44,6 +49,56 @@ _REQUIRED_SECTION_FIELDS = {
     "implementationVerification": ("status",),
     "platformQualification": ("status",),
     "peerReview": ("status",),
+}
+_NGRA_DECLARATION_FIELDS = {
+    "workflowRole": ("workflowRole", "ngraWorkflowRole", "exposureLedWorkflow"),
+    "populationSupport": ("populationSupport",),
+    "evidenceBasis": ("evidenceBasis",),
+    "workflowClaimBoundaries": ("workflowClaimBoundaries", "claimBoundaries"),
+}
+_NGRA_DECLARATION_MESSAGES = {
+    "workflowRole": (
+        "Scientific profile does not declare an explicit workflowRole/ngraWorkflowRole block; "
+        "runtime exports will keep the PBPK role description conservative rather than implying "
+        "model-specific IVIVE or dosimetry ownership."
+    ),
+    "populationSupport": (
+        "Scientific profile does not declare an explicit populationSupport block; runtime exports "
+        "will require human review for extrapolation outside declared population contexts."
+    ),
+    "evidenceBasis": (
+        "Scientific profile does not declare an explicit evidenceBasis block; runtime exports will "
+        "label in vivo and NAM/IVIVE support as not declared."
+    ),
+    "workflowClaimBoundaries": (
+        "Scientific profile does not declare workflowClaimBoundaries/claimBoundaries; runtime "
+        "exports will conservatively avoid claiming direct support for reverse/forward dosimetry "
+        "or direct regulatory dose derivation."
+    ),
+}
+_NGRA_ISSUE_CODES = {
+    "workflowRole": "ngra_workflow_role_missing",
+    "populationSupport": "ngra_population_support_missing",
+    "evidenceBasis": "ngra_evidence_basis_missing",
+    "workflowClaimBoundaries": "ngra_workflow_claim_boundaries_missing",
+}
+_NGRA_RUNTIME_FALLBACKS = {
+    "workflowRole": (
+        "Runtime exports fall back to a conservative PBPK-in-workflow role description and do not "
+        "infer model-specific IVIVE ownership."
+    ),
+    "populationSupport": (
+        "Runtime exports fall back to conservative population support semantics and keep "
+        "extrapolation outside declared contexts behind human review."
+    ),
+    "evidenceBasis": (
+        "Runtime exports treat in vivo support, mixed-evidence status, and NAM/IVIVE-only support "
+        "as not declared."
+    ),
+    "workflowClaimBoundaries": (
+        "Runtime exports conservatively avoid direct support claims for reverse dosimetry, forward "
+        "dosimetry, exposure-led prioritization, or regulatory dose derivation unless declared."
+    ),
 }
 _EXAMPLE_QUALIFICATIONS = {"demo-only", "illustrative-example", "integration-example"}
 _RESEARCH_QUALIFICATIONS = {
@@ -164,12 +219,703 @@ def _normalize_text_values(value: Any) -> list[str]:
     return [text] if text else []
 
 
+def _value_is_declared(value: Any) -> bool:
+    if value is None:
+        return False
+    if isinstance(value, Mapping):
+        return any(_value_is_declared(item) for item in value.values())
+    if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
+        return any(_value_is_declared(item) for item in value)
+    if isinstance(value, bool):
+        return True
+    return _safe_text(value) is not None
+
+
 def _record_entry_count(value: Any) -> int:
     if isinstance(value, Mapping):
         return 1
     if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
         return sum(1 for item in value if isinstance(item, Mapping))
     return 0
+
+
+def _declared_profile_alias(profile: Mapping[str, Any], field_names: Sequence[str]) -> str | None:
+    for field_name in field_names:
+        if _value_is_declared(profile.get(field_name)):
+            return field_name
+    return None
+
+
+def _declared_text_alias(text: str, field_names: Sequence[str]) -> str | None:
+    for field_name in field_names:
+        if re.search(rf"\b{re.escape(field_name)}\s*=", text):
+            return field_name
+    return None
+
+
+def _population_scope_hint_fields(applicability: Mapping[str, Any] | None) -> list[str]:
+    if not isinstance(applicability, Mapping):
+        return []
+
+    hints: list[str] = []
+    for field_name in (
+        "species",
+        "sex",
+        "lifeStage",
+        "age",
+        "ageGroup",
+        "physiology",
+        "genotype",
+        "phenotype",
+    ):
+        if _value_is_declared(applicability.get(field_name)):
+            hints.append(field_name)
+    return hints
+
+
+def _curation_review_label(
+    *,
+    qualification_label: str | None,
+    manifest_status: str | None,
+    ngra_declarations_explicit: bool,
+    risk_assessment_ready: bool,
+) -> str:
+    qualification_prefix = qualification_label or "Undeclared"
+    manifest_phrase = {
+        "valid": "with complete static curation",
+        "partial": "with partial static curation",
+        "missing": "without model-specific static curation",
+    }.get(manifest_status, "with unknown static curation")
+    ngra_phrase = (
+        "and explicit NGRA boundaries"
+        if ngra_declarations_explicit
+        else "and implicit NGRA boundaries"
+    )
+    readiness_phrase = (
+        "risk-assessment-ready"
+        if risk_assessment_ready
+        else "not regulatory-ready"
+    )
+    return f"{qualification_prefix} {manifest_phrase} {ngra_phrase}; {readiness_phrase}."
+
+
+def _curation_human_summary(
+    *,
+    qualification_label: str | None,
+    manifest_status: str | None,
+    risk_assessment_ready: bool,
+    ngra_declarations_explicit: bool,
+    missing_sections: Sequence[str],
+    missing_ngra: Sequence[str],
+) -> str:
+    qualification_prefix = (qualification_label or "Undeclared").lower()
+    summary = (
+        f"{qualification_prefix.capitalize()} model with static manifest status "
+        f"'{manifest_status or 'unknown'}'. "
+    )
+    if ngra_declarations_explicit:
+        summary += "NGRA workflow role, population support, evidence basis, and claim boundaries are explicit. "
+    elif missing_ngra:
+        summary += (
+            "NGRA declarations are still implicit for "
+            f"{', '.join(missing_ngra)}. "
+        )
+    if missing_sections:
+        summary += f"Section gaps remain in {', '.join(missing_sections)}. "
+    summary += (
+        "Treat this as risk-assessment-ready."
+        if risk_assessment_ready
+        else "Do not treat this as regulatory-ready without further evidence."
+    )
+    return summary
+
+
+def _curation_misread_risk_summary(
+    *,
+    qualification_label: str | None,
+    manifest_status: str | None,
+    risk_assessment_ready: bool,
+    ngra_declarations_explicit: bool,
+    missing_sections: Sequence[str],
+    missing_ngra: Sequence[str],
+) -> dict[str, Any]:
+    statements: list[dict[str, Any]] = []
+
+    def add_statement(code: str, message: str, current_status: str | None = None) -> None:
+        payload: dict[str, Any] = {"code": code, "message": message}
+        if current_status:
+            payload["currentStatus"] = current_status
+        statements.append(payload)
+
+    qualification_text = qualification_label or "undeclared"
+    manifest_text = manifest_status or "unknown"
+    add_statement(
+        "static-curation-is-not-decision-readiness",
+        (
+            "Static manifest completeness and explicit NGRA declarations do not, by themselves, "
+            "prove broad decision readiness, external validation, or regulatory acceptability."
+        ),
+        current_status=f"qualification={qualification_text}; manifest={manifest_text}",
+    )
+
+    if not risk_assessment_ready:
+        add_statement(
+            "not-risk-assessment-ready",
+            (
+                "Do not treat this model as risk-assessment-ready or regulatory-ready without "
+                "additional evidence and context-specific human review."
+            ),
+            current_status=qualification_text,
+        )
+    else:
+        add_statement(
+            "declared-context-still-applies",
+            (
+                "Even when the manifest is structured for within-context qualification, reuse "
+                "outside the declared context of use still requires human review."
+            ),
+            current_status=qualification_text,
+        )
+
+    if not ngra_declarations_explicit:
+        add_statement(
+            "implicit-ngra-boundaries",
+            (
+                "Some NGRA boundary declarations are still implicit, so downstream runtime and "
+                "export surfaces will fall back to conservative defaults rather than model-specific claims."
+            ),
+            current_status=", ".join(missing_ngra) if missing_ngra else "undeclared-ngra-boundaries",
+        )
+
+    if missing_sections:
+        add_statement(
+            "manifest-section-gaps",
+            (
+                "Important manifest sections remain missing or incomplete. Treat discovery and "
+                "validation summaries as incomplete curation, not as full dossier support."
+            ),
+            current_status=", ".join(missing_sections),
+        )
+
+    add_statement(
+        "detached-summary-overread",
+        (
+            "Discovery cards, screenshots, short API snippets, or forwarded manifest summaries can "
+            "make the trust-bearing review label look stronger than its nearby caveats."
+        ),
+        current_status="summary-context-must-travel-with-label",
+    )
+
+    reviewer_checks = [
+        "Read the qualification state, review label, and manifest status before treating a discovered model as fit for downstream use.",
+        "Check whether workflow role, population support, evidence basis, and claim boundaries are explicit and match the intended context of use.",
+        "Check whether missing sections or implicit declarations weaken the intended scientific or regulatory claim.",
+    ]
+    if not risk_assessment_ready:
+        reviewer_checks.append(
+            "Treat this model as non-regulatory-ready until stronger evidence and review support are attached."
+        )
+    if missing_sections:
+        reviewer_checks.append(
+            "Resolve or explicitly accept the remaining section gaps before relying on static curation summaries."
+        )
+    if missing_ngra:
+        reviewer_checks.append(
+            "Do not infer undeclared NGRA boundary details from runtime success or format support."
+        )
+
+    return {
+        "sectionVersion": "pbpk-curation-misread-risk-summary.v1",
+        "sectionTitle": "How discovery or static validation could be misread",
+        "requiredReading": True,
+        "plainLanguageSummary": (
+            "A model can look well-curated in discovery or static validation and still be non-regulatory-ready, "
+            "context-limited, or missing important boundary declarations. Read the curation guardrails before reuse."
+        ),
+        "riskStatements": statements,
+        "requiredReviewerChecks": reviewer_checks,
+    }
+
+
+def _curation_summary_transport_risk(
+    *,
+    risk_assessment_ready: bool,
+    ngra_declarations_explicit: bool,
+    missing_sections: Sequence[str],
+    missing_ngra: Sequence[str],
+) -> dict[str, Any]:
+    risk_drivers = ["trust-label-can-detach-from-basis"]
+    if not risk_assessment_ready:
+        risk_drivers.append("non-regulatory-ready-summary-can-be-overread")
+    if missing_sections:
+        risk_drivers.append("static-section-gaps-can-be-hidden-in-thin-views")
+    if missing_ngra:
+        risk_drivers.append("implicit-ngra-boundaries-can-be-lost-in-forwarding")
+    if not ngra_declarations_explicit and "implicit-ngra-boundaries-can-be-lost-in-forwarding" not in risk_drivers:
+        risk_drivers.append("implicit-ngra-boundaries-can-be-lost-in-forwarding")
+
+    risk_level = "high" if len(risk_drivers) > 1 else "medium"
+    return {
+        "sectionVersion": "pbpk-curation-summary-transport-risk.v1",
+        "riskLevel": risk_level,
+        "detachedSummaryUnsafe": True,
+        "plainLanguageSummary": (
+            "Do not let the curation label travel alone. If this summary is forwarded as a card, screenshot, "
+            "or short snippet, keep the caveats and boundary statements attached."
+        ),
+        "lossyViewModes": [
+            "catalog-card",
+            "screenshot",
+            "chat-snippet",
+            "forwarded-summary",
+            "thin-api-response",
+        ],
+        "mustTravelWith": [
+            "reviewLabel",
+            "humanSummary",
+            "misreadRiskSummary.plainLanguageSummary",
+            "summaryTransportRisk.plainLanguageSummary",
+        ],
+        "riskDrivers": risk_drivers,
+    }
+
+
+def _curation_export_block_policy(
+    *,
+    risk_assessment_ready: bool,
+    ngra_declarations_explicit: bool,
+    missing_sections: Sequence[str],
+    missing_ngra: Sequence[str],
+) -> dict[str, Any]:
+    blocked_view_modes = [
+        "catalog-card",
+        "screenshot",
+        "chat-snippet",
+        "forwarded-summary",
+        "thin-api-response",
+    ]
+    required_fields = [
+        "reviewLabel",
+        "humanSummary",
+        "misreadRiskSummary.plainLanguageSummary",
+        "summaryTransportRisk.plainLanguageSummary",
+    ]
+    block_reasons: list[dict[str, Any]] = [
+        {
+            "code": "bare-review-label-blocked",
+            "severity": "high",
+            "appliesTo": ["catalog-card", "thin-api-response", "review-badge"],
+            "message": (
+                "Do not render the trust-bearing review label or manifest state alone. "
+                "Adjacent caveats and anti-misread guidance are required."
+            ),
+            "requiredFields": required_fields,
+            "currentStatus": "context-required",
+        },
+        {
+            "code": "detached-summary-blocked",
+            "severity": "high",
+            "appliesTo": blocked_view_modes,
+            "message": (
+                "Block lossy discovery or validation summaries when the required caveat fields "
+                "cannot travel with the trust-bearing label."
+            ),
+            "requiredFields": required_fields,
+            "currentStatus": "detached-summary-unsafe",
+        },
+    ]
+
+    if not risk_assessment_ready:
+        block_reasons.append(
+            {
+                "code": "decision-readiness-overclaim-blocked",
+                "severity": "high",
+                "appliesTo": ["decision-card", "release-highlight", "public-summary"],
+                "message": (
+                    "Block decision-ready or regulatory-ready framing when the manifest only "
+                    "supports static curation or research-use qualification."
+                ),
+                "currentStatus": "not-risk-assessment-ready",
+            }
+        )
+    if missing_sections:
+        block_reasons.append(
+            {
+                "code": "missing-manifest-sections-blocked",
+                "severity": "high",
+                "appliesTo": ["approval-badge", "public-summary", "release-highlight"],
+                "message": (
+                    "Block approval-style presentation when important manifest sections remain "
+                    "missing or incomplete."
+                ),
+                "currentStatus": ", ".join(missing_sections),
+            }
+        )
+    if missing_ngra or not ngra_declarations_explicit:
+        block_reasons.append(
+            {
+                "code": "implicit-ngra-boundaries-blocked",
+                "severity": "high",
+                "appliesTo": ["decision-card", "workflow-support-badge", "forwarded-summary"],
+                "message": (
+                    "Block stronger NGRA workflow claims when workflow role, population support, "
+                    "evidence basis, or claim boundaries remain implicit."
+                ),
+                "currentStatus": ", ".join(missing_ngra) if missing_ngra else "implicit-ngra-boundaries",
+            }
+        )
+
+    return {
+        "policyVersion": "pbpk-curation-export-block-policy.v1",
+        "defaultAction": "block-lossy-or-decision-leaning-exports",
+        "contextualizedRenderOnly": True,
+        "blockedViewModes": blocked_view_modes,
+        "requiredFields": required_fields,
+        "blockReasons": block_reasons,
+        "notes": [
+            "This policy is descriptive and machine-readable so future analyst-facing clients can refuse unsafe thin views.",
+            "Static curation can support discovery and bounded review without implying broader scientific or regulatory authority.",
+        ],
+    }
+
+
+def _curation_caution_summary(
+    *,
+    risk_assessment_ready: bool,
+    ngra_declarations_explicit: bool,
+    missing_sections: Sequence[str],
+    missing_ngra: Sequence[str],
+) -> dict[str, Any]:
+    cautions: list[dict[str, Any]] = []
+
+    def add_caution(
+        code: str,
+        caution_type: str,
+        severity: str,
+        handling: str,
+        scope: str,
+        source_surface: str,
+        message: str,
+        *,
+        current_status: str | None = None,
+    ) -> None:
+        payload: dict[str, Any] = {
+            "code": code,
+            "cautionType": caution_type,
+            "severity": severity,
+            "handling": handling,
+            "scope": scope,
+            "sourceSurface": source_surface,
+            "message": message,
+            "requiresHumanReview": True,
+        }
+        if current_status:
+            payload["currentStatus"] = current_status
+        cautions.append(payload)
+
+    add_caution(
+        "static-curation-is-not-decision-readiness",
+        "decision-overclaim-risk",
+        "medium",
+        "advisory",
+        "model",
+        "misreadRiskSummary",
+        (
+            "Static curation completeness and explicit NGRA declarations do not, by themselves, "
+            "establish broad decision readiness or regulatory acceptability."
+        ),
+        current_status="static-curation-only",
+    )
+    add_caution(
+        "detached-summary-overread",
+        "summary-transport-risk",
+        "high",
+        "blocking",
+        "summary-surface",
+        "summaryTransportRisk",
+        (
+            "Thin discovery cards, screenshots, or forwarded snippets can detach the trust-bearing "
+            "label from its caveats and make support look stronger than it is."
+        ),
+        current_status="detached-summary-unsafe",
+    )
+    if not risk_assessment_ready:
+        add_caution(
+            "decision-readiness-overclaim",
+            "decision-overclaim-risk",
+            "high",
+            "blocking",
+            "workflow-claim",
+            "exportBlockPolicy",
+            (
+                "Decision-ready or regulatory-ready framing should be blocked when static curation "
+                "still resolves to research-use or illustrative qualification."
+            ),
+            current_status="not-risk-assessment-ready",
+        )
+    if missing_sections:
+        add_caution(
+            "manifest-section-gaps",
+            "evidence-gap",
+            "high",
+            "blocking",
+            "model",
+            "validationSummary",
+            (
+                "Important manifest sections remain missing or incomplete, so approval-style or "
+                "broad qualification framing should stay blocked."
+            ),
+            current_status=", ".join(missing_sections),
+        )
+    if missing_ngra or not ngra_declarations_explicit:
+        add_caution(
+            "implicit-ngra-boundaries",
+            "implicit-boundary",
+            "high",
+            "blocking",
+            "workflow-boundary",
+            "ngraCoverage",
+            (
+                "Workflow role, population support, evidence basis, or claim boundaries remain "
+                "implicit, so stronger NGRA workflow claims should stay blocked."
+            ),
+            current_status=", ".join(missing_ngra) if missing_ngra else "implicit-ngra-boundaries",
+        )
+
+    severity_order = {"low": 0, "medium": 1, "high": 2}
+    highest_severity = max(
+        (entry["severity"] for entry in cautions),
+        key=lambda value: severity_order.get(value, -1),
+        default="medium",
+    )
+    blocking_count = sum(1 for entry in cautions if entry["handling"] == "blocking")
+    advisory_count = sum(1 for entry in cautions if entry["handling"] == "advisory")
+    return {
+        "summaryVersion": "pbpk-curation-caution-summary.v1",
+        "highestSeverity": highest_severity,
+        "blockingCount": blocking_count,
+        "advisoryCount": advisory_count,
+        "requiresHumanReview": True,
+        "blockingRecommended": blocking_count > 0,
+        "cautions": cautions,
+    }
+
+
+def _curation_rendering_guardrails(
+    *,
+    risk_assessment_ready: bool,
+    ngra_declarations_explicit: bool,
+    missing_sections: Sequence[str],
+    missing_ngra: Sequence[str],
+    export_block_policy: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    has_gaps = bool(missing_sections or missing_ngra)
+    severity = (
+        "warning"
+        if has_gaps or not risk_assessment_ready
+        else "info"
+    )
+    if has_gaps:
+        inline_warning = (
+            "Do not render the review label alone. Show the missing-section and boundary-declaration gaps inline."
+        )
+    elif not risk_assessment_ready:
+        inline_warning = (
+            "Do not render the review label as decision-ready or regulatory-ready. Keep the anti-misread guidance adjacent."
+        )
+    else:
+        inline_warning = (
+            "Keep the anti-misread guidance adjacent to the review label so within-context qualification is not over-read."
+        )
+
+    return {
+        "guardVersion": "pbpk-curation-rendering-guardrails.v1",
+        "allowBareReviewLabel": False,
+        "severity": severity,
+        "inlineWarning": inline_warning,
+        "actionIfRequiredFieldsMissing": "refuse-rendering",
+        "refusalMessage": (
+            "Refuse lossy rendering of trust-bearing discovery or validation summaries when the "
+            "required caveat fields cannot be shown inline."
+        ),
+        "requiredFields": [
+            "reviewLabel",
+            "humanSummary",
+            "misreadRiskSummary.plainLanguageSummary",
+            "summaryTransportRisk.plainLanguageSummary",
+        ],
+        "blockedViewModes": list((export_block_policy or {}).get("blockedViewModes") or []),
+        "blockReasonCodes": [
+            reason.get("code")
+            for reason in ((export_block_policy or {}).get("blockReasons") or [])
+            if isinstance(reason, Mapping) and reason.get("code")
+        ],
+        "recommendedOrder": [
+            "reviewLabel",
+            "humanSummary",
+            "summaryTransportRisk.plainLanguageSummary",
+            "misreadRiskSummary.sectionTitle",
+            "misreadRiskSummary.plainLanguageSummary",
+        ],
+        "notes": [
+            "Qualification or curation labels are trust-bearing and should not be rendered without adjacent caveats.",
+            "Manifest completeness and explicit NGRA declarations do not replace human review for the real context of use.",
+            "Thin or forwarded views should preserve summary-transport risk guidance so screenshots and snippets do not overstate support.",
+        ],
+        "requiresInlineMisreadGuidance": True,
+        "ngraDeclarationsExplicit": ngra_declarations_explicit,
+    }
+
+
+def build_manifest_curation_summary(manifest: Mapping[str, Any] | None) -> dict[str, Any]:
+    manifest_payload = dict(manifest or {})
+    qualification_state = dict(manifest_payload.get("qualificationState") or {})
+    ngra_coverage = dict(manifest_payload.get("ngraCoverage") or {})
+    sections = manifest_payload.get("sections") or {}
+
+    manifest_status = _safe_text(manifest_payload.get("manifestStatus"))
+    qualification_state_name = _safe_text(qualification_state.get("state"))
+    qualification_label = _safe_text(qualification_state.get("label")) or qualification_state_name
+    risk_assessment_ready = bool(qualification_state.get("riskAssessmentReady"))
+    missing_sections = sorted(
+        section_name
+        for section_name, section_payload in sections.items()
+        if not bool((section_payload or {}).get("present"))
+        or bool((section_payload or {}).get("missingFields"))
+    ) if isinstance(sections, Mapping) else []
+    missing_ngra = list(ngra_coverage.get("missingDeclarations") or [])
+    ngra_declarations_explicit = bool(ngra_coverage.get("allExplicitlyDeclared"))
+    export_block_policy = _curation_export_block_policy(
+        risk_assessment_ready=risk_assessment_ready,
+        ngra_declarations_explicit=ngra_declarations_explicit,
+        missing_sections=missing_sections,
+        missing_ngra=missing_ngra,
+    )
+
+    return {
+        "summaryVersion": "pbpk-model-curation-summary.v1",
+        "reviewLabel": _curation_review_label(
+            qualification_label=qualification_label,
+            manifest_status=manifest_status,
+            ngra_declarations_explicit=ngra_declarations_explicit,
+            risk_assessment_ready=risk_assessment_ready,
+        ),
+        "manifestStatus": manifest_status,
+        "qualificationState": qualification_state_name,
+        "riskAssessmentReady": risk_assessment_ready,
+        "ngraDeclarationsExplicit": ngra_declarations_explicit,
+        "missingSections": missing_sections,
+        "missingNgraDeclarations": missing_ngra,
+        "humanSummary": _curation_human_summary(
+            qualification_label=qualification_label,
+            manifest_status=manifest_status,
+            risk_assessment_ready=risk_assessment_ready,
+            ngra_declarations_explicit=ngra_declarations_explicit,
+            missing_sections=missing_sections,
+            missing_ngra=missing_ngra,
+        ),
+        "misreadRiskSummary": _curation_misread_risk_summary(
+            qualification_label=qualification_label,
+            manifest_status=manifest_status,
+            risk_assessment_ready=risk_assessment_ready,
+            ngra_declarations_explicit=ngra_declarations_explicit,
+            missing_sections=missing_sections,
+            missing_ngra=missing_ngra,
+        ),
+        "summaryTransportRisk": _curation_summary_transport_risk(
+            risk_assessment_ready=risk_assessment_ready,
+            ngra_declarations_explicit=ngra_declarations_explicit,
+            missing_sections=missing_sections,
+            missing_ngra=missing_ngra,
+        ),
+        "cautionSummary": _curation_caution_summary(
+            risk_assessment_ready=risk_assessment_ready,
+            ngra_declarations_explicit=ngra_declarations_explicit,
+            missing_sections=missing_sections,
+            missing_ngra=missing_ngra,
+        ),
+        "exportBlockPolicy": export_block_policy,
+        "renderingGuardrails": _curation_rendering_guardrails(
+            risk_assessment_ready=risk_assessment_ready,
+            ngra_declarations_explicit=ngra_declarations_explicit,
+            missing_sections=missing_sections,
+            missing_ngra=missing_ngra,
+            export_block_policy=export_block_policy,
+        ),
+        "regulatoryBenchmarkReadiness": derive_manifest_benchmark_readiness(manifest_payload),
+    }
+
+
+def _ngra_coverage_summary(*, scientific_profile: bool, missing: Sequence[str]) -> str:
+    if not scientific_profile:
+        return (
+            "No model-specific scientific profile is declared, so exposure-led workflow role, "
+            "population support, evidence basis, and claim boundaries all remain undeclared."
+        )
+    if not missing:
+        return (
+            "Explicit NGRA workflow role, population support, evidence basis, and claim-boundary "
+            "declarations are present for static curation."
+        )
+    return (
+        "Static manifest is missing explicit NGRA declarations for "
+        f"{', '.join(missing)}; runtime exports will fall back to conservative not-declared or "
+        "human-review-only semantics until the model profile declares them."
+    )
+
+
+def _build_ngra_coverage(
+    declarations: Mapping[str, str | None],
+    *,
+    scientific_profile: bool,
+    population_scope_hints: Sequence[str] | None = None,
+) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    issues: list[dict[str, Any]] = []
+    coverage: dict[str, Any] = {}
+    missing: list[str] = []
+    hint_list = list(population_scope_hints or [])
+
+    for canonical_name, declared_alias in declarations.items():
+        declared = declared_alias is not None
+        if declared:
+            item: dict[str, Any] = {
+                "declared": True,
+                "declaredField": f"profile.{declared_alias}",
+                "runtimeFallback": _NGRA_RUNTIME_FALLBACKS[canonical_name],
+                "summary": f"Declared via profile.{declared_alias}.",
+            }
+        else:
+            item = {
+                "declared": False,
+                "declaredField": None,
+                "runtimeFallback": _NGRA_RUNTIME_FALLBACKS[canonical_name],
+                "summary": _NGRA_DECLARATION_MESSAGES[canonical_name],
+            }
+            missing.append(canonical_name)
+            if scientific_profile:
+                issues.append(
+                    _issue(
+                        _NGRA_ISSUE_CODES[canonical_name],
+                        _NGRA_DECLARATION_MESSAGES[canonical_name],
+                        field=f"profile.{_NGRA_DECLARATION_FIELDS[canonical_name][0]}",
+                        severity="warning",
+                    )
+                )
+        if canonical_name == "populationSupport" and hint_list:
+            item["scopeHintFields"] = hint_list
+        coverage[canonical_name] = item
+
+    coverage["declaredCount"] = sum(
+        1 for canonical_name in _NGRA_DECLARATION_FIELDS if coverage[canonical_name]["declared"]
+    )
+    coverage["missingCount"] = len(missing)
+    coverage["allExplicitlyDeclared"] = len(missing) == 0
+    coverage["missingDeclarations"] = missing
+    coverage["summary"] = _ngra_coverage_summary(
+        scientific_profile=scientific_profile,
+        missing=missing,
+    )
+    return coverage, issues
 
 
 def _performance_section_dataset_records(section: Mapping[str, Any] | None) -> Any:
@@ -467,6 +1213,18 @@ def _validate_profile_manifest(
     else:
         metadata = {}
 
+    ngra_coverage, ngra_issues = _build_ngra_coverage(
+        {
+            canonical_name: _declared_profile_alias(profile, field_names)
+            for canonical_name, field_names in _NGRA_DECLARATION_FIELDS.items()
+        },
+        scientific_profile=scientific_profile,
+        population_scope_hints=_population_scope_hint_fields(
+            applicability if isinstance(applicability, Mapping) else None
+        ),
+    )
+    issues.extend(ngra_issues)
+
     qualification_state = derive_qualification_state(
         scientific_profile=scientific_profile,
         profile_source=profile_source,
@@ -484,6 +1242,7 @@ def _validate_profile_manifest(
         "manifestStatus": _manifest_status(issues, scientific_profile, core_sections_complete),
         "qualificationState": qualification_state,
         "sections": sections,
+        "ngraCoverage": ngra_coverage,
         "issues": issues,
         **metadata,
     }
@@ -1165,6 +1924,13 @@ def _validate_r_model(file_path: Path) -> dict[str, Any]:
     hooks["parameterTableSidecar"] = parameter_table_sidecar_path is not None
     hooks["performanceEvidenceSidecar"] = performance_sidecar_path is not None
     hooks["uncertaintyEvidenceSidecar"] = uncertainty_sidecar_path is not None
+    ngra_coverage, ngra_issues = _build_ngra_coverage(
+        {
+            canonical_name: _declared_text_alias(text, field_names)
+            for canonical_name, field_names in _NGRA_DECLARATION_FIELDS.items()
+        },
+        scientific_profile=hooks["modelProfile"],
+    )
     sections = {
         name: {
             "present": bool(pattern.search(text)),
@@ -1179,6 +1945,7 @@ def _validate_r_model(file_path: Path) -> dict[str, Any]:
     issues.extend(parameter_table_sidecar_issues)
     issues.extend(performance_sidecar_issues)
     issues.extend(uncertainty_sidecar_issues)
+    issues.extend(ngra_issues)
     if not hooks["modelProfile"]:
         issues.append(
             _issue(
@@ -1294,6 +2061,7 @@ def _validate_r_model(file_path: Path) -> dict[str, Any]:
         ),
         "hooks": hooks,
         "sections": sections,
+        "ngraCoverage": ngra_coverage,
         "issues": issues,
         "supplementalEvidence": {
             "parameterTableSidecarPath": parameter_table_sidecar_path,
@@ -1321,6 +2089,16 @@ def validate_model_manifest(file_path: str | Path) -> dict[str, Any]:
     if not path.is_file():
         raise FileNotFoundError(path)
 
+    def build_payload(manifest: Mapping[str, Any]) -> dict[str, Any]:
+        manifest_payload = dict(manifest)
+        return {
+            "filePath": str(path),
+            "backend": backend,
+            "runtimeFormat": suffix.lstrip("."),
+            "manifest": manifest_payload,
+            "curationSummary": build_manifest_curation_summary(manifest_payload),
+        }
+
     if backend == "ospsuite":
         profile, sidecar_path, sidecar_issues = _load_sidecar_profile(path)
         parameter_table_sidecar_rows, parameter_table_sidecar_metadata, parameter_table_sidecar_path, parameter_table_sidecar_issues = _load_parameter_table_sidecar(path)
@@ -1334,11 +2112,12 @@ def validate_model_manifest(file_path: str | Path) -> dict[str, Any]:
         uncertainty_sidecar_rows, uncertainty_sidecar_metadata, uncertainty_sidecar_path, uncertainty_sidecar_issues = _load_uncertainty_evidence_sidecar(path)
         if profile is None:
             scientific_profile = False
-            return {
-                "filePath": str(path),
-                "backend": backend,
-                "runtimeFormat": suffix.lstrip("."),
-                "manifest": {
+            ngra_coverage, _ = _build_ngra_coverage(
+                {canonical_name: None for canonical_name in _NGRA_DECLARATION_FIELDS},
+                scientific_profile=False,
+            )
+            return build_payload(
+                {
                     "validationMode": "static-manifest-inspection",
                     "backend": backend,
                     "scientificProfile": scientific_profile,
@@ -1353,6 +2132,7 @@ def validate_model_manifest(file_path: str | Path) -> dict[str, Any]:
                         evidence_sections_complete=False,
                     ),
                     "sections": {},
+                    "ngraCoverage": ngra_coverage,
                     "issues": [*sidecar_issues, *parameter_table_sidecar_issues, *performance_sidecar_issues, *uncertainty_sidecar_issues],
                     "sidecarPath": sidecar_path,
                     "supplementalEvidence": {
@@ -1369,8 +2149,8 @@ def validate_model_manifest(file_path: str | Path) -> dict[str, Any]:
                         "uncertaintyEvidenceRowCount": len(uncertainty_sidecar_rows),
                         "uncertaintyEvidenceBundleMetadata": uncertainty_sidecar_metadata,
                     },
-                },
-            }
+                }
+            )
 
         manifest = _validate_profile_manifest(
             profile,
@@ -1393,19 +2173,13 @@ def validate_model_manifest(file_path: str | Path) -> dict[str, Any]:
             "uncertaintyEvidenceRowCount": len(uncertainty_sidecar_rows),
             "uncertaintyEvidenceBundleMetadata": uncertainty_sidecar_metadata,
         }
-        return {
-            "filePath": str(path),
-            "backend": backend,
-            "runtimeFormat": suffix.lstrip("."),
-            "manifest": manifest,
-        }
+        return build_payload(manifest)
 
-    return {
-        "filePath": str(path),
-        "backend": backend,
-        "runtimeFormat": suffix.lstrip("."),
-        "manifest": _validate_r_model(path),
-    }
+    return build_payload(_validate_r_model(path))
 
 
-__all__ = ["derive_qualification_state", "validate_model_manifest"]
+__all__ = [
+    "build_manifest_curation_summary",
+    "derive_qualification_state",
+    "validate_model_manifest",
+]

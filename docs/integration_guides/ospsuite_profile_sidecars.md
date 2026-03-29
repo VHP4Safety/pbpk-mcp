@@ -41,6 +41,15 @@ Supported sections mirror the current MCP scientific profile structure:
 - `implementationVerification`
 - `peerReview`
 
+For exposure-led NGRA curation, the sidecar may also declare additive top-level fields such as:
+
+- `workflowRole` or `ngraWorkflowRole`
+- `populationSupport`
+- `evidenceBasis`
+- `workflowClaimBoundaries` or `claimBoundaries`
+
+These fields are optional, but `validate_model_manifest` now reports `manifest.ngraCoverage` and emits conservative warnings when they are absent so curators can see that runtime exports will fall back to not-declared or human-review-only semantics.
+
 Inside `peerReview`, richer traceability can now be declared with fields such as:
 
 - `reviewRecords`
@@ -68,21 +77,21 @@ If you prefer to keep quantitative evidence separate from the scientific profile
 - `model.performance.json`
 - `model.performance-evidence.json`
 
-Those bundles work for both `.pkml` and MCP-ready `.R` models and are documented in [performance_evidence_bundles.md](/Volumes/Storage/topotox_offload/20260220_space_relief/manual_offload/PBPK_MCP/docs/integration_guides/performance_evidence_bundles.md).
+Those bundles work for both `.pkml` and MCP-ready `.R` models and are documented in [performance_evidence_bundles.md](performance_evidence_bundles.md).
 
 The same companion-bundle pattern is also available for uncertainty/sensitivity content via files such as:
 
 - `model.uncertainty.json`
 - `model.uncertainty-evidence.json`
 
-Those bundles are documented in [uncertainty_evidence_bundles.md](/Volumes/Storage/topotox_offload/20260220_space_relief/manual_offload/PBPK_MCP/docs/integration_guides/uncertainty_evidence_bundles.md).
+Those bundles are documented in [uncertainty_evidence_bundles.md](uncertainty_evidence_bundles.md).
 
 The same companion-bundle pattern is now available for richer parameter tables via files such as:
 
 - `model.parameters.json`
 - `model.parameter-table.json`
 
-Those bundles are documented in [parameter_table_bundles.md](/Volumes/Storage/topotox_offload/20260220_space_relief/manual_offload/PBPK_MCP/docs/integration_guides/parameter_table_bundles.md).
+Those bundles are documented in [parameter_table_bundles.md](parameter_table_bundles.md).
 
 For richer uncertainty and verification reporting, the sidecar may also include structured evidence rows such as:
 
@@ -98,6 +107,7 @@ Unspecified sections fall back to the bridge defaults for OSPSuite `.pkml` model
 When a sidecar is found:
 
 - `validate_model_manifest` can inspect the sidecar statically before the model is loaded
+- `validate_model_manifest` now also reports `manifest.ngraCoverage` so missing workflow-role, population-support, evidence-basis, and claim-boundary declarations are visible before runtime export
 - `load_simulation` returns the merged `profile`
 - `capabilities.scientificProfile` becomes `true`
 - `capabilities.applicabilityDomain` mirrors the merged profile domain
@@ -148,3 +158,4 @@ The current workspace now ships sidecars for the curated profile/example models:
 - `var/models/esqlabs/esqlabsR/simple.pkml`
 
 These sidecars are intentionally conservative, but they are no longer generic `demo-only` placeholders. They now distinguish illustrative scientific examples from pure integration fixtures and encode the strongest scope statement that can be supported from the workspace artifacts alone. They still do not claim formal scientific qualification.
+The curated sidecars now also carry explicit NGRA boundary fields plus conservative `modelPerformance`, `parameterProvenance`, and `platformQualification` sections so static manifest validation can return a complete curation record without implying regulatory readiness.

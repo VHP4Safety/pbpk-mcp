@@ -4,6 +4,25 @@ All notable changes to this project should be documented in this file.
 
 ## Unreleased
 
+## v0.4.3 - 2026-03-30
+
+### Added
+
+- a regulatory gold-set benchmark dossier plus advisory `regulatoryBenchmarkReadiness` reporting so manifest validation can surface benchmark-derived documentation gaps without pretending that research models are regulatory-grade
+- a model-onboarding checklist that defines the trust pipeline for new PBPK chemicals and keeps internal use cases such as reference_compound out of the benchmark corpus
+- a reproducible repo-concat generator for external review snapshots of the current PBPK MCP folder
+
+### Changed
+
+- trust-bearing summaries now carry clearer anti-misread, caution, benchmark-gap, and export-boundary surfaces across manifest validation, release audits, and OECD-oriented reporting
+- release-prep documentation now reflects the current hardening work rather than the earlier packaged-runtime hotfix story
+- the internal live-audit wording now treats the public release comparison as a moving baseline instead of hardcoding a stale public version label
+
+### Fixed
+
+- eliminated release-story drift between the codebase and the public-facing release metadata by aligning version markers, compose/env `SERVICE_VERSION`, README release notes, and the matching release note file
+- verified that the live contract-manifest hash, packaged artifacts, and release-readiness gate all agree after a fresh redeploy
+
 ## v0.4.2 - 2026-03-22
 
 ### Fixed
@@ -154,9 +173,9 @@ All notable changes to this project should be documented in this file.
 - optional `pbpk_run_verification_checks(...)` hooks for model-specific executable qualification checks such as mass balance and solver-stability heuristics
 - stored `executableVerification` snapshots in `export_oecd_report` so OECD dossiers can carry the latest executed verification results without implicitly rerunning them
 - parameter-catalog and parameter-table snapshots are now passed into `pbpk_run_verification_checks(...)` so model-specific runtime checks can validate exposed units and structural coverage
-- executable structural physiology checks for systemic flow distribution and renal volume partition consistency in the cisplatin example model
-- bounded local sensitivity evidence for the cisplatin example, exported through `uncertaintyEvidence` with current-parameter context rather than a placeholder sensitivity gap
-- bounded variability-propagation evidence for the cisplatin example, exported through `uncertaintyEvidence` as a compact internal-exposure distribution summary
+- executable structural physiology checks for systemic flow distribution and renal volume partition consistency in the reference_compound example model
+- bounded local sensitivity evidence for the reference_compound example, exported through `uncertaintyEvidence` with current-parameter context rather than a placeholder sensitivity gap
+- bounded variability-propagation evidence for the reference_compound example, exported through `uncertaintyEvidence` as a compact internal-exposure distribution summary
 - explicit performance-evidence classification and qualification-boundary summaries in `export_oecd_report`, so runtime smoke/internal evidence is separated from predictive and external qualification evidence
 - generic companion performance-evidence bundles for `.pkml` and MCP-ready `.R` models via files such as `model.performance.json`
 - reusable starter template for companion performance-evidence bundles at `examples/performance_evidence_bundle.template.json`
@@ -172,12 +191,12 @@ All notable changes to this project should be documented in this file.
 - release-readiness checks now exercise the executable verification surface in addition to validation, execution, and OECD report export
 - executable verification now goes beyond smoke-only checks by asserting deterministic result integrity and repeat-run reproducibility
 - OECD checklist/report generation now separates software-platform qualification evidence from implementation verification evidence
-- the cisplatin example now contributes executable mass-balance and solver-stability checks through the runtime verification hook
+- the reference_compound example now contributes executable mass-balance and solver-stability checks through the runtime verification hook
 - OECD report export now carries stored executable verification snapshots separately from static `verificationEvidence`
-- the cisplatin example now contributes executable parameter-unit consistency checks through the runtime verification hook
-- the cisplatin example now contributes executable systemic-flow and renal-volume consistency checks through the runtime verification hook
+- the reference_compound example now contributes executable parameter-unit consistency checks through the runtime verification hook
+- the reference_compound example now contributes executable systemic-flow and renal-volume consistency checks through the runtime verification hook
 - bridge evidence hooks now receive the loaded runtime parameter context and parameter-table snapshot so uncertainty/performance evidence can reflect the actual loaded model state
-- cisplatin runtime smoke evidence is now explicitly labeled as internal operational evidence rather than implied predictive support
+- reference_compound runtime smoke evidence is now explicitly labeled as internal operational evidence rather than implied predictive support
 - static manifest inspection now treats a companion performance-evidence bundle as a valid alternative to a dedicated `pbpk_performance_evidence(...)` hook for `R` models
 - companion performance-evidence bundles can now expose bundle-level metadata, and that metadata is surfaced through static manifest inspection and OECD report export
 - malformed performance-evidence rows are now surfaced as warnings during static manifest inspection and OECD report export instead of being silently normalized
@@ -300,7 +319,7 @@ All notable changes to this project should be documented in this file.
 ### Fixed
 
 - `.pkml` runtime execution for transfer files with empty `OutputSelections` via bounded observer fallback
-- live discovery/index mismatch where custom models like cisplatin were loadable but not discoverable
+- live discovery/index mismatch where custom models like reference_compound were loadable but not discoverable
 - validation edge cases around scalar `contextOfUse` values
 - async deterministic result retrieval with persisted fallback in `get_results`
 

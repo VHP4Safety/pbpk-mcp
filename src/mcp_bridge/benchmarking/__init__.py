@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
-from .cli import main
+
+def main() -> int:
+    from .cli import main as cli_main
+
+    return cli_main()
 
 __all__ = ["main"]
-

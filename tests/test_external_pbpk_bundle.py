@@ -109,6 +109,28 @@ class ExternalPbpkBundleTests(unittest.TestCase):
             payload["ngraObjects"]["pbpkQualificationSummary"]["assessmentBoundary"],
             "external-pbpk-normalization-only",
         )
+        self.assertEqual(
+            payload["ngraObjects"]["pbpkQualificationSummary"]["reviewStatus"]["status"],
+            "not-declared",
+        )
+        self.assertEqual(
+            payload["ngraObjects"]["pbpkQualificationSummary"]["exportBlockPolicy"]["defaultAction"],
+            "block-lossy-or-decision-leaning-exports",
+        )
+        self.assertEqual(
+            payload["ngraObjects"]["pbpkQualificationSummary"]["cautionSummary"]["highestSeverity"],
+            "high",
+        )
+        self.assertIn(
+            "ivive-linkage-limited",
+            {
+                entry["code"]
+                for entry in payload["ngraObjects"]["pbpkQualificationSummary"]["cautionSummary"]["cautions"]
+            },
+        )
+        self.assertTrue(
+            payload["ngraObjects"]["pbpkQualificationSummary"]["reviewStatus"]["requiresReviewerAttention"],
+        )
         self.assertTrue(
             payload["ngraObjects"]["pbpkQualificationSummary"]["supports"]["externalImportNormalization"],
         )
@@ -250,6 +272,53 @@ class ExternalPbpkBundleTests(unittest.TestCase):
         self.assertIn(
             "No external point-of-departure reference is attached.",
             payload["ngraObjects"]["berInputBundle"]["blockingReasons"],
+        )
+
+    def test_ingest_external_pbpk_bundle_keeps_unresolved_reviewer_dissent_conservative(self) -> None:
+        payload = ingest_external_pbpk_bundle(
+            IngestExternalPbpkBundleRequest(
+                sourcePlatform="Simcyp",
+                qualification={
+                    "state": "qualified-within-context",
+                    "label": "Qualified within context",
+                    "reviewStatus": {
+                        "status": "declared-with-unresolved-dissent",
+                        "unresolvedDissentCount": 1,
+                        "focusTopics": ["Protein binding"],
+                    },
+                },
+            )
+        ).model_dump(by_alias=True)
+
+        qualification = payload["ngraObjects"]["pbpkQualificationSummary"]
+        self.assertEqual(qualification["state"], "regulatory-candidate")
+        self.assertEqual(qualification["label"], "Regulatory Candidate")
+        self.assertFalse(qualification["riskAssessmentReady"])
+        self.assertEqual(
+            qualification["reviewStatus"]["status"],
+            "declared-with-unresolved-dissent",
+        )
+        self.assertEqual(qualification["reviewStatus"]["focusTopics"], ["Protein binding"])
+        self.assertEqual(qualification["reviewStatus"]["openTopics"], ["Protein binding"])
+        self.assertEqual(
+            qualification["reviewStatus"]["interventionSummary"]["status"],
+            "open-review-interventions",
+        )
+        self.assertIn(
+            "open-review-intervention-blocked",
+            {entry["code"] for entry in qualification["exportBlockPolicy"]["blockReasons"]},
+        )
+        self.assertIn(
+            "reviewer-dissent-open",
+            {entry["code"] for entry in qualification["cautionSummary"]["cautions"]},
+        )
+        self.assertIn(
+            "reviewer resolution or explicit acceptance of open dissent outside PBPK MCP",
+            qualification["requiredExternalInputs"],
+        )
+        self.assertIn(
+            "Explicit reviewer dissent remains unresolved",
+            qualification["summary"],
         )
 
 

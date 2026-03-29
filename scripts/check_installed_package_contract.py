@@ -27,6 +27,7 @@ from pathlib import Path
 from mcp_bridge.contract import (
     capability_matrix_document,
     contract_manifest_document,
+    release_bundle_manifest_document,
     schema_documents,
     schema_examples,
 )
@@ -45,6 +46,9 @@ expected_capability_matrix = load_json(
 expected_contract_manifest = load_json(
     repo_root / "docs" / "architecture" / "contract_manifest.json"
 )
+expected_release_bundle_manifest = load_json(
+    repo_root / "docs" / "architecture" / "release_bundle_manifest.json"
+)
 expected_schema_documents = {
     path.stem: load_json(path) for path in sorted(schema_root.glob("*.v*.json"))
 }
@@ -57,6 +61,8 @@ if capability_matrix_document() != expected_capability_matrix:
     raise SystemExit("Installed package capability matrix does not match published JSON.")
 if contract_manifest_document() != expected_contract_manifest:
     raise SystemExit("Installed package contract manifest does not match published JSON.")
+if release_bundle_manifest_document() != expected_release_bundle_manifest:
+    raise SystemExit("Installed package release bundle manifest does not match published JSON.")
 if schema_documents() != expected_schema_documents:
     raise SystemExit("Installed package schema documents do not match published JSON.")
 if schema_examples() != expected_schema_examples:
@@ -65,6 +71,7 @@ if schema_examples() != expected_schema_examples:
 print("Installed package contract check passed.")
 print(f"- mcp-bridge {metadata.version('mcp-bridge')}")
 print(f"- contract manifest schemas {expected_contract_manifest['artifactCounts']['schemas']}")
+print(f"- release bundle files {expected_release_bundle_manifest['fileCount']}")
 print(f"- schemas {len(expected_schema_documents)}")
 print(f"- examples {len(expected_schema_examples)}")
 """

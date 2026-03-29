@@ -15,6 +15,7 @@ PACKAGED_DEPLOY = WORKSPACE_ROOT / "scripts" / "deploy_rxode2_stack.sh"
 OVERLAY_DEPLOY = WORKSPACE_ROOT / "scripts" / "deploy_source_overlay_stack.sh"
 HARDENED_DEPLOY = WORKSPACE_ROOT / "scripts" / "deploy_hardened_stack.sh"
 RELEASE_ARTIFACTS_WORKFLOW = WORKSPACE_ROOT / ".github" / "workflows" / "release-artifacts.yml"
+MODEL_SMOKE_WORKFLOW = WORKSPACE_ROOT / ".github" / "workflows" / "model-smoke.yml"
 WORKER_DOCKERFILE = WORKSPACE_ROOT / "docker" / "rxode2-worker.Dockerfile"
 ENV_EXAMPLE = WORKSPACE_ROOT / ".env.example"
 
@@ -33,8 +34,15 @@ class DeploymentProfileTests(unittest.TestCase):
 
     def test_packaged_compose_is_default_local_runtime(self) -> None:
         text = PACKAGED_COMPOSE.read_text(encoding="utf-8")
+        self.assertIn("ADAPTER_MODEL_PATHS: /app/var", text)
+        self.assertIn("ADAPTER_R_PATH: /usr/bin/R", text)
+        self.assertIn("ADAPTER_R_HOME: /usr/lib/R", text)
+        self.assertIn('AUDIT_ENABLED: "true"', text)
+        self.assertIn('ADAPTER_TIMEOUT_MS: "10000"', text)
         self.assertIn('AUTH_ALLOW_ANONYMOUS: "true"', text)
+        self.assertIn('AUTH_DEV_SECRET: "pbpk-local-dev-secret"', text)
         self.assertIn("ENVIRONMENT: development", text)
+        self.assertIn('127.0.0.1:8000:8000', text)
         self.assertIn('PBPK_ENABLE_SRC_OVERLAY: "false"', text)
         self.assertNotIn("./src:/app/src", text)
         self.assertNotIn("./scripts:/app/scripts", text)
@@ -66,6 +74,8 @@ class DeploymentProfileTests(unittest.TestCase):
     def test_env_example_defaults_to_packaged_runtime(self) -> None:
         text = ENV_EXAMPLE.read_text(encoding="utf-8")
         self.assertIn('PBPK_ENABLE_SRC_OVERLAY="false"', text)
+        self.assertIn('ADAPTER_MODEL_PATHS="tests/fixtures"', text)
+        self.assertIn("removed in v0.5.0", text)
         self.assertIn("Set to true only when you intentionally run the source-overlay maintainer profile.", text)
 
     def test_deploy_scripts_wait_for_bound_base_url_without_patch_step(self) -> None:
@@ -101,7 +111,7 @@ class DeploymentProfileTests(unittest.TestCase):
         )
         self.assertIn("COPY scripts/ospsuite_bridge.R /app/scripts/ospsuite_bridge.R", text)
         self.assertIn(
-            "COPY cisplatin_models/cisplatin_population_rxode2_model.R /app/var/models/rxode2/cisplatin/cisplatin_population_rxode2_model.R",
+            "COPY reference_models/reference_compound_population_rxode2_model.R /app/var/models/rxode2/reference_compound/reference_compound_population_rxode2_model.R",
             text,
         )
         self.assertNotIn("COPY patches /tmp/pbpk_runtime_source/patches", text)
@@ -111,6 +121,7 @@ class DeploymentProfileTests(unittest.TestCase):
         overlay_line = (WORKSPACE_ROOT / "scripts" / "runtime_src_overlay.pth").read_text(encoding="utf-8").strip()
         program = f"""
 import json
+import os
 import sys
 sys.path[:] = ['keep-a', '/app/src', 'keep-b']
 exec({overlay_line!r})
@@ -154,13 +165,48 @@ print(json.dumps(sys.path[:3]))
         self.assertIn("python scripts/generate_contract_artifacts.py --check", text)
         self.assertIn("python scripts/check_release_metadata.py", text)
         self.assertIn(
+            "python scripts/validate_model_manifests.py --strict --require-explicit-ngra --curated-publication-set",
+            text,
+        )
+        self.assertIn(
             "python scripts/check_distribution_artifacts.py --artifact-dir dist --report-path dist/release-artifact-report.json",
             text,
         )
+        self.assertIn("make misuse-prevention-test PY=python", text)
         self.assertIn("actions/upload-artifact@v4", text)
         self.assertIn("dist/*.tar.gz", text)
         self.assertIn("dist/*.whl", text)
         self.assertIn("dist/release-artifact-report.json", text)
+
+    def test_model_smoke_workflow_uses_operator_auth_for_live_smoke_runs(self) -> None:
+        text = MODEL_SMOKE_WORKFLOW.read_text(encoding="utf-8")
+        self.assertIn("python3 scripts/release_readiness_check.py --skip-unit-tests", text)
+        self.assertIn("make misuse-prevention-live-test PY=python3", text)
+        self.assertIn(
+            "python3 scripts/workspace_model_smoke.py --include-population --auth-dev-secret pbpk-local-dev-secret",
+            text,
+        )
+        self.assertIn(
+            "python3 scripts/workspace_model_smoke.py --search reference_compound --include-population --auth-dev-secret pbpk-local-dev-secret --output var/workspace_model_smoke_rxode2_report.json",
+            text,
+        )
+
+    def test_runtime_contract_make_target_includes_curated_manifest_gate(self) -> None:
+        text = (WORKSPACE_ROOT / "Makefile").read_text(encoding="utf-8")
+        self.assertIn("runtime-contract-test:", text)
+        self.assertIn("misuse-prevention-test:", text)
+        self.assertIn("misuse-prevention-live-test:", text)
+        self.assertIn("$(MAKE) misuse-prevention-test PY=$(PY)", text)
+        self.assertIn(
+            "$(PY) scripts/validate_model_manifests.py --strict --require-explicit-ngra --curated-publication-set",
+            text,
+        )
+        self.assertIn("tests/test_workspace_model_smoke_script.py", text)
+        self.assertIn("tests/test_release_readiness_script.py", text)
+        self.assertIn(
+            "$(PY) scripts/workspace_model_smoke.py --include-population --auth-dev-secret pbpk-local-dev-secret",
+            text,
+        )
 
 
 if __name__ == "__main__":

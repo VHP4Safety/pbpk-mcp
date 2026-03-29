@@ -1,29 +1,23 @@
 # Code of Conduct
 
-## Our Standards
+This repository expects respectful, technically serious collaboration.
 
-We are committed to providing a welcoming and respectful environment for everyone.
+## Expected Behavior
 
-Examples of behavior that contributes to a positive environment include:
+- engage with ideas directly and in good faith
+- keep criticism specific, factual, and constructive
+- respect uncertainty, boundaries, and evidence limits
+- help keep the project usable by scientists, engineers, and reviewers with different backgrounds
 
-- Being respectful in communication.
-- Giving and receiving constructive feedback.
-- Focusing on what is best for the project and community.
+## Unacceptable Behavior
 
-Examples of unacceptable behavior include:
-
-- Harassment, discrimination, or abusive language.
-- Personal attacks, trolling, or insulting comments.
-- Publishing private information without permission.
-
-## Scope
-
-This Code of Conduct applies in project spaces, including issues, pull requests, discussions, and related communication channels.
+- harassment, abuse, or intimidation
+- discriminatory language or personal attacks
+- deliberately misleading technical claims
+- sharing secrets, private data, or exploit details irresponsibly
 
 ## Enforcement
 
-Project maintainers are responsible for clarifying and enforcing this Code of Conduct and may take action for behavior deemed inappropriate.
+Maintainers may edit, moderate, or remove content that conflicts with this standard and may limit participation when needed to protect contributors or the project.
 
-## Reporting
-
-To report unacceptable behavior, open a private security advisory or contact the maintainers through the repository owner channels.
+For sensitive cases, prefer a private contact path rather than escalating publicly.

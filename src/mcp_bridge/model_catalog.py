@@ -13,8 +13,13 @@ from pathlib import Path
 from typing import Any
 
 from mcp.session_registry import SessionRecord
+from mcp_bridge.model_manifest import (
+    build_manifest_curation_summary,
+    validate_model_manifest as validate_manifest_payload,
+)
 
-MODEL_PATH_ENV = "MCP_MODEL_SEARCH_PATHS"
+MODEL_PATH_ENV = "ADAPTER_MODEL_PATHS"
+MODEL_PATH_ENV_ALIASES = ("ADAPTER_MODEL_PATHS", "MCP_MODEL_SEARCH_PATHS")
 SUPPORTED_MODEL_EXTENSIONS = {
     ".pkml": "ospsuite",
     ".r": "rxode2",
@@ -32,7 +37,7 @@ def isoformat_timestamp(timestamp: float) -> str:
 
 
 def resolve_model_roots() -> tuple[Path, ...]:
-    raw = os.getenv(MODEL_PATH_ENV, "")
+    raw = next((os.getenv(name) for name in MODEL_PATH_ENV_ALIASES if os.getenv(name)), "")
     candidates: list[Path] = []
 
     if raw.strip():
@@ -206,6 +211,20 @@ def _build_discovered_item(
     metadata.setdefault("discoverySource", "filesystem")
 
     modified_at = isoformat_timestamp(path.stat().st_mtime)
+    manifest_status = None
+    qualification_state: dict[str, Any] = {}
+    curation_summary: dict[str, Any] = {}
+    try:
+        manifest_payload = validate_manifest_payload(path)
+        manifest = dict(manifest_payload.get("manifest") or {})
+        manifest_status = _safe_str(manifest.get("manifestStatus"))
+        qualification_state = dict(manifest.get("qualificationState") or {})
+        curation_summary = build_manifest_curation_summary(manifest)
+    except Exception:
+        manifest_status = None
+        qualification_state = {}
+        curation_summary = {}
+
     return {
         "id": model_id,
         "modelId": model_id,
@@ -219,6 +238,9 @@ def _build_discovered_item(
         "modelVersion": model_version or None,
         "scientificProfile": scientific_profile,
         "profileSource": profile_source,
+        "manifestStatus": manifest_status,
+        "qualificationState": qualification_state,
+        "curationSummary": curation_summary,
         "populationSimulation": population_simulation,
         "validationHook": validation_hook,
         "discoveryState": "loaded" if loaded_ids else "discovered",
@@ -227,8 +249,6 @@ def _build_discovered_item(
         "modifiedAt": modified_at,
         "metadata": metadata,
     }
-
-
 def _detect_ospsuite_features(path: Path) -> dict[str, Any]:
     sidecar = next(
         (candidate for candidate in ospsuite_profile_sidecar_candidates(path) if candidate.exists()),
@@ -274,6 +294,9 @@ def _matches_search(item: Mapping[str, Any], lowered_search: str) -> bool:
         item.get("relativePath"),
         item.get("displayName"),
         item.get("backend"),
+        item.get("manifestStatus"),
+        json.dumps(item.get("qualificationState", {}), sort_keys=True, default=str),
+        json.dumps(item.get("curationSummary", {}), sort_keys=True, default=str),
         json.dumps(item.get("metadata", {}), sort_keys=True, default=str),
     ]
     for value in haystacks:

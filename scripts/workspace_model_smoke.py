@@ -11,20 +11,65 @@ import urllib.request
 from pathlib import Path
 from uuid import uuid4
 
+WORKSPACE_ROOT = Path(__file__).resolve().parents[1]
+SRC_ROOT = WORKSPACE_ROOT / "src"
+if str(SRC_ROOT) not in sys.path:
+    sys.path.insert(0, str(SRC_ROOT))
+
+from mcp_bridge.security.simple_jwt import jwt  # noqa: E402
+
 
 DEFAULT_BASE_URL = "http://127.0.0.1:8000"
 DEFAULT_OUTPUT = Path("var") / "workspace_model_smoke_report.json"
 RUNTIME_FORMATS = {"pkml", "r"}
 
 
-def http_json(url: str, payload: dict | None = None, timeout: int = 60) -> dict:
+def build_auth_headers(
+    *,
+    bearer_token: str | None,
+    auth_dev_secret: str | None,
+    auth_role: str,
+) -> dict[str, str]:
+    if bearer_token:
+        return {"authorization": f"Bearer {bearer_token}"}
+    if auth_dev_secret:
+        token = jwt.encode(
+            {
+                "sub": "workspace-model-smoke",
+                "roles": [auth_role],
+                "iat": int(time.time()),
+                "exp": int(time.time()) + 3600,
+            },
+            auth_dev_secret,
+            algorithm="HS256",
+        )
+        return {"authorization": f"Bearer {token}"}
+    return {}
+
+
+def append_auth_hint(error: str, *, has_auth_headers: bool) -> str:
+    if has_auth_headers or "HTTP 403" not in error:
+        return error
+    return (
+        f"{error} Hint: provide --auth-dev-secret or --bearer-token because "
+        "load/run smoke operations require operator or admin access on hardened runtimes."
+    )
+
+
+def http_json(
+    url: str,
+    payload: dict | None = None,
+    *,
+    timeout: int = 60,
+    headers: dict[str, str] | None = None,
+) -> dict:
     data = None
-    headers: dict[str, str] = {}
+    request_headers: dict[str, str] = dict(headers or {})
     if payload is not None:
         data = json.dumps(payload).encode()
-        headers["content-type"] = "application/json"
+        request_headers["content-type"] = "application/json"
 
-    req = urllib.request.Request(url, data=data, headers=headers)
+    req = urllib.request.Request(url, data=data, headers=request_headers)
     try:
         with urllib.request.urlopen(req, timeout=timeout) as response:
             return json.loads(response.read().decode())
@@ -44,11 +89,13 @@ def call_tool(
     *,
     critical: bool = False,
     timeout: int = 60,
+    headers: dict[str, str] | None = None,
 ) -> dict:
     response = http_json(
         f"{base_url.rstrip('/')}/mcp/call_tool",
         payload={"tool": tool, "arguments": arguments, **({"critical": True} if critical else {})},
         timeout=timeout,
+        headers=headers,
     )
     return response["structuredContent"]
 
@@ -59,6 +106,7 @@ def list_models(
     search: str | None = None,
     backends: set[str] | None = None,
     limit: int | None = None,
+    headers: dict[str, str] | None = None,
 ) -> list[dict]:
     page = 1
     page_size = 200
@@ -71,7 +119,7 @@ def list_models(
         if backends and len(backends) == 1:
             query["backend"] = next(iter(backends))
         url = f"{base_url.rstrip('/')}/mcp/resources/models?{urllib.parse.urlencode(query)}"
-        payload = http_json(url, timeout=60)
+        payload = http_json(url, timeout=60, headers=headers)
         batch = payload.get("items", [])
         if backends and len(backends) > 1:
             batch = [item for item in batch if str(item.get("backend")) in backends]
@@ -89,11 +137,23 @@ def list_models(
     return [item for item in items if str(item.get("runtimeFormat", "")).lower() in RUNTIME_FORMATS]
 
 
-def poll_job(base_url: str, job_id: str, timeout_seconds: int = 300) -> dict:
+def poll_job(
+    base_url: str,
+    job_id: str,
+    *,
+    timeout_seconds: int = 300,
+    headers: dict[str, str] | None = None,
+) -> dict:
     deadline = time.time() + timeout_seconds
     last_status: dict | None = None
     while time.time() < deadline:
-        payload = call_tool(base_url, "get_job_status", {"jobId": job_id}, timeout=30)
+        payload = call_tool(
+            base_url,
+            "get_job_status",
+            {"jobId": job_id},
+            timeout=30,
+            headers=headers,
+        )
         last_status = payload
         if payload["status"] in {"succeeded", "failed", "cancelled", "timeout"}:
             return payload
@@ -106,7 +166,13 @@ def make_simulation_id(prefix: str, backend: str) -> str:
     return f"smoke-{backend}-{compact_prefix}-{uuid4().hex[:8]}"
 
 
-def maybe_population_smoke(base_url: str, simulation_id: str, timeout_seconds: int) -> dict | None:
+def maybe_population_smoke(
+    base_url: str,
+    simulation_id: str,
+    timeout_seconds: int,
+    *,
+    headers: dict[str, str] | None = None,
+) -> dict | None:
     response = call_tool(
         base_url,
         "run_population_simulation",
@@ -117,8 +183,14 @@ def maybe_population_smoke(base_url: str, simulation_id: str, timeout_seconds: i
         },
         critical=True,
         timeout=60,
+        headers=headers,
     )
-    job = poll_job(base_url, response["jobId"], timeout_seconds=timeout_seconds)
+    job = poll_job(
+        base_url,
+        response["jobId"],
+        timeout_seconds=timeout_seconds,
+        headers=headers,
+    )
     result = {
         "jobId": response["jobId"],
         "status": job["status"],
@@ -131,13 +203,21 @@ def maybe_population_smoke(base_url: str, simulation_id: str, timeout_seconds: i
             "get_population_results",
             {"resultsId": job["resultId"]},
             timeout=60,
+            headers=headers,
         )
         result["aggregateKeys"] = sorted((payload.get("aggregates") or {}).keys())
         result["chunkCount"] = len(payload.get("chunks") or [])
     return result
 
 
-def smoke_model(base_url: str, entry: dict, *, include_population: bool, timeout_seconds: int) -> dict:
+def smoke_model(
+    base_url: str,
+    entry: dict,
+    *,
+    include_population: bool,
+    timeout_seconds: int,
+    headers: dict[str, str] | None = None,
+) -> dict:
     file_path = str(entry["filePath"])
     backend = str(entry["backend"])
     simulation_id = make_simulation_id(Path(file_path).stem, backend)
@@ -151,7 +231,13 @@ def smoke_model(base_url: str, entry: dict, *, include_population: bool, timeout
         "loadedBeforeSmoke": bool(entry.get("isLoaded")),
     }
 
-    manifest = call_tool(base_url, "validate_model_manifest", {"filePath": file_path}, timeout=60)
+    manifest = call_tool(
+        base_url,
+        "validate_model_manifest",
+        {"filePath": file_path},
+        timeout=60,
+        headers=headers,
+    )
     report["manifestStatus"] = manifest["manifest"]["manifestStatus"]
     report["manifestQualificationState"] = manifest["manifest"]["qualificationState"]["state"]
 
@@ -161,6 +247,7 @@ def smoke_model(base_url: str, entry: dict, *, include_population: bool, timeout
         {"filePath": file_path, "simulationId": simulation_id},
         critical=True,
         timeout=180,
+        headers=headers,
     )
     report["loadBackend"] = loaded.get("backend")
     report["scientificProfile"] = bool((loaded.get("capabilities") or {}).get("scientificProfile"))
@@ -176,15 +263,27 @@ def smoke_model(base_url: str, entry: dict, *, include_population: bool, timeout
         {"simulationId": simulation_id, "runId": f"{simulation_id}-run"},
         critical=True,
         timeout=60,
+        headers=headers,
     )
-    job = poll_job(base_url, submitted["jobId"], timeout_seconds=timeout_seconds)
+    job = poll_job(
+        base_url,
+        submitted["jobId"],
+        timeout_seconds=timeout_seconds,
+        headers=headers,
+    )
     report["deterministicJobId"] = submitted["jobId"]
     report["deterministicStatus"] = job["status"]
     report["deterministicResultId"] = job.get("resultId")
     report["deterministicError"] = job.get("error")
 
     if job["status"] == "succeeded" and job.get("resultId"):
-        result = call_tool(base_url, "get_results", {"resultsId": job["resultId"]}, timeout=60)
+        result = call_tool(
+            base_url,
+            "get_results",
+            {"resultsId": job["resultId"]},
+            timeout=60,
+            headers=headers,
+        )
         report["seriesCount"] = len(result.get("series") or [])
         validation = ((result.get("metadata") or {}).get("validation") or {}).get("assessment") or {}
         report["resultDecision"] = validation.get("decision")
@@ -195,6 +294,7 @@ def smoke_model(base_url: str, entry: dict, *, include_population: bool, timeout
             base_url,
             simulation_id,
             timeout_seconds=timeout_seconds,
+            headers=headers,
         )
 
     return report
@@ -243,17 +343,38 @@ def parse_args() -> argparse.Namespace:
         default=str(DEFAULT_OUTPUT),
         help="Path to write the JSON smoke report.",
     )
+    parser.add_argument(
+        "--bearer-token",
+        default=None,
+        help="Optional bearer token for operator/admin access while running live smoke actions.",
+    )
+    parser.add_argument(
+        "--auth-dev-secret",
+        default=None,
+        help="Optional local HS256 development secret used to mint an operator smoke token.",
+    )
+    parser.add_argument(
+        "--auth-role",
+        default="operator",
+        help="Role to encode in the development smoke token when --auth-dev-secret is set.",
+    )
     return parser.parse_args()
 
 
 def main() -> int:
     args = parse_args()
     backends = set(args.backend) if args.backend else None
+    auth_headers = build_auth_headers(
+        bearer_token=args.bearer_token,
+        auth_dev_secret=args.auth_dev_secret,
+        auth_role=args.auth_role,
+    )
     models = list_models(
         args.base_url,
         search=args.search,
         backends=backends,
         limit=args.limit,
+        headers=auth_headers,
     )
 
     if not models:
@@ -268,6 +389,7 @@ def main() -> int:
                     entry,
                     include_population=args.include_population,
                     timeout_seconds=args.timeout_seconds,
+                    headers=auth_headers,
                 )
             )
         except Exception as exc:  # pragma: no cover - operational smoke path
@@ -277,13 +399,14 @@ def main() -> int:
                     "backend": entry.get("backend"),
                     "runtimeFormat": entry.get("runtimeFormat"),
                     "deterministicStatus": "failed-before-run",
-                    "error": str(exc),
+                    "error": append_auth_hint(str(exc), has_auth_headers=bool(auth_headers)),
                 }
             )
 
     payload = {
         "generatedAt": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "baseUrl": args.base_url,
+        "authConfigured": bool(auth_headers),
         "filters": {
             "search": args.search,
             "backends": sorted(backends) if backends else [],

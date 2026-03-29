@@ -16,8 +16,8 @@ The `rxode2` path is a direct execution backend for PBPK models authored nativel
 
 - `scripts/ospsuite_bridge.R`
   - Hybrid bridge process used by the Python adapter.
-- `cisplatin_models/cisplatin_population_rxode2_model.R`
-  - MCP-friendly cisplatin `rxode2` model module.
+- `reference_models/reference_compound_population_rxode2_model.R`
+  - MCP-friendly synthetic reference `rxode2` model module.
 - `src/mcp_bridge/adapter/ospsuite.py`
   - Packaged subprocess adapter with `.R` support and population result persistence.
 - `src/mcp/tools/load_simulation.py`
@@ -64,6 +64,15 @@ If `pbpk_model_profile()` is present, `load_simulation` also returns a `profile`
 - `platformQualification`
 - `peerReview`
 
+The same profile can now also carry additive exposure-led NGRA declarations such as:
+
+- `workflowRole` or `ngraWorkflowRole`
+- `populationSupport`
+- `evidenceBasis`
+- `workflowClaimBoundaries` or `claimBoundaries`
+
+These fields are optional, but `validate_model_manifest` now reports `manifest.ngraCoverage` and emits conservative warnings when they are absent so authors can see when runtime exports would otherwise fall back to default boundary language.
+
 `peerReview` can now carry structured traceability fields such as:
 
 - `reviewRecords`
@@ -103,6 +112,7 @@ Current MCP surfaces that use this data:
 
 - `validate_model_manifest`
   - runs a static pre-load manifest inspection for a supported `.R` file
+  - now also reports `manifest.ngraCoverage` so missing workflow role, population support, evidence basis, and claim boundaries are visible before load
 - `load_simulation`
   - returns `capabilities`, `profile`, and the default `validation` payload for the loaded model
 - `validate_simulation_request`
@@ -112,13 +122,13 @@ Current MCP surfaces that use this data:
 - `export_oecd_report`
   - returns a structured dossier/report with `qualificationState`, `profile`, `validation`, `oecdChecklist`, `performanceEvidence`, `uncertaintyEvidence`, `verificationEvidence`, `executableVerification`, `platformQualificationEvidence`, and an optional parameter table
   - `parameterTable` now also carries `coverage`, `issues`, `bundleMetadata`, and merged-source provenance so dossier completeness around units, citations, distributions, study conditions, and rationale is visible directly in the MCP payload
-  - if a model author prefers file-based attachment over a code hook, companion bundles such as `model.parameters.json` are also supported; see [parameter_table_bundles.md](/Volumes/Storage/topotox_offload/20260220_space_relief/manual_offload/PBPK_MCP/docs/integration_guides/parameter_table_bundles.md)
+  - if a model author prefers file-based attachment over a code hook, companion bundles such as `model.parameters.json` are also supported; see [parameter_table_bundles.md](parameter_table_bundles.md)
   - `performanceEvidence` now carries explicit classification fields such as `strongestEvidenceClass`, `qualificationBoundary`, and support flags for observed-versus-predicted, predictive-dataset, and external-qualification evidence so runtime smoke checks are not overstated
   - `performanceEvidence.traceability` now reports whether structured dataset records and explicit acceptance criteria were actually declared, even when the bundled evidence remains internal or limited
-  - if a model author prefers file-based attachment over a code hook, companion bundles such as `model.performance.json` are also supported; see [performance_evidence_bundles.md](/Volumes/Storage/topotox_offload/20260220_space_relief/manual_offload/PBPK_MCP/docs/integration_guides/performance_evidence_bundles.md)
+  - if a model author prefers file-based attachment over a code hook, companion bundles such as `model.performance.json` are also supported; see [performance_evidence_bundles.md](performance_evidence_bundles.md)
   - `executableVerification` is included when `run_verification_checks` has already been executed for that loaded simulation; export does not rerun verification implicitly
   - `uncertaintyEvidence` can include bounded local sensitivity rows and compact variability-propagation summaries for models that choose to export them, but those rows should still be documented as internal quantitative evidence rather than global uncertainty analysis
-  - if a model author prefers file-based attachment over a code hook, companion bundles such as `model.uncertainty.json` are also supported; see [uncertainty_evidence_bundles.md](/Volumes/Storage/topotox_offload/20260220_space_relief/manual_offload/PBPK_MCP/docs/integration_guides/uncertainty_evidence_bundles.md)
+  - if a model author prefers file-based attachment over a code hook, companion bundles such as `model.uncertainty.json` are also supported; see [uncertainty_evidence_bundles.md](uncertainty_evidence_bundles.md)
   - `peerReviewAndPriorUse` now becomes stronger only when structured peer-review records, prior-use traceability, and revision-history details are actually declared; a free-text review summary alone remains partial evidence
 - `run_simulation` / `get_results`
   - preserve the validation assessment on deterministic result metadata
@@ -150,10 +160,10 @@ The local stack now runs the packaged runtime by default and keeps the workspace
 
 ## Model path to use
 
-In the packaged worker baseline, the reference cisplatin model is available at:
+In the packaged worker baseline, the synthetic reference model is available at:
 
 ```text
-/app/var/models/rxode2/cisplatin/cisplatin_population_rxode2_model.R
+/app/var/models/rxode2/reference_compound/reference_compound_population_rxode2_model.R
 ```
 
 ## Example MCP calls
@@ -164,8 +174,8 @@ Load the model:
 {
   "tool": "load_simulation",
   "arguments": {
-    "filePath": "/app/var/models/rxode2/cisplatin/cisplatin_population_rxode2_model.R",
-    "simulationId": "cisplatin-rxode2"
+    "filePath": "/app/var/models/rxode2/reference_compound/reference_compound_population_rxode2_model.R",
+    "simulationId": "reference-compound-rxode2"
   }
 }
 ```
@@ -174,9 +184,9 @@ Example shape of the enriched load response:
 
 ```json
 {
-  "simulationId": "cisplatin-rxode2",
+  "simulationId": "reference-compound-rxode2",
   "metadata": {
-    "name": "Cisplatin population kidney model",
+    "name": "Reference compound population kidney model",
     "modelVersion": "2026-03-17-rxode2",
     "createdBy": "Codex",
     "backend": "rxode2"
@@ -186,7 +196,7 @@ Example shape of the enriched load response:
     "validationHook": true,
     "scientificProfile": true,
     "supportedOutputs": [
-      "Plasma|Cisplatin|Concentration"
+      "Plasma|Reference compound|Concentration"
     ],
     "applicabilityDomain": {
       "type": "declared-with-runtime-guardrails",
@@ -234,8 +244,8 @@ Run a deterministic simulation:
 {
   "tool": "run_simulation",
   "arguments": {
-    "simulationId": "cisplatin-rxode2",
-    "runId": "cisplatin-demo"
+    "simulationId": "reference-compound-rxode2",
+    "runId": "reference-compound-demo"
   }
 }
 ```
@@ -246,8 +256,8 @@ Run a population simulation:
 {
   "tool": "run_population_simulation",
   "arguments": {
-    "modelPath": "/app/var/models/rxode2/cisplatin/cisplatin_population_rxode2_model.R",
-    "simulationId": "cisplatin-rxode2",
+    "modelPath": "/app/var/models/rxode2/reference_compound/reference_compound_population_rxode2_model.R",
+    "simulationId": "reference-compound-rxode2",
     "cohort": {
       "size": 50,
       "seed": 42

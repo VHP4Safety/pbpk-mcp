@@ -1,0 +1,540 @@
+{
+  "analysisVersion": "pbpk-regulatory-goldset-scorecard.v1",
+  "fetchedLock": {
+    "relativePath": "benchmarks/regulatory_goldset/fetched.lock.json",
+    "sha256": "949db5491f40406ab4a0fc185952795bb88f1243ac5c4a3ead1b4fda7661ddca"
+  },
+  "id": "pbpk-regulatory-goldset-audit-manifest.v1",
+  "referenceModelComparisons": [
+    {
+      "id": "reference_workspace_model",
+      "modelPath": "var/models/rxode2/reference_compound/reference_compound_population_rxode2_model.R",
+      "qualificationState": "research-use",
+      "regulatoryBenchmarkReadiness": {
+        "advisoryOnly": true,
+        "benchmarkBarSource": {
+          "dimensionIds": [
+            "contextOfUseClarity",
+            "runnableCodeModelAvailability",
+            "softwarePlatformSpecificity",
+            "parameterProvenanceDepth",
+            "calibrationVsEvaluationSeparation",
+            "uncertaintySensitivityVariability",
+            "reproducibilityPackCompleteness",
+            "publicTraceabilityHashability"
+          ],
+          "fetchedLockPath": "benchmarks/regulatory_goldset/fetched.lock.json",
+          "fetchedLockSha256": "949db5491f40406ab4a0fc185952795bb88f1243ac5c4a3ead1b4fda7661ddca",
+          "sourceManifestPath": "benchmarks/regulatory_goldset/sources.lock.json",
+          "sourceManifestSha256": "ba24143cfe7ddd976779d7c60d24754b35f8ecf0d361e15c8ad247e488af337b",
+          "sourceResolution": "direct-lock-files"
+        },
+        "dimensionStatuses": [
+          {
+            "benchmarkExampleIds": [
+              "tce_tsca_package",
+              "epa_voc_template"
+            ],
+            "evaluatedFrom": [
+              "contextOfUse",
+              "qualificationState.state",
+              "workflowRole"
+            ],
+            "id": "contextOfUseClarity",
+            "label": "Context/use clarity",
+            "observedManifestFields": [
+              "qualificationState.state"
+            ],
+            "reason": "The manifest declares a structured contextOfUse section.",
+            "recommendedNextArtifacts": [
+              "Add a model-specific context-of-use note that names the intended regulatory or research question.",
+              "Bind the declared workflow role to a bounded use case rather than a generic research label."
+            ],
+            "status": "present"
+          },
+          {
+            "benchmarkExampleIds": [
+              "tce_tsca_package",
+              "epa_voc_template"
+            ],
+            "evaluatedFrom": [
+              "manifestStatus",
+              "runtimeFormat",
+              "profileSource"
+            ],
+            "id": "runnableCodeModelAvailability",
+            "label": "Runnable code/model availability",
+            "observedManifestFields": [
+              "manifestStatus",
+              "profileSource"
+            ],
+            "reason": "The model file is in a supported runtime format and passes static manifest validation.",
+            "recommendedNextArtifacts": [
+              "Keep runnable model/code artifacts packaged with a minimal run path that reproduces the declared workflow.",
+              "State explicitly whether the runtime artifact is a benchmark-style packaged model, a research example, or an external reference only."
+            ],
+            "status": "present"
+          },
+          {
+            "benchmarkExampleIds": [
+              "tce_tsca_package",
+              "epa_voc_template"
+            ],
+            "evaluatedFrom": [
+              "profile.platformQualification",
+              "profile.implementationVerification",
+              "hooks.platformQualificationEvidence",
+              "profileSource"
+            ],
+            "id": "softwarePlatformSpecificity",
+            "label": "Software/platform specificity",
+            "observedManifestFields": [
+              "hooks.platformQualificationEvidence",
+              "profileSource"
+            ],
+            "reason": "The model declares some software/runtime details, but not to benchmark-grade depth.",
+            "recommendedNextArtifacts": [
+              "Add explicit software, solver, and runtime-version declarations near the model dossier.",
+              "Record the platform or adapter assumptions needed to reproduce the exported results."
+            ],
+            "status": "partial"
+          },
+          {
+            "benchmarkExampleIds": [
+              "tce_tsca_package",
+              "epa_voc_template"
+            ],
+            "evaluatedFrom": [
+              "profile.parameterProvenance",
+              "profile.parameterTableBundleMetadata",
+              "hooks.parameterTable",
+              "hooks.parameterTableSidecar"
+            ],
+            "id": "parameterProvenanceDepth",
+            "label": "Parameter provenance depth",
+            "observedManifestFields": [
+              "hooks.parameterTable",
+              "hooks.parameterTableSidecar"
+            ],
+            "reason": "Parameter provenance is declared, but without benchmark-grade tabular provenance evidence.",
+            "recommendedNextArtifacts": [
+              "Attach a tabular parameter provenance bundle with names, units, sources, and rationale fields.",
+              "Expose whether parameter values are literature-sourced, optimized, transferred, or runtime-only placeholders."
+            ],
+            "status": "partial"
+          },
+          {
+            "benchmarkExampleIds": [
+              "tce_tsca_package"
+            ],
+            "evaluatedFrom": [
+              "profile.modelPerformance",
+              "profile.performanceEvidenceBundleMetadata",
+              "hooks.performanceEvidence",
+              "hooks.performanceEvidenceSidecar"
+            ],
+            "id": "calibrationVsEvaluationSeparation",
+            "label": "Calibration vs evaluation separation",
+            "observedManifestFields": [
+              "hooks.performanceEvidence",
+              "hooks.performanceEvidenceSidecar"
+            ],
+            "reason": "Model performance is declared, but benchmark-style evaluation structure is still thin.",
+            "recommendedNextArtifacts": [
+              "Separate fit/calibration evidence from evaluation or predictive-check evidence in the manifest-facing dossier.",
+              "Name which datasets or checks were used for optimization versus evaluation."
+            ],
+            "status": "partial"
+          },
+          {
+            "benchmarkExampleIds": [
+              "tce_tsca_package",
+              "epa_pfas_template"
+            ],
+            "evaluatedFrom": [
+              "profile.uncertainty",
+              "profile.uncertaintyEvidenceBundleMetadata",
+              "profile.populationSupport",
+              "hooks.uncertaintyEvidence",
+              "hooks.uncertaintyEvidenceSidecar"
+            ],
+            "id": "uncertaintySensitivityVariability",
+            "label": "Uncertainty, sensitivity, and variability",
+            "observedManifestFields": [
+              "hooks.uncertaintyEvidence",
+              "hooks.uncertaintyEvidenceSidecar"
+            ],
+            "reason": "Uncertainty is declared, but benchmark-style quantified evidence is still thin.",
+            "recommendedNextArtifacts": [
+              "Add structured uncertainty rows that distinguish local sensitivity, variability propagation, and other uncertainty classes.",
+              "State clearly whether variability support is mechanistic, assumed, transferred, or absent."
+            ],
+            "status": "partial"
+          },
+          {
+            "benchmarkExampleIds": [
+              "tce_tsca_package",
+              "epa_voc_template"
+            ],
+            "evaluatedFrom": [
+              "manifestStatus",
+              "profileSource",
+              "profile.modelPerformance",
+              "profile.parameterProvenance",
+              "profile.uncertainty",
+              "hooks.parameterTable",
+              "hooks.performanceEvidence",
+              "hooks.uncertaintyEvidence"
+            ],
+            "id": "reproducibilityPackCompleteness",
+            "label": "Reproducibility-pack completeness",
+            "observedManifestFields": [
+              "manifestStatus",
+              "profileSource",
+              "hooks.parameterTable",
+              "hooks.performanceEvidence",
+              "hooks.uncertaintyEvidence"
+            ],
+            "reason": "The model is inspectable and runnable, but it is not packaged like the strongest public regulatory bundles.",
+            "recommendedNextArtifacts": [
+              "Bundle the runnable model, validation-oriented evidence, parameter provenance, and run instructions as one coherent dossier.",
+              "Avoid leaving key evidence split across ad hoc notes or runtime-only outputs."
+            ],
+            "status": "partial"
+          },
+          {
+            "benchmarkExampleIds": [
+              "tce_tsca_package",
+              "epa_pfas_template",
+              "pfos_ges_lac"
+            ],
+            "evaluatedFrom": [
+              "manifestStatus",
+              "profile.parameterTableBundleMetadata",
+              "profile.performanceEvidenceBundleMetadata",
+              "profile.uncertaintyEvidenceBundleMetadata",
+              "hooks.parameterTable",
+              "hooks.performanceEvidence",
+              "hooks.uncertaintyEvidence"
+            ],
+            "id": "publicTraceabilityHashability",
+            "label": "Public traceability and hashability",
+            "observedManifestFields": [
+              "manifestStatus",
+              "hooks.parameterTable",
+              "hooks.performanceEvidence",
+              "hooks.uncertaintyEvidence"
+            ],
+            "reason": "The manifest is traceable in-repo, but it does not yet resemble a hash-linked public benchmark package.",
+            "recommendedNextArtifacts": [
+              "Attach hash-linked evidence bundle metadata for the parameter, performance, and uncertainty surfaces.",
+              "Keep the model dossier reproducible enough that an external reviewer can trace files back to the exported summary."
+            ],
+            "status": "partial"
+          }
+        ],
+        "missingDimensions": [],
+        "modelResemblance": "research-example",
+        "notes": [
+          "Qualification state remains research-use; benchmark readiness is a separate descriptive surface.",
+          "The strongest public benchmark bar is represented by the fetched TCE and VOC template packages.",
+          "PFAS and PFOS remain useful challenge sets for transparency and reproducibility, not automatic regulatory templates.",
+          "Current profile source: module-hook-detected."
+        ],
+        "overallStatus": "below-benchmark-bar",
+        "partialDimensions": [
+          "softwarePlatformSpecificity",
+          "parameterProvenanceDepth",
+          "calibrationVsEvaluationSeparation",
+          "uncertaintySensitivityVariability",
+          "reproducibilityPackCompleteness",
+          "publicTraceabilityHashability"
+        ],
+        "plainLanguageSummary": "This benchmark-readiness summary is advisory only. It compares the current model dossier to the documentation and reproducibility bar implied by the fetched regulatory gold set; it does not change qualification state or release gating.",
+        "presentDimensions": [
+          "contextOfUseClarity",
+          "runnableCodeModelAvailability"
+        ],
+        "prioritizedGaps": [
+          {
+            "benchmarkExampleIds": [
+              "tce_tsca_package",
+              "epa_voc_template"
+            ],
+            "currentStatus": "partial",
+            "dimensionId": "parameterProvenanceDepth",
+            "evaluatedFrom": [
+              "profile.parameterProvenance",
+              "profile.parameterTableBundleMetadata",
+              "hooks.parameterTable",
+              "hooks.parameterTableSidecar"
+            ],
+            "label": "Stronger parameter provenance expectations",
+            "observedManifestFields": [
+              "hooks.parameterTable",
+              "hooks.parameterTableSidecar"
+            ],
+            "priority": 1,
+            "reason": "Parameter provenance is declared, but without benchmark-grade tabular provenance evidence.",
+            "recommendedNextArtifacts": [
+              "Attach a tabular parameter provenance bundle with names, units, sources, and rationale fields.",
+              "Expose whether parameter values are literature-sourced, optimized, transferred, or runtime-only placeholders."
+            ]
+          },
+          {
+            "benchmarkExampleIds": [
+              "tce_tsca_package"
+            ],
+            "currentStatus": "partial",
+            "dimensionId": "calibrationVsEvaluationSeparation",
+            "evaluatedFrom": [
+              "profile.modelPerformance",
+              "profile.performanceEvidenceBundleMetadata",
+              "hooks.performanceEvidence",
+              "hooks.performanceEvidenceSidecar"
+            ],
+            "label": "Clearer calibration-vs-evaluation reporting",
+            "observedManifestFields": [
+              "hooks.performanceEvidence",
+              "hooks.performanceEvidenceSidecar"
+            ],
+            "priority": 2,
+            "reason": "Model performance is declared, but benchmark-style evaluation structure is still thin.",
+            "recommendedNextArtifacts": [
+              "Separate fit/calibration evidence from evaluation or predictive-check evidence in the manifest-facing dossier.",
+              "Name which datasets or checks were used for optimization versus evaluation."
+            ]
+          },
+          {
+            "benchmarkExampleIds": [
+              "tce_tsca_package",
+              "epa_pfas_template"
+            ],
+            "currentStatus": "partial",
+            "dimensionId": "uncertaintySensitivityVariability",
+            "evaluatedFrom": [
+              "profile.uncertainty",
+              "profile.uncertaintyEvidenceBundleMetadata",
+              "profile.populationSupport",
+              "hooks.uncertaintyEvidence",
+              "hooks.uncertaintyEvidenceSidecar"
+            ],
+            "label": "More structured uncertainty and variability evidence",
+            "observedManifestFields": [
+              "hooks.uncertaintyEvidence",
+              "hooks.uncertaintyEvidenceSidecar"
+            ],
+            "priority": 3,
+            "reason": "Uncertainty is declared, but benchmark-style quantified evidence is still thin.",
+            "recommendedNextArtifacts": [
+              "Add structured uncertainty rows that distinguish local sensitivity, variability propagation, and other uncertainty classes.",
+              "State clearly whether variability support is mechanistic, assumed, transferred, or absent."
+            ]
+          },
+          {
+            "benchmarkExampleIds": [
+              "tce_tsca_package",
+              "epa_voc_template"
+            ],
+            "currentStatus": "partial",
+            "dimensionId": "reproducibilityPackCompleteness",
+            "evaluatedFrom": [
+              "manifestStatus",
+              "profileSource",
+              "profile.modelPerformance",
+              "profile.parameterProvenance",
+              "profile.uncertainty",
+              "hooks.parameterTable",
+              "hooks.performanceEvidence",
+              "hooks.uncertaintyEvidence"
+            ],
+            "label": "Clearer reproducibility-pack signals",
+            "observedManifestFields": [
+              "manifestStatus",
+              "profileSource",
+              "hooks.parameterTable",
+              "hooks.performanceEvidence",
+              "hooks.uncertaintyEvidence"
+            ],
+            "priority": 4,
+            "reason": "The model is inspectable and runnable, but it is not packaged like the strongest public regulatory bundles.",
+            "recommendedNextArtifacts": [
+              "Bundle the runnable model, validation-oriented evidence, parameter provenance, and run instructions as one coherent dossier.",
+              "Avoid leaving key evidence split across ad hoc notes or runtime-only outputs."
+            ]
+          },
+          {
+            "benchmarkExampleIds": [
+              "tce_tsca_package",
+              "epa_voc_template"
+            ],
+            "currentStatus": "partial",
+            "dimensionId": "softwarePlatformSpecificity",
+            "evaluatedFrom": [
+              "profile.platformQualification",
+              "profile.implementationVerification",
+              "hooks.platformQualificationEvidence",
+              "profileSource"
+            ],
+            "label": "Better software/platform and run-instruction declaration",
+            "observedManifestFields": [
+              "hooks.platformQualificationEvidence",
+              "profileSource"
+            ],
+            "priority": 5,
+            "reason": "The model declares some software/runtime details, but not to benchmark-grade depth.",
+            "recommendedNextArtifacts": [
+              "Add explicit software, solver, and runtime-version declarations near the model dossier.",
+              "Record the platform or adapter assumptions needed to reproduce the exported results."
+            ]
+          },
+          {
+            "benchmarkExampleIds": [
+              "tce_tsca_package",
+              "epa_pfas_template",
+              "pfos_ges_lac"
+            ],
+            "currentStatus": "partial",
+            "dimensionId": "publicTraceabilityHashability",
+            "evaluatedFrom": [
+              "manifestStatus",
+              "profile.parameterTableBundleMetadata",
+              "profile.performanceEvidenceBundleMetadata",
+              "profile.uncertaintyEvidenceBundleMetadata",
+              "hooks.parameterTable",
+              "hooks.performanceEvidence",
+              "hooks.uncertaintyEvidence"
+            ],
+            "label": "Better traceability and hash-linked evidence packaging",
+            "observedManifestFields": [
+              "manifestStatus",
+              "hooks.parameterTable",
+              "hooks.performanceEvidence",
+              "hooks.uncertaintyEvidence"
+            ],
+            "priority": 6,
+            "reason": "The manifest is traceable in-repo, but it does not yet resemble a hash-linked public benchmark package.",
+            "recommendedNextArtifacts": [
+              "Attach hash-linked evidence bundle metadata for the parameter, performance, and uncertainty surfaces.",
+              "Keep the model dossier reproducible enough that an external reviewer can trace files back to the exported summary."
+            ]
+          }
+        ],
+        "recommendedNextArtifacts": [
+          "Attach a tabular parameter provenance bundle with names, units, sources, and rationale fields.",
+          "Expose whether parameter values are literature-sourced, optimized, transferred, or runtime-only placeholders.",
+          "Separate fit/calibration evidence from evaluation or predictive-check evidence in the manifest-facing dossier.",
+          "Name which datasets or checks were used for optimization versus evaluation.",
+          "Add structured uncertainty rows that distinguish local sensitivity, variability propagation, and other uncertainty classes.",
+          "State clearly whether variability support is mechanistic, assumed, transferred, or absent.",
+          "Bundle the runnable model, validation-oriented evidence, parameter provenance, and run instructions as one coherent dossier.",
+          "Avoid leaving key evidence split across ad hoc notes or runtime-only outputs.",
+          "Add explicit software, solver, and runtime-version declarations near the model dossier.",
+          "Record the platform or adapter assumptions needed to reproduce the exported results.",
+          "Attach hash-linked evidence bundle metadata for the parameter, performance, and uncertainty surfaces.",
+          "Keep the model dossier reproducible enough that an external reviewer can trace files back to the exported summary."
+        ],
+        "sectionVersion": "pbpk-regulatory-benchmark-readiness.v1"
+      },
+      "title": "Workspace synthetic reference model"
+    }
+  ],
+  "sourceManifest": {
+    "relativePath": "benchmarks/regulatory_goldset/sources.lock.json",
+    "sha256": "ba24143cfe7ddd976779d7c60d24754b35f8ecf0d361e15c8ad247e488af337b"
+  },
+  "sources": [
+    {
+      "artifacts": [
+        {
+          "downloadPath": "benchmarks/regulatory_goldset/downloads/tce_tsca_package/29._tce_supplemental_information_file_pbpk_model_and_readme_zipped.zip",
+          "downloadSha256": "0d8f489eae25a9a6750015ce588b6afee9e85e79f28a2e784bd4265127bc9621",
+          "extractPath": "benchmarks/regulatory_goldset/extracted/tce_tsca_package/tce_package_zip",
+          "extractedFileCount": 142,
+          "id": "tce_package_zip"
+        }
+      ],
+      "benchmarkRole": "strict-core",
+      "id": "tce_tsca_package",
+      "result": "fetched",
+      "rootPath": "benchmarks/regulatory_goldset/extracted/tce_tsca_package/tce_package_zip"
+    },
+    {
+      "artifacts": [
+        {
+          "downloadPath": "benchmarks/regulatory_goldset/downloads/epa_voc_template/PBPK_Model_Template_VOC_Extension_Code_revised.zip",
+          "downloadSha256": "fec17b9c7eca9cb4c89635f841527ca145a46cc0a2534ed33f9111f07ececce5",
+          "extractPath": "benchmarks/regulatory_goldset/extracted/epa_voc_template/voc_template_zip",
+          "extractedFileCount": 154,
+          "id": "voc_template_zip"
+        },
+        {
+          "downloadPath": "benchmarks/regulatory_goldset/downloads/epa_voc_template/PBPK_Model_Template_VOC_Extension_Instructions.pdf",
+          "downloadSha256": "d964e85b19671ffaeed0df94f01f084c9ef50965a10304a87a1c6033afb8b088",
+          "extractPath": null,
+          "extractedFileCount": null,
+          "id": "voc_template_instructions"
+        }
+      ],
+      "benchmarkRole": "strict-core",
+      "id": "epa_voc_template",
+      "result": "fetched",
+      "rootPath": "benchmarks/regulatory_goldset/extracted/epa_voc_template/voc_template_zip"
+    },
+    {
+      "artifacts": [
+        {
+          "downloadPath": "benchmarks/regulatory_goldset/downloads/epa_pfas_template/Bernstein2021_PFAS_pbpk_template_model.zip",
+          "downloadSha256": "4957d55f9f5115228f128f6d63839eacd87b264474c51399b1d66b56a459b951",
+          "extractPath": "benchmarks/regulatory_goldset/extracted/epa_pfas_template/pfas_template_zip",
+          "extractedFileCount": 78,
+          "id": "pfas_template_zip"
+        },
+        {
+          "downloadPath": "benchmarks/regulatory_goldset/downloads/epa_pfas_template/PFAS_PBPK_Model_Template_Project_Instructions.docx",
+          "downloadSha256": "6989d76ac74b7871179e6676cb3e141dc20bbee8be7d81a7109ae9212509fa5a",
+          "extractPath": null,
+          "extractedFileCount": null,
+          "id": "pfas_template_instructions"
+        }
+      ],
+      "benchmarkRole": "adjunct-challenge-set",
+      "id": "epa_pfas_template",
+      "result": "fetched",
+      "rootPath": "benchmarks/regulatory_goldset/extracted/epa_pfas_template/pfas_template_zip"
+    },
+    {
+      "artifacts": [
+        {
+          "downloadPath": "benchmarks/regulatory_goldset/downloads/pfos_ges_lac/master",
+          "downloadSha256": "8cf7c8667a0ef4bcc4b1c2e70f87dffda8698648b218aa2662cb721e4aaf449b",
+          "extractPath": "benchmarks/regulatory_goldset/extracted/pfos_ges_lac/pfos_ges_lac_zip",
+          "extractedFileCount": 47,
+          "id": "pfos_ges_lac_zip"
+        }
+      ],
+      "benchmarkRole": "adjunct-challenge-set",
+      "id": "pfos_ges_lac",
+      "result": "fetched",
+      "rootPath": "benchmarks/regulatory_goldset/extracted/pfos_ges_lac/pfos_ges_lac_zip"
+    },
+    {
+      "artifacts": [],
+      "benchmarkRole": "documentation-only",
+      "id": "two_butoxyethanol_reference",
+      "result": "unresolved-source",
+      "rootPath": null
+    }
+  ],
+  "trackedOutputBundleSha256": "e068025a44fb9b94b1e754eab18023eb8150cec9f1ec4073d4de077aeb821aa5",
+  "trackedOutputs": [
+    {
+      "relativePath": "benchmarks/regulatory_goldset/regulatory_goldset_scorecard.json",
+      "sha256": "212987469243e7b32a06f41cdab74c21b931f4540b12ab6a492baeff6dcd967a"
+    },
+    {
+      "relativePath": "benchmarks/regulatory_goldset/regulatory_goldset_summary.md",
+      "sha256": "9bb0eb45eb571d57a30622665b8caeeaaca0e31114edf83554facbe11083d944"
+    }
+  ]
+}

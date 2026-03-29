@@ -1,46 +1,6 @@
 {
   "components": {
     "schemas": {
-      "ActionSuggestion": {
-        "description": "Represents a candidate MCP tool invocation derived from literature.",
-        "properties": {
-          "args": {
-            "additionalProperties": true,
-            "title": "Args",
-            "type": "object"
-          },
-          "confidence": {
-            "maximum": 1.0,
-            "minimum": 0.0,
-            "title": "Confidence",
-            "type": "number"
-          },
-          "provenance": {
-            "items": {
-              "additionalProperties": true,
-              "type": "object"
-            },
-            "title": "Provenance",
-            "type": "array"
-          },
-          "summary": {
-            "title": "Summary",
-            "type": "string"
-          },
-          "tool_name": {
-            "title": "Tool Name",
-            "type": "string"
-          }
-        },
-        "required": [
-          "tool_name",
-          "args",
-          "summary",
-          "confidence"
-        ],
-        "title": "ActionSuggestion",
-        "type": "object"
-      },
       "AdapterCapabilities": {
         "properties": {
           "health": {
@@ -63,39 +23,6 @@
           "health"
         ],
         "title": "AdapterCapabilities",
-        "type": "object"
-      },
-      "BoundingBox": {
-        "description": "Absolute bounding box in PDF coordinate space.",
-        "properties": {
-          "x0": {
-            "minimum": 0.0,
-            "title": "X0",
-            "type": "number"
-          },
-          "x1": {
-            "exclusiveMinimum": 0.0,
-            "title": "X1",
-            "type": "number"
-          },
-          "y0": {
-            "minimum": 0.0,
-            "title": "Y0",
-            "type": "number"
-          },
-          "y1": {
-            "exclusiveMinimum": 0.0,
-            "title": "Y1",
-            "type": "number"
-          }
-        },
-        "required": [
-          "x0",
-          "y0",
-          "x1",
-          "y1"
-        ],
-        "title": "BoundingBox",
         "type": "object"
       },
       "CalculatePkParametersRequestBody": {
@@ -195,6 +122,19 @@
             "title": "Annotations",
             "type": "object"
           },
+          "content": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Content",
+            "type": "array"
+          },
+          "isError": {
+            "default": false,
+            "title": "Iserror",
+            "type": "boolean"
+          },
           "structuredContent": {
             "additionalProperties": true,
             "title": "Structuredcontent",
@@ -203,16 +143,11 @@
           "tool": {
             "title": "Tool",
             "type": "string"
-          },
-          "type": {
-            "default": "tool_result",
-            "title": "Type",
-            "type": "string"
           }
         },
         "required": [
-          "tool",
-          "structuredContent"
+          "content",
+          "tool"
         ],
         "title": "CallToolResponse",
         "type": "object"
@@ -284,6 +219,57 @@
         "title": "CapabilitiesResponse",
         "type": "object"
       },
+      "CapabilityMatrixResource": {
+        "properties": {
+          "contractVersion": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contractversion"
+          },
+          "entryCount": {
+            "title": "Entrycount",
+            "type": "integer"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "matrix": {
+            "additionalProperties": true,
+            "title": "Matrix",
+            "type": "object"
+          },
+          "relativePath": {
+            "title": "Relativepath",
+            "type": "string"
+          },
+          "sha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sha256"
+          }
+        },
+        "required": [
+          "id",
+          "relativePath",
+          "entryCount",
+          "matrix"
+        ],
+        "title": "CapabilityMatrixResource",
+        "type": "object"
+      },
       "CohortConfig": {
         "properties": {
           "covariates": {
@@ -328,27 +314,9 @@
         "title": "CohortConfig",
         "type": "object"
       },
-      "ComponentType": {
-        "description": "Supported document component types.",
-        "enum": [
-          "text",
-          "table",
-          "figure"
-        ],
-        "title": "ComponentType",
-        "type": "string"
-      },
-      "DecisionRequest": {
+      "ContractManifestResource": {
         "properties": {
-          "decision": {
-            "enum": [
-              "accepted",
-              "rejected"
-            ],
-            "title": "Decision",
-            "type": "string"
-          },
-          "simulationId": {
+          "contractVersion": {
             "anyOf": [
               {
                 "type": "string"
@@ -357,40 +325,26 @@
                 "type": "null"
               }
             ],
-            "title": "Simulationid"
+            "title": "Contractversion"
           },
-          "suggestion": {
-            "$ref": "#/components/schemas/ActionSuggestion"
-          }
-        },
-        "required": [
-          "decision",
-          "suggestion"
-        ],
-        "title": "DecisionRequest",
-        "type": "object"
-      },
-      "DocumentComponent": {
-        "description": "Representation of a segmented PDF component.",
-        "properties": {
-          "bbox": {
-            "$ref": "#/components/schemas/BoundingBox"
-          },
-          "component_id": {
-            "title": "Component Id",
+          "id": {
+            "title": "Id",
             "type": "string"
           },
-          "metadata": {
+          "manifest": {
             "additionalProperties": true,
-            "title": "Metadata",
+            "title": "Manifest",
             "type": "object"
           },
-          "page": {
-            "minimum": 1.0,
-            "title": "Page",
+          "relativePath": {
+            "title": "Relativepath",
+            "type": "string"
+          },
+          "schemaCount": {
+            "title": "Schemacount",
             "type": "integer"
           },
-          "text": {
+          "sha256": {
             "anyOf": [
               {
                 "type": "string"
@@ -399,114 +353,16 @@
                 "type": "null"
               }
             ],
-            "title": "Text"
-          },
-          "type": {
-            "$ref": "#/components/schemas/ComponentType"
+            "title": "Sha256"
           }
         },
         "required": [
-          "component_id",
-          "page",
-          "type",
-          "bbox"
+          "id",
+          "relativePath",
+          "schemaCount",
+          "manifest"
         ],
-        "title": "DocumentComponent",
-        "type": "object"
-      },
-      "ExtractedField": {
-        "description": "Structured field extracted from a component.",
-        "properties": {
-          "confidence": {
-            "default": 1.0,
-            "maximum": 1.0,
-            "minimum": 0.0,
-            "title": "Confidence",
-            "type": "number"
-          },
-          "name": {
-            "title": "Name",
-            "type": "string"
-          },
-          "provenance": {
-            "additionalProperties": true,
-            "title": "Provenance",
-            "type": "object"
-          },
-          "unit": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Unit"
-          },
-          "value": {
-            "title": "Value"
-          }
-        },
-        "required": [
-          "name",
-          "value"
-        ],
-        "title": "ExtractedField",
-        "type": "object"
-      },
-      "ExtractionRecord-Input": {
-        "description": "Structured record produced by downstream extractors.",
-        "properties": {
-          "errors": {
-            "items": {
-              "type": "string"
-            },
-            "title": "Errors",
-            "type": "array"
-          },
-          "fields": {
-            "items": {
-              "$ref": "#/components/schemas/ExtractedField"
-            },
-            "title": "Fields",
-            "type": "array"
-          },
-          "source_component": {
-            "$ref": "#/components/schemas/DocumentComponent"
-          }
-        },
-        "required": [
-          "source_component"
-        ],
-        "title": "ExtractionRecord",
-        "type": "object"
-      },
-      "ExtractionRecord-Output": {
-        "description": "Structured record produced by downstream extractors.",
-        "properties": {
-          "errors": {
-            "items": {
-              "type": "string"
-            },
-            "title": "Errors",
-            "type": "array"
-          },
-          "fields": {
-            "items": {
-              "$ref": "#/components/schemas/ExtractedField"
-            },
-            "title": "Fields",
-            "type": "array"
-          },
-          "source_component": {
-            "$ref": "#/components/schemas/DocumentComponent"
-          }
-        },
-        "required": [
-          "source_component"
-        ],
-        "title": "ExtractionRecord",
+        "title": "ContractManifestResource",
         "type": "object"
       },
       "GetJobStatusRequest": {
@@ -848,78 +704,19 @@
         "title": "ListToolsResponse",
         "type": "object"
       },
-      "LiteratureExtractionResult-Input": {
-        "description": "Top-level container for the pipeline output.",
-        "properties": {
-          "components": {
-            "items": {
-              "$ref": "#/components/schemas/DocumentComponent"
-            },
-            "title": "Components",
-            "type": "array"
-          },
-          "metadata": {
-            "additionalProperties": true,
-            "title": "Metadata",
-            "type": "object"
-          },
-          "records": {
-            "items": {
-              "$ref": "#/components/schemas/ExtractionRecord-Input"
-            },
-            "title": "Records",
-            "type": "array"
-          },
-          "source_id": {
-            "title": "Source Id",
-            "type": "string"
-          }
-        },
-        "required": [
-          "source_id",
-          "components",
-          "records"
-        ],
-        "title": "LiteratureExtractionResult",
-        "type": "object"
-      },
-      "LiteratureExtractionResult-Output": {
-        "description": "Top-level container for the pipeline output.",
-        "properties": {
-          "components": {
-            "items": {
-              "$ref": "#/components/schemas/DocumentComponent"
-            },
-            "title": "Components",
-            "type": "array"
-          },
-          "metadata": {
-            "additionalProperties": true,
-            "title": "Metadata",
-            "type": "object"
-          },
-          "records": {
-            "items": {
-              "$ref": "#/components/schemas/ExtractionRecord-Output"
-            },
-            "title": "Records",
-            "type": "array"
-          },
-          "source_id": {
-            "title": "Source Id",
-            "type": "string"
-          }
-        },
-        "required": [
-          "source_id",
-          "components",
-          "records"
-        ],
-        "title": "LiteratureExtractionResult",
-        "type": "object"
-      },
       "LoadSimulationRequest": {
         "properties": {
+          "confirm": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confirm"
+          },
           "filePath": {
             "title": "Filepath",
             "type": "string"
@@ -964,6 +761,199 @@
           "simulationId"
         ],
         "title": "LoadSimulationResponse",
+        "type": "object"
+      },
+      "ModelResource": {
+        "properties": {
+          "backend": {
+            "title": "Backend",
+            "type": "string"
+          },
+          "curationSummary": {
+            "additionalProperties": true,
+            "title": "Curationsummary",
+            "type": "object"
+          },
+          "discoveryState": {
+            "title": "Discoverystate",
+            "type": "string"
+          },
+          "displayName": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Displayname"
+          },
+          "filePath": {
+            "title": "Filepath",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "isLoaded": {
+            "title": "Isloaded",
+            "type": "boolean"
+          },
+          "loadedSimulationIds": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Loadedsimulationids",
+            "type": "array"
+          },
+          "manifestStatus": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Manifeststatus"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "title": "Metadata",
+            "type": "object"
+          },
+          "modelId": {
+            "title": "Modelid",
+            "type": "string"
+          },
+          "modelVersion": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Modelversion"
+          },
+          "modifiedAt": {
+            "title": "Modifiedat",
+            "type": "string"
+          },
+          "populationSimulation": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Populationsimulation"
+          },
+          "profileSource": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Profilesource"
+          },
+          "qualificationState": {
+            "additionalProperties": true,
+            "title": "Qualificationstate",
+            "type": "object"
+          },
+          "relativePath": {
+            "title": "Relativepath",
+            "type": "string"
+          },
+          "rootPath": {
+            "title": "Rootpath",
+            "type": "string"
+          },
+          "runtimeFormat": {
+            "title": "Runtimeformat",
+            "type": "string"
+          },
+          "scientificProfile": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scientificprofile"
+          },
+          "suggestedSimulationId": {
+            "title": "Suggestedsimulationid",
+            "type": "string"
+          },
+          "validationHook": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Validationhook"
+          }
+        },
+        "required": [
+          "id",
+          "modelId",
+          "suggestedSimulationId",
+          "filePath",
+          "relativePath",
+          "rootPath",
+          "backend",
+          "runtimeFormat",
+          "discoveryState",
+          "isLoaded",
+          "modifiedAt"
+        ],
+        "title": "ModelResource",
+        "type": "object"
+      },
+      "ModelResourcePage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ModelResource"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "limit": {
+            "title": "Limit",
+            "type": "integer"
+          },
+          "page": {
+            "title": "Page",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "page",
+          "limit",
+          "total"
+        ],
+        "title": "ModelResourcePage",
         "type": "object"
       },
       "OutputsConfig": {
@@ -1359,6 +1349,151 @@
         "title": "PopulationResultsResponse",
         "type": "object"
       },
+      "RecordReviewSignoffRequest": {
+        "properties": {
+          "confirm": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confirm"
+          },
+          "disposition": {
+            "enum": [
+              "acknowledged",
+              "approved-for-bounded-use",
+              "rejected"
+            ],
+            "title": "Disposition",
+            "type": "string"
+          },
+          "limitationsAccepted": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Limitationsaccepted",
+            "type": "array"
+          },
+          "rationale": {
+            "maxLength": 4000,
+            "minLength": 12,
+            "title": "Rationale",
+            "type": "string"
+          },
+          "reviewFocus": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Reviewfocus",
+            "type": "array"
+          },
+          "scope": {
+            "enum": [
+              "validate_simulation_request",
+              "run_verification_checks",
+              "export_oecd_report"
+            ],
+            "title": "Scope",
+            "type": "string"
+          },
+          "simulationId": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Simulationid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "simulationId",
+          "scope",
+          "disposition",
+          "rationale"
+        ],
+        "title": "RecordReviewSignoffRequest",
+        "type": "object"
+      },
+      "ReleaseBundleManifestResource": {
+        "properties": {
+          "bundleSha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bundlesha256"
+          },
+          "contractVersion": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contractversion"
+          },
+          "fileCount": {
+            "title": "Filecount",
+            "type": "integer"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "manifest": {
+            "additionalProperties": true,
+            "title": "Manifest",
+            "type": "object"
+          },
+          "packageVersion": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Packageversion"
+          },
+          "relativePath": {
+            "title": "Relativepath",
+            "type": "string"
+          },
+          "sha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sha256"
+          },
+          "totalBytes": {
+            "title": "Totalbytes",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "relativePath",
+          "fileCount",
+          "totalBytes",
+          "manifest"
+        ],
+        "title": "ReleaseBundleManifestResource",
+        "type": "object"
+      },
       "RestoreSimulationRequest": {
         "properties": {
           "simulationId": {
@@ -1424,10 +1559,96 @@
         "title": "ResultSeriesModel",
         "type": "object"
       },
+      "ReviewSignoffHistoryResponse": {
+        "properties": {
+          "operatorReviewGovernance": {
+            "additionalProperties": true,
+            "title": "Operatorreviewgovernance",
+            "type": "object"
+          },
+          "operatorReviewSignoffHistory": {
+            "additionalProperties": true,
+            "title": "Operatorreviewsignoffhistory",
+            "type": "object"
+          }
+        },
+        "title": "ReviewSignoffHistoryResponse",
+        "type": "object"
+      },
+      "ReviewSignoffResponse": {
+        "properties": {
+          "operatorReviewGovernance": {
+            "additionalProperties": true,
+            "title": "Operatorreviewgovernance",
+            "type": "object"
+          },
+          "operatorReviewSignoff": {
+            "additionalProperties": true,
+            "title": "Operatorreviewsignoff",
+            "type": "object"
+          }
+        },
+        "title": "ReviewSignoffResponse",
+        "type": "object"
+      },
+      "RevokeReviewSignoffRequest": {
+        "properties": {
+          "confirm": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confirm"
+          },
+          "rationale": {
+            "maxLength": 4000,
+            "minLength": 12,
+            "title": "Rationale",
+            "type": "string"
+          },
+          "scope": {
+            "enum": [
+              "validate_simulation_request",
+              "run_verification_checks",
+              "export_oecd_report"
+            ],
+            "title": "Scope",
+            "type": "string"
+          },
+          "simulationId": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Simulationid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "simulationId",
+          "scope",
+          "rationale"
+        ],
+        "title": "RevokeReviewSignoffRequest",
+        "type": "object"
+      },
       "RunPopulationSimulationRequest": {
         "properties": {
           "cohort": {
             "$ref": "#/components/schemas/CohortConfig"
+          },
+          "confirm": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confirm"
           },
           "maxRetries": {
             "anyOf": [
@@ -1520,6 +1741,17 @@
       },
       "RunSimulationRequest": {
         "properties": {
+          "confirm": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confirm"
+          },
           "runId": {
             "anyOf": [
               {
@@ -1582,6 +1814,221 @@
         "title": "RunSimulationResponse",
         "type": "object"
       },
+      "SchemaDocumentResource": {
+        "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "example": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Example"
+          },
+          "exampleRelativePath": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Examplerelativepath"
+          },
+          "exampleSha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Examplesha256"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "relativePath": {
+            "title": "Relativepath",
+            "type": "string"
+          },
+          "schema": {
+            "additionalProperties": true,
+            "title": "Schema",
+            "type": "object"
+          },
+          "schemaId": {
+            "title": "Schemaid",
+            "type": "string"
+          },
+          "sha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sha256"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "schemaId",
+          "version",
+          "relativePath",
+          "schema"
+        ],
+        "title": "SchemaDocumentResource",
+        "type": "object"
+      },
+      "SchemaResource": {
+        "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "exampleRelativePath": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Examplerelativepath"
+          },
+          "exampleSha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Examplesha256"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "relativePath": {
+            "title": "Relativepath",
+            "type": "string"
+          },
+          "schemaId": {
+            "title": "Schemaid",
+            "type": "string"
+          },
+          "sha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sha256"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "schemaId",
+          "version",
+          "relativePath"
+        ],
+        "title": "SchemaResource",
+        "type": "object"
+      },
+      "SchemaResourcePage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/SchemaResource"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "limit": {
+            "title": "Limit",
+            "type": "integer"
+          },
+          "page": {
+            "title": "Page",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "page",
+          "limit",
+          "total"
+        ],
+        "title": "SchemaResourcePage",
+        "type": "object"
+      },
       "SetParameterValueRequest": {
         "properties": {
           "comment": {
@@ -1594,6 +2041,17 @@
               }
             ],
             "title": "Comment"
+          },
+          "confirm": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confirm"
           },
           "parameterPath": {
             "title": "Parameterpath",
@@ -1854,48 +2312,6 @@
         "title": "SnapshotSimulationResponse",
         "type": "object"
       },
-      "SuggestionRequest": {
-        "properties": {
-          "extraction": {
-            "$ref": "#/components/schemas/LiteratureExtractionResult-Input"
-          },
-          "simulationId": {
-            "title": "Simulationid",
-            "type": "string"
-          }
-        },
-        "required": [
-          "simulationId",
-          "extraction"
-        ],
-        "title": "SuggestionRequest",
-        "type": "object"
-      },
-      "SuggestionResponse": {
-        "properties": {
-          "extraction": {
-            "$ref": "#/components/schemas/LiteratureExtractionResult-Output"
-          },
-          "simulationId": {
-            "title": "Simulationid",
-            "type": "string"
-          },
-          "suggestions": {
-            "items": {
-              "$ref": "#/components/schemas/ActionSuggestion"
-            },
-            "title": "Suggestions",
-            "type": "array"
-          }
-        },
-        "required": [
-          "simulationId",
-          "suggestions",
-          "extraction"
-        ],
-        "title": "SuggestionResponse",
-        "type": "object"
-      },
       "ToolDescription": {
         "properties": {
           "annotations": {
@@ -1939,6 +2355,13 @@
       },
       "ValidationError": {
         "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
           "loc": {
             "items": {
               "anyOf": [
@@ -1974,7 +2397,7 @@
   },
   "info": {
     "title": "MCP Bridge",
-    "version": "0.3.2"
+    "version": "0.4.2"
   },
   "openapi": "3.1.0",
   "paths": {
@@ -2121,161 +2544,6 @@
           }
         },
         "summary": "Cancel Job"
-      }
-    },
-    "/console/api/decisions": {
-      "post": {
-        "operationId": "record_decision_console_api_decisions_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/DecisionRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Record Decision",
-        "tags": [
-          "console"
-        ]
-      }
-    },
-    "/console/api/samples": {
-      "get": {
-        "operationId": "list_samples_console_api_samples_get",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "additionalProperties": true,
-                  "title": "Response List Samples Console Api Samples Get",
-                  "type": "object"
-                }
-              }
-            },
-            "description": "Successful Response"
-          }
-        },
-        "summary": "List Samples",
-        "tags": [
-          "console"
-        ]
-      }
-    },
-    "/console/api/samples/{source_id}/suggestions": {
-      "get": {
-        "operationId": "sample_suggestions_console_api_samples__source_id__suggestions_get",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "source_id",
-            "required": true,
-            "schema": {
-              "title": "Source Id",
-              "type": "string"
-            }
-          },
-          {
-            "in": "query",
-            "name": "simulationId",
-            "required": false,
-            "schema": {
-              "default": "sample-sim",
-              "title": "Simulationid",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/SuggestionResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Sample Suggestions",
-        "tags": [
-          "console"
-        ]
-      }
-    },
-    "/console/api/suggestions": {
-      "post": {
-        "operationId": "generate_suggestions_console_api_suggestions_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/SuggestionRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/SuggestionResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Generate Suggestions",
-        "tags": [
-          "console"
-        ]
       }
     },
     "/get_job_status": {
@@ -2605,6 +2873,27 @@
         "summary": "Load Simulation"
       }
     },
+    "/mcp": {
+      "post": {
+        "operationId": "jsonrpc_endpoint_mcp_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "Response Jsonrpc Endpoint Mcp Post"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Jsonrpc Endpoint",
+        "tags": [
+          "mcp-jsonrpc"
+        ]
+      }
+    },
     "/mcp/call_tool": {
       "post": {
         "operationId": "call_tool_mcp_call_tool_post",
@@ -2667,6 +2956,27 @@
         ]
       }
     },
+    "/mcp/jsonrpc": {
+      "post": {
+        "operationId": "jsonrpc_endpoint_mcp_jsonrpc_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "Response Jsonrpc Endpoint Mcp Jsonrpc Post"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Jsonrpc Endpoint",
+        "tags": [
+          "mcp-jsonrpc"
+        ]
+      }
+    },
     "/mcp/list_tools": {
       "get": {
         "operationId": "list_tools_mcp_list_tools_get",
@@ -2685,6 +2995,146 @@
         "summary": "List Tools",
         "tags": [
           "mcp"
+        ]
+      }
+    },
+    "/mcp/resources/capability-matrix": {
+      "get": {
+        "operationId": "get_capability_matrix_resource_mcp_resources_capability_matrix_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CapabilityMatrixResource"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Capability Matrix Resource",
+        "tags": [
+          "mcp-resources"
+        ]
+      }
+    },
+    "/mcp/resources/contract-manifest": {
+      "get": {
+        "operationId": "get_contract_manifest_resource_mcp_resources_contract_manifest_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContractManifestResource"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Contract Manifest Resource",
+        "tags": [
+          "mcp-resources"
+        ]
+      }
+    },
+    "/mcp/resources/models": {
+      "get": {
+        "operationId": "list_model_resources_mcp_resources_models_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 1000,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "search",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Search"
+            }
+          },
+          {
+            "in": "query",
+            "name": "backend",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Backend"
+            }
+          },
+          {
+            "in": "query",
+            "name": "loadedOnly",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Loadedonly",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModelResourcePage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Model Resources",
+        "tags": [
+          "mcp-resources"
         ]
       }
     },
@@ -2766,6 +3216,141 @@
           }
         },
         "summary": "List Parameter Resources",
+        "tags": [
+          "mcp-resources"
+        ]
+      }
+    },
+    "/mcp/resources/release-bundle-manifest": {
+      "get": {
+        "operationId": "get_release_bundle_manifest_resource_mcp_resources_release_bundle_manifest_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReleaseBundleManifestResource"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Release Bundle Manifest Resource",
+        "tags": [
+          "mcp-resources"
+        ]
+      }
+    },
+    "/mcp/resources/schemas": {
+      "get": {
+        "operationId": "list_schema_resources_mcp_resources_schemas_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 1000,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "search",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Search"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SchemaResourcePage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Schema Resources",
+        "tags": [
+          "mcp-resources"
+        ]
+      }
+    },
+    "/mcp/resources/schemas/{schema_id}": {
+      "get": {
+        "operationId": "get_schema_resource_mcp_resources_schemas__schema_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "schema_id",
+            "required": true,
+            "schema": {
+              "title": "Schema Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SchemaDocumentResource"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Schema Resource",
         "tags": [
           "mcp-resources"
         ]
@@ -2920,6 +3505,194 @@
           }
         },
         "summary": "Restore Simulation"
+      }
+    },
+    "/review_signoff": {
+      "get": {
+        "operationId": "get_review_signoff_review_signoff_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "simulationId",
+            "required": true,
+            "schema": {
+              "maxLength": 64,
+              "minLength": 1,
+              "title": "Simulationid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "scope",
+            "required": true,
+            "schema": {
+              "minLength": 1,
+              "title": "Scope",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewSignoffResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Review Signoff"
+      },
+      "post": {
+        "operationId": "record_review_signoff_review_signoff_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecordReviewSignoffRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewSignoffResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Record Review Signoff"
+      }
+    },
+    "/review_signoff/history": {
+      "get": {
+        "operationId": "get_review_signoff_history_review_signoff_history_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "simulationId",
+            "required": true,
+            "schema": {
+              "maxLength": 64,
+              "minLength": 1,
+              "title": "Simulationid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "scope",
+            "required": true,
+            "schema": {
+              "minLength": 1,
+              "title": "Scope",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewSignoffHistoryResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Review Signoff History"
+      }
+    },
+    "/review_signoff/revoke": {
+      "post": {
+        "operationId": "revoke_review_signoff_route_review_signoff_revoke_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RevokeReviewSignoffRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewSignoffResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Revoke Review Signoff Route"
       }
     },
     "/run_population_simulation": {

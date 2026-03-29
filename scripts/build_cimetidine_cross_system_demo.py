@@ -13,9 +13,8 @@ from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont
 
 
-ROOT = Path(
-    "/Volumes/Storage/topotox_offload/20260220_space_relief/manual_offload/PBPK_MCP/var/demos/cimetidine_cross_system"
-)
+WORKSPACE_ROOT = Path(__file__).resolve().parents[1]
+ROOT = WORKSPACE_ROOT / "var" / "demos" / "cimetidine_cross_system"
 OUTPUTS_DIR = ROOT / "outputs"
 PBPK_CONTAINER = "pbpk_mcp-api-1"
 PBPK_PROJECT = "/home/mcp/Cimetidine-Model.pksim5"

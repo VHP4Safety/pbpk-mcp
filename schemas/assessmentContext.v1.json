@@ -127,6 +127,69 @@
       },
       "additionalProperties": true
     },
+    "workflowRole": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "properties": {
+        "role": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "workflow": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "upstreamDependencies": {
+          "$ref": "#/$defs/stringArray"
+        },
+        "downstreamOutputs": {
+          "$ref": "#/$defs/stringArray"
+        },
+        "nonGoals": {
+          "$ref": "#/$defs/stringArray"
+        }
+      },
+      "additionalProperties": true
+    },
+    "populationSupport": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "properties": {
+        "supportedSpecies": {
+          "$ref": "#/$defs/stringArray"
+        },
+        "supportedPhysiologyContexts": {
+          "$ref": "#/$defs/stringArray"
+        },
+        "supportedLifeStages": {
+          "$ref": "#/$defs/stringArray"
+        },
+        "supportedGenotypesOrPhenotypes": {
+          "$ref": "#/$defs/stringArray"
+        },
+        "variabilityRepresentation": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "extrapolationPolicy": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": true
+    },
     "supports": {
       "type": "object",
       "required": [
@@ -161,6 +224,12 @@
         "rxode2",
         "external-import"
       ]
+    },
+    "stringArray": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
     },
     "selectionTriplet": {
       "type": "object",

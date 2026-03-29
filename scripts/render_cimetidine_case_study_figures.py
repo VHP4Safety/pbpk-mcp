@@ -10,9 +10,8 @@ from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont
 
 
-ROOT = Path(
-    "/Volumes/Storage/topotox_offload/20260220_space_relief/manual_offload/PBPK_MCP/var/demos/cimetidine"
-)
+WORKSPACE_ROOT = Path(__file__).resolve().parents[1]
+ROOT = WORKSPACE_ROOT / "var" / "demos" / "cimetidine"
 OUTPUTS_ROOT = ROOT / "outputs"
 
 SCENARIOS = [

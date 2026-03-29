@@ -6,6 +6,8 @@ __all__ = ["__version__"]
 
 
 try:
-    __version__ = metadata.version("mcp-bridge")
+    _resolved_version = metadata.version("mcp-bridge")
 except metadata.PackageNotFoundError:  # pragma: no cover - fallback for local runs
-    __version__ = "0.4.2"
+    _resolved_version = None
+
+__version__ = _resolved_version or "0.4.3"

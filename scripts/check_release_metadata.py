@@ -50,7 +50,7 @@ def collect_release_metadata(workspace_root: Path) -> dict[str, str]:
     ).group("version")
 
     package_fallback_version = _search(
-        rf'^    __version__ = "(?P<version>{VERSION_RE})"$',
+        rf'^\s*__version__\s*=\s*(?:.+?\s+or\s+)?"(?P<version>{VERSION_RE})"$',
         _read_text(package_init_path),
         label="fallback __version__",
         path=package_init_path,

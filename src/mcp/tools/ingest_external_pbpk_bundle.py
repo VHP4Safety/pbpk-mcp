@@ -37,6 +37,28 @@ def _safe_float(value: object | None) -> float | None:
         return None
 
 
+def _safe_bool(value: object | None, default: bool = False) -> bool:
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return bool(value)
+    token = _normalize_token(value)
+    if token in {"true", "yes", "1"}:
+        return True
+    if token in {"false", "no", "0"}:
+        return False
+    return default
+
+
+def _safe_int(value: object | None, default: int = 0) -> int:
+    numeric = _safe_float(value)
+    if numeric is None:
+        return default
+    return int(numeric)
+
+
 def _normalize_token(value: object | None) -> str | None:
     candidate = _safe_text(value)
     if candidate is None:
@@ -61,6 +83,11 @@ def _normalize_text_list(value: object | None) -> list[str]:
     else:
         items = [_safe_text(value)]
     return [item for item in items if item]
+
+
+def _normalized_text_list_or_default(value: object | None, default: list[str]) -> list[str]:
+    items = _normalize_text_list(value)
+    return items or list(default)
 
 
 def _coerce_section(value: object | None, *, scalar_key: str | None = None) -> dict[str, Any]:
@@ -210,6 +237,762 @@ def _selection_triplet(requested: object | None, declared: object | None) -> dic
     }
 
 
+def _review_record_entries(review: Mapping[str, Any]) -> list[dict[str, Any]]:
+    for key in ("reviewRecords", "reviews", "peerReviewRecords", "reviewHistory"):
+        value = review.get(key)
+        if isinstance(value, Mapping):
+            return [dict(value)]
+        if isinstance(value, (list, tuple)):
+            return [_as_mapping(entry) for entry in value if isinstance(entry, Mapping)]
+    return []
+
+
+def _review_record_topic(entry: Mapping[str, Any]) -> str | None:
+    for key in ("topic", "focus", "issue", "summary"):
+        candidate = _safe_text(entry.get(key))
+        if candidate:
+            return candidate
+    return None
+
+
+def _review_record_has_explicit_dissent(entry: Mapping[str, Any]) -> bool:
+    if _safe_bool(entry.get("dissent") or entry.get("hasDissent"), False):
+        return True
+
+    stance_tokens = {
+        _normalize_token(entry.get(key))
+        for key in (
+            "stance",
+            "reviewStance",
+            "reviewOutcome",
+            "outcome",
+            "decision",
+            "recommendation",
+            "finding",
+            "findingStatus",
+        )
+    }
+    stance_tokens.discard(None)
+    return bool(
+        stance_tokens
+        & {
+            "dissent",
+            "major-concern",
+            "major-concerns",
+            "blocking-concern",
+            "blocking-concerns",
+            "blocking-issue",
+            "critical-issue",
+            "request-changes",
+            "changes-requested",
+            "rejected",
+            "reject",
+            "not-approved",
+            "not-accepted",
+            "disputed",
+            "contested",
+        }
+    )
+
+
+def _review_record_resolution_state(entry: Mapping[str, Any]) -> str:
+    if not _review_record_has_explicit_dissent(entry):
+        return "not-dissent"
+    if _safe_bool(entry.get("resolved"), False):
+        return "resolved"
+    if _safe_bool(entry.get("unresolved"), False):
+        return "unresolved"
+
+    resolution_tokens = {
+        _normalize_token(entry.get(key))
+        for key in ("resolutionState", "resolutionStatus", "issueStatus", "followUpStatus", "status")
+    }
+    resolution_tokens.discard(None)
+    if resolution_tokens & {"resolved", "closed", "addressed", "accepted", "completed", "implemented"}:
+        return "resolved"
+    if resolution_tokens & {
+        "unresolved",
+        "open",
+        "pending",
+        "needs-follow-up",
+        "follow-up-required",
+        "outstanding",
+        "not-addressed",
+    }:
+        return "unresolved"
+    return "unresolved"
+
+
+def _derive_review_status(review: Mapping[str, Any]) -> dict[str, Any]:
+    review_record_count = 0
+    review_records = _review_record_entries(review)
+    if review_records:
+        review_record_count = len(review_records)
+    elif _normalize_text_list(
+        [
+            review.get("reviewType"),
+            review.get("reviewOutcome"),
+            review.get("reviewDate"),
+            review.get("reviewer"),
+            review.get("reviewBody"),
+        ]
+    ):
+        review_record_count = 1
+
+    prior_use_value = (
+        review.get("priorRegulatoryUse")
+        or review.get("priorUse")
+        or review.get("priorApplications")
+        or review.get("priorUseHistory")
+    )
+    prior_use_count = len(_normalize_text_list(prior_use_value)) if not isinstance(prior_use_value, bool) else int(prior_use_value)
+    if isinstance(prior_use_value, (list, tuple)):
+        prior_use_count = sum(
+            1 for entry in prior_use_value if _normalize_text_list(entry if isinstance(entry, (list, tuple, set)) else [entry])
+        )
+    elif isinstance(prior_use_value, Mapping):
+        prior_use_count = 1 if any(_normalize_text_list(prior_use_value.values())) else 0
+
+    revision_history_value = (
+        review.get("revisionHistory")
+        or review.get("changeHistory")
+        or review.get("versionHistory")
+        or review.get("revisions")
+    )
+    revision_entry_count = len(_normalize_text_list(revision_history_value)) if not isinstance(revision_history_value, bool) else int(revision_history_value)
+    if isinstance(revision_history_value, (list, tuple)):
+        revision_entry_count = sum(
+            1 for entry in revision_history_value if _normalize_text_list(entry if isinstance(entry, (list, tuple, set)) else [entry])
+        )
+    elif isinstance(revision_history_value, Mapping):
+        revision_entry_count = 1 if any(_normalize_text_list(revision_history_value.values())) else 0
+
+    has_revision_status = bool(
+        _normalize_text_list(
+            review.get("revisionStatus") or review.get("changeStatus") or review.get("versionStatus")
+        )
+    )
+
+    unresolved_dissent_count = 0
+    resolved_dissent_count = 0
+    unresolved_topics: list[str] = []
+    resolved_topics: list[str] = []
+    for entry in review_records:
+        resolution_state = _review_record_resolution_state(entry)
+        if resolution_state == "not-dissent":
+            continue
+        if resolution_state == "resolved":
+            resolved_dissent_count += 1
+            topic = _review_record_topic(entry)
+            if topic:
+                resolved_topics.append(topic)
+        else:
+            unresolved_dissent_count += 1
+            topic = _review_record_topic(entry)
+            if topic:
+                unresolved_topics.append(topic)
+
+    unresolved_dissent_count = max(
+        unresolved_dissent_count,
+        _safe_int(review.get("unresolvedDissentCount"), 0),
+    )
+    resolved_dissent_count = max(
+        resolved_dissent_count,
+        _safe_int(review.get("resolvedDissentCount"), 0),
+    )
+
+    limited_traceability = (
+        review_record_count == 0
+        or prior_use_count == 0
+        or (revision_entry_count == 0 and not has_revision_status)
+    )
+    declared_status = _normalize_token(review.get("status"))
+    focus_topics = list(
+        dict.fromkeys(
+            _normalize_text_list(review.get("focusTopics"))
+            + _normalize_text_list(review.get("reviewFocus"))
+            + unresolved_topics
+        )
+    )
+    open_topics = list(dict.fromkeys(unresolved_topics))
+    closed_topics = list(dict.fromkeys(resolved_topics))
+
+    if declared_status in {
+        "not-applicable-to-fixture",
+        "fixture-only",
+        "integration-fixture",
+        "example-only",
+    }:
+        status = "not-applicable-to-fixture"
+        summary = "Peer-review workflow is not expected for this fixture or illustrative integration asset."
+        requires_attention = False
+    elif declared_status in {None, "unreported", "undeclared", "not-reported", "unknown", "unspecified", "not-assessed"}:
+        status = "not-declared"
+        summary = "No peer-review, reviewer stance, or prior-use workflow metadata are declared."
+        requires_attention = True
+    elif unresolved_dissent_count > 0:
+        status = "declared-with-unresolved-dissent"
+        summary = (
+            "Explicit reviewer dissent or change requests remain unresolved and require "
+            "human follow-up before stronger qualification-facing claims."
+        )
+        requires_attention = True
+    elif limited_traceability:
+        status = "traceability-limited"
+        summary = (
+            "Peer-review metadata are declared, but review records, prior-use traceability, "
+            "or revision history remain incomplete."
+        )
+        requires_attention = True
+    elif resolved_dissent_count > 0:
+        status = "declared-with-resolved-dissent"
+        summary = (
+            "Explicit reviewer dissent is recorded as resolved, but the recorded disposition "
+            "should still be checked in context."
+        )
+        requires_attention = False
+    else:
+        status = "declared-no-explicit-dissent"
+        summary = "Peer-review metadata are traceable and no explicit unresolved dissent is declared."
+        requires_attention = False
+
+    if unresolved_dissent_count > 0:
+        intervention_summary: dict[str, Any] = {
+            "status": "open-review-interventions",
+            "summary": (
+                "Explicit reviewer interventions remain open and should travel with the summary "
+                "so unresolved concerns are not flattened into a single label."
+            ),
+            "openTopicCount": len(open_topics),
+            "resolvedTopicCount": len(closed_topics),
+            "openTopics": open_topics,
+            "resolvedTopics": closed_topics,
+        }
+    elif resolved_dissent_count > 0:
+        intervention_summary = {
+            "status": "resolved-review-interventions",
+            "summary": (
+                "Resolved reviewer interventions are recorded and should remain visible as context "
+                "for how the current summary was narrowed or clarified."
+            ),
+            "openTopicCount": len(open_topics),
+            "resolvedTopicCount": len(closed_topics),
+            "openTopics": open_topics,
+            "resolvedTopics": closed_topics,
+        }
+    elif review_record_count > 0:
+        intervention_summary = {
+            "status": "no-explicit-interventions-recorded",
+            "summary": "Review metadata are declared, but no explicit dissent-linked intervention topics are recorded.",
+            "openTopicCount": 0,
+            "resolvedTopicCount": 0,
+            "openTopics": [],
+            "resolvedTopics": [],
+        }
+    else:
+        intervention_summary = {
+            "status": "no-review-interventions-recorded",
+            "summary": "No explicit review interventions are recorded in the current metadata.",
+            "openTopicCount": 0,
+            "resolvedTopicCount": 0,
+            "openTopics": [],
+            "resolvedTopics": [],
+        }
+
+    return {
+        "status": status,
+        "declaredStatus": _safe_text(review.get("status")) or "unreported",
+        "summary": summary,
+        "reviewRecordCount": int(review_record_count),
+        "priorUseCount": int(prior_use_count),
+        "revisionEntryCount": int(revision_entry_count),
+        "unresolvedDissentCount": int(unresolved_dissent_count),
+        "resolvedDissentCount": int(resolved_dissent_count),
+        "revisionStatus": _safe_text(
+            review.get("revisionStatus") or review.get("changeStatus") or review.get("versionStatus")
+        ),
+        "focusTopics": focus_topics,
+        "openTopics": open_topics,
+        "resolvedTopics": closed_topics,
+        "interventionSummary": intervention_summary,
+        "requiresReviewerAttention": requires_attention,
+    }
+
+
+def _build_workflow_role(assessment: Mapping[str, Any]) -> dict[str, Any]:
+    workflow = _as_mapping(
+        assessment.get("workflowRole")
+        or assessment.get("ngraWorkflowRole")
+        or assessment.get("exposureLedWorkflow")
+    )
+    return {
+        "role": _safe_text(workflow.get("role") or workflow.get("primaryRole"))
+        or "pbpk-exposure-translation-and-internal-dose-support",
+        "workflow": _safe_text(workflow.get("workflow") or workflow.get("workflowType"))
+        or "exposure-led-ngra",
+        "upstreamDependencies": _normalized_text_list_or_default(
+            workflow.get("upstreamDependencies") or workflow.get("upstreamInputs"),
+            [
+                "dose scenario or exposure estimate defined outside PBPK MCP",
+                "in vitro ADME or IVIVE parameterization evidence defined outside PBPK MCP",
+                "bioactivity, point-of-departure, or NAM interpretation defined outside PBPK MCP",
+            ],
+        ),
+        "downstreamOutputs": _normalized_text_list_or_default(
+            workflow.get("downstreamOutputs"),
+            [
+                "internal exposure estimates",
+                "PBPK qualification and uncertainty handoff objects",
+                "BER-ready input bundle when compatible external PoD metadata are attached",
+            ],
+        ),
+        "nonGoals": _normalized_text_list_or_default(
+            workflow.get("nonGoals"),
+            [
+                "standalone weight-of-evidence integration",
+                "standalone exposure assessment ownership",
+                "direct regulatory decision authority",
+                "standalone hazard or AOP interpretation",
+            ],
+        ),
+    }
+
+
+def _variability_representation_from_uncertainty(uncertainty: Mapping[str, Any]) -> str:
+    rows = _extract_uncertainty_rows(uncertainty)
+    variability_approach_rows = _uncertainty_rows_for_kind(rows, "variability-approach")
+    variability_propagation_rows = _uncertainty_rows_for_kind(rows, "variability-propagation")
+    quantified_variability = any(
+        _uncertainty_row_has_quantitative_signal(entry)
+        for entry in variability_propagation_rows
+    )
+    status = _safe_text(uncertainty.get("status")) or "unreported"
+
+    if quantified_variability:
+        return "quantified-propagation"
+    if (
+        variability_approach_rows
+        or variability_propagation_rows
+        or uncertainty.get("variabilityApproach")
+        or uncertainty.get("hasVariabilityApproach")
+        or uncertainty.get("variabilityPropagation")
+        or uncertainty.get("hasVariabilityPropagation")
+    ):
+        return "declared-or-characterized"
+    if status != "unreported":
+        return "declared-without-structured-variability"
+    return "not-declared"
+
+
+def _build_population_support(
+    assessment: Mapping[str, Any],
+    internal: Mapping[str, Any],
+    uncertainty: Mapping[str, Any],
+) -> dict[str, Any]:
+    domain = _as_mapping(assessment.get("domain") or assessment.get("applicabilityDomain"))
+    support = _as_mapping(
+        assessment.get("populationSupport")
+        or assessment.get("variabilitySupport")
+    )
+    return {
+        "supportedSpecies": _normalize_text_list(
+            support.get("supportedSpecies")
+            or domain.get("species")
+            or internal.get("species")
+        ),
+        "supportedPhysiologyContexts": _normalize_text_list(
+            support.get("supportedPhysiologyContexts")
+            or support.get("physiologyContexts")
+            or domain.get("sex")
+            or domain.get("physiologyContexts")
+            or internal.get("sex")
+        ),
+        "supportedLifeStages": _normalize_text_list(
+            support.get("supportedLifeStages")
+            or domain.get("lifeStage")
+            or internal.get("lifeStage")
+        ),
+        "supportedGenotypesOrPhenotypes": _normalize_text_list(
+            support.get("supportedGenotypesOrPhenotypes")
+            or support.get("supportedGenotypeOrPhenotype")
+            or domain.get("genotype")
+            or domain.get("phenotype")
+            or internal.get("genotype")
+        ),
+        "variabilityRepresentation": _safe_text(
+            support.get("variabilityRepresentation")
+        )
+        or _variability_representation_from_uncertainty(uncertainty),
+        "extrapolationPolicy": _safe_text(support.get("extrapolationPolicy"))
+        or "outside-declared-population-context-requires-human-review",
+    }
+
+
+def _build_evidence_basis(
+    qualification: Mapping[str, Any],
+    *,
+    population_support: Mapping[str, Any],
+) -> dict[str, Any]:
+    evidence_basis = _as_mapping(qualification.get("evidenceBasis"))
+    return {
+        "basisType": _safe_text(evidence_basis.get("basisType") or evidence_basis.get("type"))
+        or "external-imported",
+        "inVivoSupportStatus": _safe_text(
+            evidence_basis.get("inVivoSupportStatus")
+            or evidence_basis.get("directInVivoSupport")
+        )
+        or "not-declared",
+        "iviveLinkageStatus": _safe_text(evidence_basis.get("iviveLinkageStatus"))
+        or "external-or-not-declared",
+        "parameterizationBasis": _safe_text(evidence_basis.get("parameterizationBasis"))
+        or "inspect-parameter-provenance",
+        "populationVariabilityStatus": _safe_text(
+            evidence_basis.get("populationVariabilityStatus")
+        )
+        or _safe_text(population_support.get("variabilityRepresentation"))
+        or "not-declared",
+    }
+
+
+def _build_workflow_claim_boundaries(qualification: Mapping[str, Any]) -> dict[str, Any]:
+    claim_boundaries = _as_mapping(
+        qualification.get("workflowClaimBoundaries")
+        or qualification.get("claimBoundaries")
+    )
+    return {
+        "forwardDosimetry": _safe_text(claim_boundaries.get("forwardDosimetry"))
+        or "external-imported-not-executed-by-pbpk-mcp",
+        "reverseDosimetry": _safe_text(claim_boundaries.get("reverseDosimetry"))
+        or "not-performed-directly-external-workflow-required",
+        "exposureLedPrioritization": _safe_text(
+            claim_boundaries.get("exposureLedPrioritization")
+        )
+        or "supported-only-as-pbpk-substrate-with-external-orchestrator",
+        "directRegulatoryDoseDerivation": _safe_text(
+            claim_boundaries.get("directRegulatoryDoseDerivation")
+        )
+        or "not-supported",
+    }
+
+
+def _build_export_block_policy(
+    *,
+    assessment_context: Mapping[str, Any],
+    qualification_summary: Mapping[str, Any],
+) -> dict[str, Any]:
+    claim_boundaries = _as_mapping(qualification_summary.get("workflowClaimBoundaries"))
+    review_status = _as_mapping(qualification_summary.get("reviewStatus"))
+    blocked_view_modes = [
+        "report-card",
+        "screenshot",
+        "chat-snippet",
+        "forwarded-bundle",
+        "thin-api-response",
+    ]
+    required_fields = [
+        "qualificationState",
+        "reviewStatus",
+        "evidenceBasis",
+        "claimBoundaries",
+        "misreadRiskSummary.plainLanguageSummary",
+        "summaryTransportRisk.plainLanguageSummary",
+    ]
+    block_reasons: list[dict[str, Any]] = [
+        {
+            "code": "detached-summary-blocked",
+            "severity": "high",
+            "appliesTo": blocked_view_modes,
+            "message": (
+                "Block lossy report cards, screenshots, chat snippets, or forwarded bundles when "
+                "qualification state, review status, evidence basis, claim boundaries, and anti-misread "
+                "guidance cannot travel with them."
+            ),
+            "requiredFields": required_fields,
+            "currentStatus": "high",
+        },
+        {
+            "code": "bare-review-summary-blocked",
+            "severity": "high",
+            "appliesTo": ["review-badge", "report-card", "thin-api-response"],
+            "message": (
+                "Do not render the trust-bearing PBPK review summary alone. Adjacent caveats and "
+                "anti-misread guidance are required."
+            ),
+            "requiredFields": required_fields,
+            "currentStatus": "context-required",
+        },
+    ]
+
+    direct_dose = _safe_text(claim_boundaries.get("directRegulatoryDoseDerivation")) or "not-supported"
+    if direct_dose != "supported":
+        block_reasons.append(
+            {
+                "code": "direct-regulatory-dose-derivation-blocked",
+                "severity": "high",
+                "appliesTo": ["regulatory-dose-claim", "regulatory-decision-summary", "decision-recommendation"],
+                "message": (
+                    "Block downstream presentations that frame this PBPK output as a direct regulatory dose "
+                    "derivation or final decision recommendation."
+                ),
+                "currentStatus": direct_dose,
+            }
+        )
+
+    if not _safe_bool(qualification_summary.get("riskAssessmentReady"), False):
+        block_reasons.append(
+            {
+                "code": "risk-assessment-ready-overclaim-blocked",
+                "severity": "high",
+                "appliesTo": ["decision-card", "release-highlight", "automation-forwarding"],
+                "message": (
+                    "Block decision-ready or regulatory-ready framing when the imported qualification remains "
+                    "bounded to research or illustrative use."
+                ),
+                "currentStatus": _safe_text(qualification_summary.get("state")) or "research-use",
+            }
+        )
+
+    if qualification_summary.get("withinDeclaredContext") is False:
+        block_reasons.append(
+            {
+                "code": "outside-declared-context-overclaim-blocked",
+                "severity": "high",
+                "appliesTo": ["cross-population-extrapolation-claim", "decision-card", "forwarded-bundle"],
+                "message": (
+                    "Block stronger downstream claims when the imported request falls outside the declared PBPK "
+                    "context of use."
+                ),
+                "currentStatus": "outside-declared-context",
+            }
+        )
+
+    if _safe_int(review_status.get("unresolvedDissentCount"), 0) > 0:
+        block_reasons.append(
+            {
+                "code": "open-review-intervention-blocked",
+                "severity": "high",
+                "appliesTo": ["approval-badge", "decision-card", "public-summary"],
+                "message": (
+                    "Block approval-style rendering while reviewer dissent or open intervention topics "
+                    "remain unresolved."
+                ),
+                "currentStatus": _safe_text(review_status.get("status")) or "declared-with-unresolved-dissent",
+            }
+        )
+
+    return {
+        "policyVersion": "pbpk-export-block-policy.v1",
+        "defaultAction": "block-lossy-or-decision-leaning-exports",
+        "contextualizedRenderOnly": True,
+        "workflow": _safe_text(_as_mapping(assessment_context.get("workflowRole")).get("workflow")) or "not-declared",
+        "blockedViewModes": blocked_view_modes,
+        "requiredFields": required_fields,
+        "blockReasons": block_reasons,
+        "notes": [
+            "This policy is descriptive and machine-readable so analyst-facing clients can refuse unsafe thin views.",
+            "Imported or operator-reviewed state does not create regulatory decision authority inside PBPK MCP.",
+        ],
+    }
+
+
+def _build_caution_summary(
+    *,
+    assessment_context: Mapping[str, Any],
+    qualification_summary: Mapping[str, Any],
+) -> dict[str, Any]:
+    evidence_basis = _as_mapping(qualification_summary.get("evidenceBasis"))
+    claim_boundaries = _as_mapping(qualification_summary.get("workflowClaimBoundaries"))
+    review_status = _as_mapping(qualification_summary.get("reviewStatus"))
+    population_support = _as_mapping(assessment_context.get("populationSupport"))
+
+    cautions: list[dict[str, Any]] = []
+
+    def add_caution(
+        *,
+        code: str,
+        caution_type: str,
+        severity: str,
+        handling: str,
+        scope: str,
+        source_surface: str,
+        message: str,
+        current_status: str | None = None,
+    ) -> None:
+        payload: dict[str, Any] = {
+            "code": code,
+            "cautionType": caution_type,
+            "severity": severity,
+            "handling": handling,
+            "scope": scope,
+            "sourceSurface": source_surface,
+            "message": message,
+            "requiresHumanReview": True,
+        }
+        if current_status:
+            payload["currentStatus"] = current_status
+        cautions.append(payload)
+
+    add_caution(
+        code="detached-summary-overread",
+        caution_type="summary-transport-risk",
+        severity="high",
+        handling="blocking",
+        scope="summary-surface",
+        source_surface="exportBlockPolicy",
+        message=(
+            "Thin report cards, screenshots, or forwarded imported summaries can detach the "
+            "trust-bearing PBPK label from the caveats it needs."
+        ),
+        current_status="detached-summary-unsafe",
+    )
+
+    direct_dose = _safe_text(claim_boundaries.get("directRegulatoryDoseDerivation")) or "not-supported"
+    if direct_dose != "supported":
+        add_caution(
+            code="direct-regulatory-dose-derivation-blocked",
+            caution_type="decision-overclaim-risk",
+            severity="high",
+            handling="blocking",
+            scope="workflow-claim",
+            source_surface="workflowClaimBoundaries",
+            message=(
+                "Imported PBPK outputs should not be presented as direct regulatory dose derivations "
+                "or final decision recommendations."
+            ),
+            current_status=direct_dose,
+        )
+
+    if not _safe_bool(qualification_summary.get("riskAssessmentReady"), False):
+        add_caution(
+            code="risk-assessment-ready-overclaim",
+            caution_type="decision-overclaim-risk",
+            severity="high",
+            handling="blocking",
+            scope="workflow-claim",
+            source_surface="qualificationState",
+            message=(
+                "Imported qualification remains bounded, so decision-ready or regulatory-ready framing "
+                "should stay blocked."
+            ),
+            current_status=_safe_text(qualification_summary.get("state")) or "research-use",
+        )
+
+    if qualification_summary.get("withinDeclaredContext") is False:
+        add_caution(
+            code="outside-declared-context",
+            caution_type="context-mismatch",
+            severity="high",
+            handling="blocking",
+            scope="scenario",
+            source_surface="assessmentContext",
+            message=(
+                "The imported PBPK request falls outside the declared context, so stronger downstream "
+                "claims should stay blocked."
+            ),
+            current_status="outside-declared-context",
+        )
+
+    if _safe_int(review_status.get("unresolvedDissentCount"), 0) > 0:
+        add_caution(
+            code="reviewer-dissent-open",
+            caution_type="review-dissent",
+            severity="high",
+            handling="blocking",
+            scope="review",
+            source_surface="reviewStatus",
+            message=(
+                "Explicit reviewer dissent remains unresolved and should stay visible before stronger "
+                "qualification-facing claims are made."
+            ),
+            current_status=_safe_text(review_status.get("status")) or "declared-with-unresolved-dissent",
+        )
+
+    ivive_status = _safe_text(evidence_basis.get("iviveLinkageStatus")) or "not-declared"
+    if ivive_status in {"not-declared", "external-or-not-declared"}:
+        add_caution(
+            code="ivive-linkage-limited",
+            caution_type="weak-ivive-linkage",
+            severity="medium",
+            handling="advisory",
+            scope="evidence-basis",
+            source_surface="evidenceBasis",
+            message=(
+                "IVIVE linkage remains weak or externally undeclared, so reverse-dosimetry or "
+                "exposure-led interpretations need extra review."
+            ),
+            current_status=ivive_status,
+        )
+
+    parameter_basis = _safe_text(evidence_basis.get("parameterizationBasis")) or "not-declared"
+    if any(token in parameter_basis for token in ("literature", "transfer", "default")):
+        add_caution(
+            code="parameter-transfer-uncertainty",
+            caution_type="parameter-transfer-uncertainty",
+            severity="medium",
+            handling="advisory",
+            scope="model",
+            source_surface="evidenceBasis",
+            message=(
+                "Parameterization depends on transferred, literature-derived, or default assumptions, "
+                "so parameter-transfer uncertainty should be reviewed before stronger claims."
+            ),
+            current_status=parameter_basis,
+        )
+
+    variability_status = (
+        _safe_text(evidence_basis.get("populationVariabilityStatus"))
+        or _safe_text(population_support.get("variabilityRepresentation"))
+        or "not-declared"
+    )
+    if variability_status in {"not-declared", "declared-without-structured-variability"}:
+        add_caution(
+            code="population-variability-limited",
+            caution_type="population-variability",
+            severity="medium",
+            handling="advisory",
+            scope="population",
+            source_surface="populationSupport",
+            message=(
+                "Population variability support remains limited or weakly structured, so extrapolation "
+                "beyond the declared population context needs extra review."
+            ),
+            current_status=variability_status,
+        )
+
+    if _safe_int(qualification_summary.get("missingEvidenceCount"), 0) > 0:
+        add_caution(
+            code="known-evidence-gaps",
+            caution_type="evidence-gap",
+            severity="high",
+            handling="blocking",
+            scope="evidence-basis",
+            source_surface="qualificationState",
+            message=(
+                "Imported qualification metadata declare known evidence gaps, so approval-style or "
+                "strong publication framing should stay blocked."
+            ),
+            current_status=str(_safe_int(qualification_summary.get("missingEvidenceCount"), 0)),
+        )
+
+    severity_order = {"low": 0, "medium": 1, "high": 2}
+    highest_severity = max(
+        (entry["severity"] for entry in cautions),
+        key=lambda value: severity_order.get(value, -1),
+        default="medium",
+    )
+    blocking_count = sum(1 for entry in cautions if entry["handling"] == "blocking")
+    advisory_count = sum(1 for entry in cautions if entry["handling"] == "advisory")
+    return {
+        "summaryVersion": "pbpk-caution-summary.v1",
+        "highestSeverity": highest_severity,
+        "blockingCount": blocking_count,
+        "advisoryCount": advisory_count,
+        "requiresHumanReview": True,
+        "blockingRecommended": blocking_count > 0,
+        "cautions": cautions,
+    }
+
+
 class ExternalArtifactModel(BaseModel):
     model_config = ConfigDict(populate_by_name=True, protected_namespaces=())
 
@@ -331,6 +1114,12 @@ def _build_assessment_context(payload: IngestExternalPbpkBundleRequest) -> dict[
             "requested": target_output,
             "declared": [target_output] if target_output else [],
         },
+        "workflowRole": _build_workflow_role(assessment),
+        "populationSupport": _build_population_support(
+            assessment,
+            internal,
+            _as_mapping(payload.uncertainty),
+        ),
         "supports": {
             "declaredProfileComparison": True,
             "requestContextAlignment": True,
@@ -361,9 +1150,127 @@ def _derive_external_qualification_state(qualification: Mapping[str, Any]) -> st
     return "exploratory"
 
 
+def _build_review_status(qualification: Mapping[str, Any]) -> dict[str, Any]:
+    explicit_status = _as_mapping(qualification.get("reviewStatus"))
+    peer_review = _as_mapping(qualification.get("peerReview"))
+    merged_review = dict(peer_review)
+    for key in (
+        "reviewRecords",
+        "reviews",
+        "peerReviewRecords",
+        "reviewHistory",
+        "priorRegulatoryUse",
+        "priorUse",
+        "priorApplications",
+        "priorUseHistory",
+        "revisionHistory",
+        "changeHistory",
+        "versionHistory",
+        "revisions",
+        "revisionStatus",
+        "changeStatus",
+        "versionStatus",
+        "status",
+        "summary",
+        "focusTopics",
+        "reviewFocus",
+        "unresolvedDissentCount",
+        "resolvedDissentCount",
+    ):
+        if key in qualification and key not in merged_review:
+            merged_review[key] = qualification.get(key)
+
+    derived = _derive_review_status(merged_review)
+    for key in (
+        "status",
+        "declaredStatus",
+        "summary",
+        "reviewRecordCount",
+        "priorUseCount",
+        "revisionEntryCount",
+        "unresolvedDissentCount",
+        "resolvedDissentCount",
+        "revisionStatus",
+        "focusTopics",
+        "openTopics",
+        "resolvedTopics",
+        "interventionSummary",
+        "requiresReviewerAttention",
+    ):
+        if key in explicit_status and explicit_status.get(key) is not None:
+            derived[key] = explicit_status.get(key)
+
+    derived["focusTopics"] = list(dict.fromkeys(_normalize_text_list(derived.get("focusTopics"))))
+    derived["openTopics"] = list(dict.fromkeys(_normalize_text_list(derived.get("openTopics"))))
+    derived["resolvedTopics"] = list(dict.fromkeys(_normalize_text_list(derived.get("resolvedTopics"))))
+    derived["reviewRecordCount"] = _safe_int(derived.get("reviewRecordCount"), 0)
+    derived["priorUseCount"] = _safe_int(derived.get("priorUseCount"), 0)
+    derived["revisionEntryCount"] = _safe_int(derived.get("revisionEntryCount"), 0)
+    derived["unresolvedDissentCount"] = _safe_int(derived.get("unresolvedDissentCount"), 0)
+    derived["resolvedDissentCount"] = _safe_int(derived.get("resolvedDissentCount"), 0)
+    if not derived["openTopics"] and derived["unresolvedDissentCount"] > 0:
+        derived["openTopics"] = list(derived["focusTopics"])
+    if not derived["resolvedTopics"] and derived["resolvedDissentCount"] > 0:
+        derived["resolvedTopics"] = list(derived["focusTopics"])
+
+    explicit_intervention = _as_mapping(explicit_status.get("interventionSummary"))
+    if explicit_intervention:
+        intervention_summary = dict(explicit_intervention)
+    elif derived["unresolvedDissentCount"] > 0:
+        intervention_summary = {
+            "status": "open-review-interventions",
+            "summary": (
+                "Explicit reviewer interventions remain open and should travel with the summary "
+                "so unresolved concerns are not flattened into a single label."
+            ),
+            "openTopicCount": len(derived["openTopics"]),
+            "resolvedTopicCount": len(derived["resolvedTopics"]),
+            "openTopics": list(derived["openTopics"]),
+            "resolvedTopics": list(derived["resolvedTopics"]),
+        }
+    elif derived["resolvedDissentCount"] > 0:
+        intervention_summary = {
+            "status": "resolved-review-interventions",
+            "summary": (
+                "Resolved reviewer interventions are recorded and should remain visible as context "
+                "for how the current summary was narrowed or clarified."
+            ),
+            "openTopicCount": len(derived["openTopics"]),
+            "resolvedTopicCount": len(derived["resolvedTopics"]),
+            "openTopics": list(derived["openTopics"]),
+            "resolvedTopics": list(derived["resolvedTopics"]),
+        }
+    else:
+        intervention_summary = _as_mapping(derived.get("interventionSummary")) or {}
+    if intervention_summary:
+        intervention_summary.setdefault("openTopicCount", len(derived["openTopics"]))
+        intervention_summary.setdefault("resolvedTopicCount", len(derived["resolvedTopics"]))
+        intervention_summary.setdefault("openTopics", list(derived["openTopics"]))
+        intervention_summary.setdefault("resolvedTopics", list(derived["resolvedTopics"]))
+        derived["interventionSummary"] = intervention_summary
+
+    derived["requiresReviewerAttention"] = _safe_bool(
+        derived.get("requiresReviewerAttention"),
+        derived["status"] in {"not-declared", "traceability-limited", "declared-with-unresolved-dissent"},
+    )
+    return derived
+
+
 def _build_pbpk_qualification_summary(payload: IngestExternalPbpkBundleRequest) -> dict[str, Any]:
     qualification = _as_mapping(payload.qualification)
-    state = _derive_external_qualification_state(qualification)
+    assessment_context = _as_mapping(payload.assessment_context)
+    population_support = _build_population_support(
+        assessment_context,
+        _as_mapping(payload.internal_exposure),
+        _as_mapping(payload.uncertainty),
+    )
+    review_status = _build_review_status(qualification)
+    derived_state = _derive_external_qualification_state(qualification)
+    state = derived_state
+    downgraded_for_review = False
+    if state == "qualified-within-context" and review_status["unresolvedDissentCount"] > 0:
+        state = "regulatory-candidate"
+        downgraded_for_review = True
     performance_boundary = _safe_text(qualification.get("performanceEvidenceBoundary"))
     required_external_inputs = [
         "higher-level NGRA decision policy or orchestrator outside PBPK MCP"
@@ -376,6 +1283,10 @@ def _build_pbpk_qualification_summary(payload: IngestExternalPbpkBundleRequest) 
         required_external_inputs.append(
             "observed-vs-predicted, predictive-dataset, or external qualification evidence"
         )
+    if review_status["unresolvedDissentCount"] > 0:
+        required_external_inputs.append(
+            "reviewer resolution or explicit acceptance of open dissent outside PBPK MCP"
+        )
 
     limitations: list[str] = []
     if performance_boundary == "runtime-or-internal-evidence-only":
@@ -386,8 +1297,24 @@ def _build_pbpk_qualification_summary(payload: IngestExternalPbpkBundleRequest) 
         limitations.append(
             "No bundled predictive-performance evidence were attached to the imported PBPK bundle."
         )
+    if review_status["unresolvedDissentCount"] > 0:
+        limitations.append(
+            "Explicit reviewer dissent remains unresolved for the imported qualification-facing record."
+        )
 
-    return {
+    label = (
+        None if downgraded_for_review else _safe_text(qualification.get("label"))
+    ) or state.replace("-", " ").title()
+    summary = _safe_text(qualification.get("summary")) or (
+        "External PBPK qualification metadata were normalized without executing the upstream platform."
+    )
+    if review_status["unresolvedDissentCount"] > 0:
+        summary = (
+            summary
+            + " Explicit reviewer dissent remains unresolved, so stronger qualification-facing claims stay conservative."
+        )
+
+    qualification_summary = {
         "objectType": "pbpkQualificationSummary.v1",
         "objectId": f"{payload.source_platform.lower()}-qualification-summary",
         "simulationId": None,
@@ -396,23 +1323,28 @@ def _build_pbpk_qualification_summary(payload: IngestExternalPbpkBundleRequest) 
         "assessmentBoundary": "external-pbpk-normalization-only",
         "decisionBoundary": "no-ngra-decision-policy",
         "state": state,
-        "label": qualification.get("label") or state.replace("-", " ").title(),
-        "summary": qualification.get("summary")
-        or "External PBPK qualification metadata were normalized without executing the upstream platform.",
+        "label": label,
+        "summary": summary,
         "qualificationLevel": qualification.get("evidenceLevel") or qualification.get("qualificationLevel") or "unreported",
         "oecdReadiness": qualification.get("oecdReadiness") or "external-imported",
         "validationDecision": None,
         "withinDeclaredContext": None,
         "scientificProfile": bool(qualification or payload.assessment_context or payload.internal_exposure),
-        "riskAssessmentReady": state == "qualified-within-context",
+        "riskAssessmentReady": state == "qualified-within-context" and review_status["unresolvedDissentCount"] == 0,
         "checklistScore": qualification.get("checklistScore"),
         "evidenceStatus": qualification.get("verificationStatus") or "imported",
         "profileSource": "external-import",
         "missingEvidenceCount": int(qualification.get("missingEvidenceCount") or 0),
+        "reviewStatus": review_status,
         "performanceEvidenceBoundary": performance_boundary,
         "executableVerificationStatus": qualification.get("verificationStatus") or "not-run-in-pbpk-mcp",
         "platformClass": qualification.get("platformClass"),
         "validationReferences": _normalize_text_list(qualification.get("validationReferences")),
+        "evidenceBasis": _build_evidence_basis(
+            qualification,
+            population_support=population_support,
+        ),
+        "workflowClaimBoundaries": _build_workflow_claim_boundaries(qualification),
         "supports": {
             "nativeExecution": False,
             "externalImportNormalization": True,
@@ -427,6 +1359,15 @@ def _build_pbpk_qualification_summary(payload: IngestExternalPbpkBundleRequest) 
         "requiredExternalInputs": list(dict.fromkeys(required_external_inputs)),
         "limitations": list(dict.fromkeys(limitations)),
     }
+    qualification_summary["exportBlockPolicy"] = _build_export_block_policy(
+        assessment_context=assessment_context,
+        qualification_summary=qualification_summary,
+    )
+    qualification_summary["cautionSummary"] = _build_caution_summary(
+        assessment_context=assessment_context,
+        qualification_summary=qualification_summary,
+    )
+    return qualification_summary
 
 
 def _build_uncertainty_summary(payload: IngestExternalPbpkBundleRequest) -> dict[str, Any]:

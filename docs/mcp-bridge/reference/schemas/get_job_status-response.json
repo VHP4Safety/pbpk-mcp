@@ -1,6 +1,7 @@
 {
   "$defs": {
     "JobStatusPayload": {
+      "description": "Backward-compatible nested job payload.",
       "properties": {
         "attempts": {
           "default": 0,
@@ -117,14 +118,160 @@
       ],
       "title": "JobStatusPayload",
       "type": "object"
+    },
+    "ResultHandlePayload": {
+      "description": "Normalized handle for a completed asynchronous simulation result.",
+      "properties": {
+        "resultsId": {
+          "title": "Resultsid",
+          "type": "string"
+        }
+      },
+      "required": [
+        "resultsId"
+      ],
+      "title": "ResultHandlePayload",
+      "type": "object"
     }
   },
+  "description": "Normalized MCP response for async job status lookups.",
   "properties": {
+    "attempts": {
+      "default": 0,
+      "title": "Attempts",
+      "type": "integer"
+    },
+    "cancelRequested": {
+      "default": false,
+      "title": "Cancelrequested",
+      "type": "boolean"
+    },
+    "contractVersion": {
+      "default": "pbpk-mcp.v1",
+      "title": "Contractversion",
+      "type": "string"
+    },
+    "error": {
+      "anyOf": [
+        {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Error"
+    },
+    "externalJobId": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Externaljobid"
+    },
+    "finishedAt": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Finishedat"
+    },
     "job": {
       "$ref": "#/$defs/JobStatusPayload"
+    },
+    "jobId": {
+      "title": "Jobid",
+      "type": "string"
+    },
+    "maxRetries": {
+      "default": 0,
+      "title": "Maxretries",
+      "type": "integer"
+    },
+    "resultHandle": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ResultHandlePayload"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "resultId": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Resultid"
+    },
+    "startedAt": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Startedat"
+    },
+    "status": {
+      "title": "Status",
+      "type": "string"
+    },
+    "submittedAt": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Submittedat"
+    },
+    "timeoutSeconds": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Timeoutseconds"
+    },
+    "tool": {
+      "default": "get_job_status",
+      "title": "Tool",
+      "type": "string"
     }
   },
   "required": [
+    "jobId",
+    "status",
     "job"
   ],
   "title": "GetJobStatusResponse",

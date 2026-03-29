@@ -637,6 +637,178 @@ selection_triplet <- function(requested = NULL, declared = NULL) {
   )
 }
 
+normalized_text_list_or_default <- function(value, default = character()) {
+  values <- normalize_text_values(value)
+  if (length(values) == 0) {
+    return(as.list(default))
+  }
+  as.list(values)
+}
+
+workflow_role_from_profile <- function(profile = list()) {
+  workflow_role <- profile$workflowRole %||%
+    profile$ngraWorkflowRole %||%
+    profile$exposureLedWorkflow %||%
+    list()
+  default_upstream <- c(
+    "dose scenario or exposure estimate defined outside PBPK MCP",
+    "in vitro ADME or IVIVE parameterization evidence defined outside PBPK MCP",
+    "bioactivity, point-of-departure, or NAM interpretation defined outside PBPK MCP"
+  )
+  default_downstream <- c(
+    "internal exposure estimates",
+    "PBPK qualification and uncertainty handoff objects",
+    "BER-ready input bundle when compatible external PoD metadata are attached"
+  )
+  default_non_goals <- c(
+    "standalone weight-of-evidence integration",
+    "standalone exposure assessment ownership",
+    "direct regulatory decision authority",
+    "standalone hazard or AOP interpretation"
+  )
+
+  list(
+    role = safe_chr(
+      workflow_role$role %||% workflow_role$primaryRole,
+      "pbpk-exposure-translation-and-internal-dose-support"
+    ),
+    workflow = safe_chr(
+      workflow_role$workflow %||% workflow_role$workflowType,
+      "exposure-led-ngra"
+    ),
+    upstreamDependencies = normalized_text_list_or_default(
+      workflow_role$upstreamDependencies %||% workflow_role$upstreamInputs,
+      default_upstream
+    ),
+    downstreamOutputs = normalized_text_list_or_default(
+      workflow_role$downstreamOutputs,
+      default_downstream
+    ),
+    nonGoals = normalized_text_list_or_default(
+      workflow_role$nonGoals,
+      default_non_goals
+    )
+  )
+}
+
+variability_representation_from_uncertainty <- function(uncertainty = list()) {
+  rows <- uncertainty_evidence_rows_from_profile(uncertainty)
+  semantic_coverage <- uncertainty_semantic_coverage(
+    rows,
+    status = safe_chr(uncertainty$status, "unreported")
+  )
+
+  if (identical(
+    safe_chr(semantic_coverage$variabilityQuantificationStatus),
+    "quantified"
+  )) {
+    return("quantified-propagation")
+  }
+
+  if (length(uncertainty_rows_for_kind(rows, "variability-approach")) > 0 ||
+      length(uncertainty_rows_for_kind(rows, "variability-propagation")) > 0 ||
+      !is.null(uncertainty$variabilityApproach) ||
+      !is.null(uncertainty$variabilityPropagation)) {
+    return("declared-or-characterized")
+  }
+
+  if (!is_unreported_token(uncertainty$status)) {
+    return("declared-without-structured-variability")
+  }
+
+  "not-declared"
+}
+
+population_support_from_profile <- function(profile = list()) {
+  domain <- profile$applicabilityDomain %||% list()
+  population_support <- profile$populationSupport %||% list()
+  default_extrapolation <- "outside-declared-population-context-requires-human-review"
+
+  list(
+    supportedSpecies = normalized_text_list_or_default(
+      population_support$supportedSpecies %||% domain$species
+    ),
+    supportedPhysiologyContexts = normalized_text_list_or_default(
+      population_support$supportedPhysiologyContexts %||%
+        population_support$physiologyContexts %||%
+        domain$sex %||%
+        domain$physiologyContexts
+    ),
+    supportedLifeStages = normalized_text_list_or_default(
+      population_support$supportedLifeStages %||%
+        domain$lifeStage %||%
+        domain$life_stage
+    ),
+    supportedGenotypesOrPhenotypes = normalized_text_list_or_default(
+      population_support$supportedGenotypesOrPhenotypes %||%
+        population_support$supportedGenotypeOrPhenotype %||%
+        domain$genotype %||%
+        domain$phenotype
+    ),
+    variabilityRepresentation = safe_chr(
+      population_support$variabilityRepresentation,
+      variability_representation_from_uncertainty(profile$uncertainty %||% list())
+    ),
+    extrapolationPolicy = safe_chr(
+      population_support$extrapolationPolicy,
+      default_extrapolation
+    )
+  )
+}
+
+evidence_basis_from_profile <- function(record, performance_evidence = NULL) {
+  evidence_basis <- record$profile$evidenceBasis %||% list()
+  population_support <- population_support_from_profile(record$profile)
+
+  list(
+    basisType = safe_chr(
+      evidence_basis$basisType %||% evidence_basis$type,
+      "model-profile-and-runtime-evidence"
+    ),
+    inVivoSupportStatus = safe_chr(
+      evidence_basis$inVivoSupportStatus %||% evidence_basis$directInVivoSupport,
+      "not-declared"
+    ),
+    iviveLinkageStatus = safe_chr(
+      evidence_basis$iviveLinkageStatus,
+      "external-or-not-declared"
+    ),
+    parameterizationBasis = safe_chr(
+      evidence_basis$parameterizationBasis,
+      "inspect-parameter-provenance"
+    ),
+    populationVariabilityStatus = safe_chr(
+      evidence_basis$populationVariabilityStatus,
+      safe_chr(population_support$variabilityRepresentation, "not-declared")
+    )
+  )
+}
+
+workflow_claim_boundaries_from_profile <- function(record) {
+  claim_boundaries <- record$profile$workflowClaimBoundaries %||%
+    record$profile$claimBoundaries %||%
+    list()
+
+  list(
+    forwardDosimetry = safe_chr(
+      claim_boundaries$forwardDosimetry,
+      "supported-as-pbpk-external-dose-to-internal-exposure-translation"
+    ),
+    reverseDosimetry = safe_chr(
+      claim_boundaries$reverseDosimetry,
+      "not-performed-directly-external-workflow-required"
+    ),
+    exposureLedPrioritization = safe_chr(
+      claim_boundaries$exposureLedPrioritization,
+      "supported-only-as-pbpk-substrate-with-external-orchestrator"
+    ),
+    directRegulatoryDoseDerivation = safe_chr(
+      claim_boundaries$directRegulatoryDoseDerivation,
+      "not-supported"
+    )
+  )
+}
+
 normalize_context_token <- function(value) {
   candidate <- safe_chr(value)
   if (is.null(candidate) || !nzchar(candidate)) {
@@ -1672,6 +1844,300 @@ normalize_peer_review_section <- function(value, default) {
   merged$revisionEntryCount <- coverage$revisionEntryCount
 
   merged
+}
+
+peer_review_record_entries <- function(review) {
+  records <- exact_list_field(review, "reviewRecords") %||%
+    exact_list_field(review, "reviews") %||%
+    exact_list_field(review, "peerReviewRecords") %||%
+    exact_list_field(review, "reviewHistory")
+
+  if (is.null(records) || length(records) == 0) {
+    return(list())
+  }
+
+  if (!is.list(records)) {
+    return(as.list(records))
+  }
+
+  if (!is.null(names(records))) {
+    return(list(records))
+  }
+
+  records
+}
+
+peer_review_record_topic <- function(entry) {
+  topic <- safe_chr(entry$topic) %||%
+    safe_chr(entry$focus) %||%
+    safe_chr(entry$issue) %||%
+    safe_chr(entry$summary)
+
+  if (is.null(topic) || !nzchar(topic)) {
+    return(NULL)
+  }
+
+  topic
+}
+
+peer_review_record_has_explicit_dissent <- function(entry) {
+  if (!is.list(entry)) {
+    return(FALSE)
+  }
+
+  if (isTRUE(safe_lgl(entry$dissent %||% entry$hasDissent, FALSE))) {
+    return(TRUE)
+  }
+
+  stance_tokens <- vapply(
+    collect_text_values(
+      entry$stance,
+      entry$reviewStance,
+      entry$reviewOutcome,
+      entry$outcome,
+      entry$decision,
+      entry$recommendation,
+      entry$finding,
+      entry$findingStatus
+    ),
+    function(value) normalize_context_token(value) %||% "",
+    character(1)
+  )
+
+  any(stance_tokens %in% c(
+    "dissent",
+    "major-concern",
+    "major-concerns",
+    "blocking-concern",
+    "blocking-concerns",
+    "blocking-issue",
+    "critical-issue",
+    "request-changes",
+    "changes-requested",
+    "rejected",
+    "reject",
+    "not-approved",
+    "not-accepted",
+    "disputed",
+    "contested"
+  ))
+}
+
+peer_review_record_resolution_state <- function(entry) {
+  if (!peer_review_record_has_explicit_dissent(entry)) {
+    return("not-dissent")
+  }
+
+  if (isTRUE(safe_lgl(entry$resolved, FALSE))) {
+    return("resolved")
+  }
+  if (isTRUE(safe_lgl(entry$unresolved, FALSE))) {
+    return("unresolved")
+  }
+
+  resolution_tokens <- vapply(
+    collect_text_values(
+      entry$resolutionState,
+      entry$resolutionStatus,
+      entry$issueStatus,
+      entry$followUpStatus,
+      entry$status
+    ),
+    function(value) normalize_context_token(value) %||% "",
+    character(1)
+  )
+
+  if (any(resolution_tokens %in% c(
+    "resolved",
+    "closed",
+    "addressed",
+    "accepted",
+    "completed",
+    "implemented"
+  ))) {
+    return("resolved")
+  }
+
+  if (any(resolution_tokens %in% c(
+    "unresolved",
+    "open",
+    "pending",
+    "needs-follow-up",
+    "follow-up-required",
+    "outstanding",
+    "not-addressed"
+  ))) {
+    return("unresolved")
+  }
+
+  "unresolved"
+}
+
+peer_review_status_from_review <- function(review) {
+  review <- review %||% list()
+  coverage <- peer_review_coverage_summary(review)
+  review_records <- peer_review_record_entries(review)
+  declared_status <- normalize_context_token(review$status)
+  unresolved_topics <- character()
+  resolved_topics <- character()
+  unresolved_count <- 0L
+  resolved_count <- 0L
+
+  if (length(review_records) > 0) {
+    for (entry in review_records) {
+      if (!is.list(entry)) {
+        next
+      }
+
+      resolution_state <- peer_review_record_resolution_state(entry)
+      if (identical(resolution_state, "not-dissent")) {
+        next
+      }
+
+      topic <- peer_review_record_topic(entry)
+      if (identical(resolution_state, "resolved")) {
+        resolved_count <- resolved_count + 1L
+        if (!is.null(topic)) {
+          resolved_topics <- c(resolved_topics, topic)
+        }
+      } else {
+        unresolved_count <- unresolved_count + 1L
+        if (!is.null(topic)) {
+          unresolved_topics <- c(unresolved_topics, topic)
+        }
+      }
+    }
+  }
+
+  explicit_unresolved_count <- safe_num(review$unresolvedDissentCount)
+  if (!is.null(explicit_unresolved_count) && explicit_unresolved_count > unresolved_count) {
+    unresolved_count <- as.integer(explicit_unresolved_count)
+  }
+  explicit_resolved_count <- safe_num(review$resolvedDissentCount)
+  if (!is.null(explicit_resolved_count) && explicit_resolved_count > resolved_count) {
+    resolved_count <- as.integer(explicit_resolved_count)
+  }
+
+  limited_traceability <- coverage$reviewRecordCount == 0 ||
+    coverage$priorUseCount == 0 ||
+    (coverage$revisionEntryCount == 0 && !isTRUE(coverage$hasRevisionStatus))
+  focus_topics <- unique(c(
+    unresolved_topics,
+    normalize_text_values(review$focusTopics %||% review$reviewFocus)
+  ))
+  open_topics <- unique(unresolved_topics)
+  closed_topics <- unique(resolved_topics)
+
+  if (!is.null(declared_status) && declared_status %in% c(
+    "not-applicable-to-fixture",
+    "fixture-only",
+    "integration-fixture",
+    "example-only"
+  )) {
+    status <- "not-applicable-to-fixture"
+    summary <- paste(
+      "Peer-review workflow is not expected for this fixture or illustrative integration asset."
+    )
+    requires_attention <- FALSE
+  } else if (is_unreported_token(review$status)) {
+    status <- "not-declared"
+    summary <- paste(
+      "No peer-review, reviewer stance, or prior-use workflow metadata are declared."
+    )
+    requires_attention <- TRUE
+  } else if (unresolved_count > 0) {
+    status <- "declared-with-unresolved-dissent"
+    summary <- paste(
+      "Explicit reviewer dissent or change requests remain unresolved and require",
+      "human follow-up before stronger qualification-facing claims."
+    )
+    requires_attention <- TRUE
+  } else if (limited_traceability) {
+    status <- "traceability-limited"
+    summary <- paste(
+      "Peer-review metadata are declared, but review records, prior-use traceability,",
+      "or revision history remain incomplete."
+    )
+    requires_attention <- TRUE
+  } else if (resolved_count > 0) {
+    status <- "declared-with-resolved-dissent"
+    summary <- paste(
+      "Explicit reviewer dissent is recorded as resolved, but the recorded disposition",
+      "should still be checked in context."
+    )
+    requires_attention <- FALSE
+  } else {
+    status <- "declared-no-explicit-dissent"
+    summary <- paste(
+      "Peer-review metadata are traceable and no explicit unresolved dissent is declared."
+    )
+    requires_attention <- FALSE
+  }
+
+  intervention_summary <- if (unresolved_count > 0) {
+    list(
+      status = "open-review-interventions",
+      summary = paste(
+        "Explicit reviewer interventions remain open and should travel with the summary",
+        "so unresolved concerns are not flattened into a single label."
+      ),
+      openTopicCount = as.integer(length(open_topics)),
+      resolvedTopicCount = as.integer(length(closed_topics)),
+      openTopics = as.list(open_topics),
+      resolvedTopics = as.list(closed_topics)
+    )
+  } else if (resolved_count > 0) {
+    list(
+      status = "resolved-review-interventions",
+      summary = paste(
+        "Resolved reviewer interventions are recorded and should remain visible as context",
+        "for how the current summary was narrowed or clarified."
+      ),
+      openTopicCount = as.integer(length(open_topics)),
+      resolvedTopicCount = as.integer(length(closed_topics)),
+      openTopics = as.list(open_topics),
+      resolvedTopics = as.list(closed_topics)
+    )
+  } else if (coverage$reviewRecordCount > 0) {
+    list(
+      status = "no-explicit-interventions-recorded",
+      summary = paste(
+        "Review metadata are declared, but no explicit dissent-linked intervention topics are recorded."
+      ),
+      openTopicCount = 0L,
+      resolvedTopicCount = 0L,
+      openTopics = list(),
+      resolvedTopics = list()
+    )
+  } else {
+    list(
+      status = "no-review-interventions-recorded",
+      summary = paste(
+        "No explicit review interventions are recorded in the current metadata."
+      ),
+      openTopicCount = 0L,
+      resolvedTopicCount = 0L,
+      openTopics = list(),
+      resolvedTopics = list()
+    )
+  }
+
+  list(
+    status = status,
+    declaredStatus = safe_chr(review$status, "unreported"),
+    summary = summary,
+    reviewRecordCount = as.integer(coverage$reviewRecordCount),
+    priorUseCount = as.integer(coverage$priorUseCount),
+    revisionEntryCount = as.integer(coverage$revisionEntryCount),
+    unresolvedDissentCount = as.integer(unresolved_count),
+    resolvedDissentCount = as.integer(resolved_count),
+    revisionStatus = safe_chr(review$revisionStatus),
+    focusTopics = as.list(focus_topics),
+    openTopics = as.list(open_topics),
+    resolvedTopics = as.list(closed_topics),
+    interventionSummary = intervention_summary,
+    requiresReviewerAttention = requires_attention
+  )
 }
 
 performance_section_dataset_records <- function(section) {
@@ -2919,7 +3385,10 @@ profile_missing_evidence <- function(profile, capabilities = list()) {
   }
 
   review <- profile$peerReview %||% list()
-  if (is_unreported_token(review$status)) {
+  review_status <- peer_review_status_from_review(review)
+  if (identical(safe_chr(review_status$status), "not-applicable-to-fixture")) {
+    # No-op: fixture-only assets do not claim an external reviewer workflow.
+  } else if (is_unreported_token(review$status)) {
     append_missing("Peer review or prior use record")
   } else {
     review_coverage <- peer_review_coverage_summary(review)
@@ -2932,6 +3401,9 @@ profile_missing_evidence <- function(profile, capabilities = list()) {
     if (review_coverage$revisionEntryCount == 0 &&
         !isTRUE(review_coverage$hasRevisionStatus)) {
       append_missing("Revision or change history")
+    }
+    if (safe_num(review_status$unresolvedDissentCount, 0) > 0) {
+      append_missing("Resolution of explicit reviewer dissent or change requests")
     }
   }
   for (item in normalize_text_values(review$missingEvidence)) {
@@ -2988,6 +3460,12 @@ derive_qualification_state <- function(profile, capabilities = list(), assessmen
   missing_evidence <- normalize_text_values(
     assessment$missingEvidence %||% profile_missing_evidence(profile, capabilities)
   )
+  review_status <- assessment$reviewStatus %||%
+    peer_review_status_from_review(profile$peerReview %||% list())
+  unresolved_dissent_count <- as.integer(safe_num(
+    review_status$unresolvedDissentCount,
+    0
+  ))
   missing_count <- length(missing_evidence)
   within_declared_context <- !identical(
     safe_chr(assessment$decision),
@@ -3076,6 +3554,16 @@ derive_qualification_state <- function(profile, capabilities = list(), assessmen
     risk_ready <- FALSE
   }
 
+  if (unresolved_dissent_count > 0 && identical(state, "qualified-within-context")) {
+    state <- "regulatory-candidate"
+    label <- "Regulatory candidate"
+    summary <- paste(
+      "The model could otherwise support a stronger qualification-facing claim,",
+      "but explicit unresolved reviewer dissent remains open."
+    )
+    risk_ready <- FALSE
+  }
+
   list(
     state = state,
     label = label,
@@ -3087,7 +3575,8 @@ derive_qualification_state <- function(profile, capabilities = list(), assessmen
     riskAssessmentReady = risk_ready,
     checklistScore = checklist_score,
     missingEvidenceCount = missing_count,
-    evidenceStatus = evidence_status
+    evidenceStatus = evidence_status,
+    reviewStatus = review_status
   )
 }
 
@@ -3172,7 +3661,10 @@ profile_assessment_warnings <- function(profile, capabilities = list()) {
     )
   }
 
-  if (is_unreported_token(profile$peerReview$status)) {
+  review_status <- peer_review_status_from_review(profile$peerReview %||% list())
+  if (identical(safe_chr(review_status$status), "not-applicable-to-fixture")) {
+    # No-op: fixture-only assets do not claim an external reviewer workflow.
+  } else if (is_unreported_token(profile$peerReview$status)) {
     warnings[[length(warnings) + 1]] <- list(
       code = "peer_review_metadata_missing",
       message = "Peer-review or prior-use metadata are not declared for this model.",
@@ -3192,6 +3684,17 @@ profile_assessment_warnings <- function(profile, capabilities = list()) {
           "or revision-history details remain limited."
         ),
         field = "profile.peerReview",
+        severity = "warning"
+      )
+    }
+    if (safe_num(review_status$unresolvedDissentCount, 0) > 0) {
+      warnings[[length(warnings) + 1]] <- list(
+        code = "peer_review_unresolved_dissent",
+        message = paste(
+          "Explicit reviewer dissent or change requests remain unresolved",
+          "and should block stronger qualification-facing interpretation."
+        ),
+        field = "profile.peerReview.reviewRecords",
         severity = "warning"
       )
     }
@@ -3234,6 +3737,7 @@ with_profile_assessment <- function(validation, profile, capabilities = list()) 
     errors = normalized$errors,
     warnings = list()
   ))
+  review_status <- peer_review_status_from_review(profile$peerReview %||% list())
 
   base_assessment <- list(
     decision = if (length(normalized$errors) > 0) {
@@ -3252,6 +3756,7 @@ with_profile_assessment <- function(validation, profile, capabilities = list()) 
     profileSource = safe_chr(profile$profileSource$type, "unreported"),
     oecdChecklist = checklist,
     oecdChecklistScore = checklist_score,
+    reviewStatus = review_status,
     status = if (length(missing_evidence) == 0) {
       "metadata-complete"
     } else if (length(missing_evidence) <= 2) {
@@ -5411,6 +5916,8 @@ assessment_context_from_record <- function(record, request = list(), validation 
       requested = requested_target_output,
       declared = as.list(declared_target_outputs)
     ),
+    workflowRole = workflow_role_from_profile(record$profile),
+    populationSupport = population_support_from_profile(record$profile),
     supports = list(
       declaredProfileComparison = TRUE,
       requestContextAlignment = TRUE,
@@ -5443,6 +5950,12 @@ qualification_required_external_inputs <- function(
 
   if (!safe_lgl(qualification_state$withinDeclaredContext, TRUE)) {
     required <- c(required, "request alignment with the declared PBPK context of use")
+  }
+  if (safe_num((qualification_state$reviewStatus %||% list())$unresolvedDissentCount, 0) > 0) {
+    required <- c(
+      required,
+      "reviewer resolution or explicit acceptance of open dissent outside PBPK MCP"
+    )
   }
 
   as.list(unique(required))
@@ -5481,6 +5994,12 @@ qualification_limitations_from_record <- function(
       "The current request falls outside the model's declared PBPK context of use."
     )
   }
+  if (safe_num((qualification_state$reviewStatus %||% list())$unresolvedDissentCount, 0) > 0) {
+    limitations <- c(
+      limitations,
+      "Explicit reviewer dissent remains unresolved for the current qualification-facing record."
+    )
+  }
 
   as.list(unique(limitations))
 }
@@ -5493,6 +6012,9 @@ pbpk_qualification_summary_from_record <- function(
 ) {
   qualification_state <- assessment$qualificationState %||%
     derive_qualification_state(record$profile, record$capabilities, assessment)
+  review_status <- qualification_state$reviewStatus %||%
+    assessment$reviewStatus %||%
+    peer_review_status_from_review(record$profile$peerReview %||% list())
   missing_evidence <- normalize_text_values(
     assessment$missingEvidence %||% profile_missing_evidence(record$profile, record$capabilities)
   )
@@ -5524,12 +6046,18 @@ pbpk_qualification_summary_from_record <- function(
     evidenceStatus = safe_chr(qualification_state$evidenceStatus, "unreported"),
     profileSource = safe_chr(record$profile$profileSource$type, "unreported"),
     missingEvidenceCount = as.integer(length(missing_evidence)),
+    reviewStatus = review_status,
     performanceEvidenceBoundary = safe_chr(performance_evidence$qualificationBoundary),
     executableVerificationStatus = if (isTRUE(executable_verification$included)) {
       safe_chr(executable_verification$status, "unreported")
     } else {
       "not-run"
     },
+    evidenceBasis = evidence_basis_from_profile(
+      record,
+      performance_evidence = performance_evidence
+    ),
+    workflowClaimBoundaries = workflow_claim_boundaries_from_profile(record),
     supports = list(
       nativeExecution = TRUE,
       manifestValidation = TRUE,
@@ -6357,6 +6885,8 @@ build_ngra_objects <- function(
   if (is.null(resolved_uncertainty_evidence)) {
     resolved_uncertainty_evidence <- record_uncertainty_evidence(record, limit = 50L)
   }
+  missing_evidence <- assessment$missingEvidence %||%
+    as.list(profile_missing_evidence(record$profile, record$capabilities))
   resolved_executable_verification <- executable_verification
   if (is.null(resolved_executable_verification)) {
     resolved_executable_verification <- record_executable_verification_snapshot(record)
@@ -6368,6 +6898,20 @@ build_ngra_objects <- function(
     assessment = assessment,
     performance_evidence = resolved_performance_evidence,
     executable_verification = resolved_executable_verification
+  )
+  qualification_summary$exportBlockPolicy <- export_block_policy_from_objects(
+    list(
+      assessmentContext = assessment_context,
+      pbpkQualificationSummary = qualification_summary
+    ),
+    missing_evidence = missing_evidence
+  )
+  qualification_summary$cautionSummary <- caution_summary_from_objects(
+    list(
+      assessmentContext = assessment_context,
+      pbpkQualificationSummary = qualification_summary
+    ),
+    missing_evidence = missing_evidence
   )
   uncertainty_summary <- uncertainty_summary_from_record(
     record,
@@ -6407,6 +6951,863 @@ build_ngra_objects <- function(
   }
 
   payload
+}
+
+human_review_focus_from_objects <- function(ngra_objects, missing_evidence = list()) {
+  focus <- character()
+  assessment_context <- ngra_objects$assessmentContext %||% list()
+  qualification <- ngra_objects$pbpkQualificationSummary %||% list()
+  internal_exposure <- ngra_objects$internalExposureEstimate %||% list()
+  uncertainty_handoff <- ngra_objects$uncertaintyHandoff %||% list()
+  uncertainty_register <- ngra_objects$uncertaintyRegisterReference %||% list()
+  pod_reference <- ngra_objects$pointOfDepartureReference %||% list()
+  ber_bundle <- ngra_objects$berInputBundle %||% list()
+  evidence_basis <- qualification$evidenceBasis %||% list()
+  review_status <- qualification$reviewStatus %||% list()
+  population_support <- assessment_context$populationSupport %||% list()
+
+  if (!isTRUE(qualification$withinDeclaredContext)) {
+    focus <- c(
+      focus,
+      "Confirm that the requested use stays within the declared PBPK context of use and applicability domain."
+    )
+  }
+
+  in_vivo_status <- safe_chr(evidence_basis$inVivoSupportStatus)
+  if (is.null(in_vivo_status) ||
+      identical(in_vivo_status, "not-declared") ||
+      identical(in_vivo_status, "no-direct-in-vivo-support")) {
+    focus <- c(
+      focus,
+      "Review whether the available non-animal or no-direct-in-vivo evidence package is adequate for the intended context."
+    )
+  }
+
+  ivive_status <- safe_chr(evidence_basis$iviveLinkageStatus)
+  if (is.null(ivive_status) ||
+      identical(ivive_status, "external-or-not-declared") ||
+      identical(ivive_status, "not-declared")) {
+    focus <- c(
+      focus,
+      "Review the upstream IVIVE linkage, in vitro ADME transfer, and exposure-scenario assumptions outside PBPK MCP."
+    )
+  }
+
+  if (safe_num(review_status$unresolvedDissentCount, 0) > 0) {
+    focus <- c(
+      focus,
+      "Resolve or explicitly accept the recorded reviewer dissent before making stronger qualification-facing claims."
+    )
+  } else if (identical(safe_chr(review_status$status), "traceability-limited")) {
+    focus <- c(
+      focus,
+      "Review missing peer-review traceability or revision-history evidence before relying on reviewer-facing labels."
+    )
+  } else if (identical(safe_chr(review_status$status), "not-declared")) {
+    focus <- c(
+      focus,
+      "Treat reviewer workflow as undeclared and do not assume independent review or prior regulatory use."
+    )
+  }
+
+  extrapolation_policy <- safe_chr(population_support$extrapolationPolicy)
+  if (!is.null(extrapolation_policy) && nzchar(extrapolation_policy)) {
+    focus <- c(
+      focus,
+      sprintf(
+        "Check population applicability before extrapolating beyond the declared population context (%s).",
+        extrapolation_policy
+      )
+    )
+  }
+
+  if (!identical(safe_chr(internal_exposure$status), "available")) {
+    focus <- c(
+      focus,
+      "Resolve a PBPK internal exposure estimate before using this output for downstream comparison workflows."
+    )
+  }
+
+  if (!identical(safe_chr(uncertainty_register$status), "attached-external-reference")) {
+    focus <- c(
+      focus,
+      "Attach or review the cross-domain uncertainty register before broader NGRA interpretation."
+    )
+  }
+
+  if (!identical(safe_chr(pod_reference$status), "attached-external-reference")) {
+    focus <- c(
+      focus,
+      "Attach and review an external point-of-departure reference before BER-style comparison."
+    )
+  }
+
+  if (!identical(safe_chr(ber_bundle$status), "ready-for-external-ber-calculation")) {
+    focus <- c(
+      focus,
+      "Do not treat the current output as BER-ready until the required external comparison inputs are resolved."
+    )
+  }
+
+  focus <- c(
+    focus,
+    normalize_text_values(missing_evidence)
+  )
+  as.list(unique(focus))
+}
+
+human_review_plain_language_summary <- function(ngra_objects) {
+  qualification <- ngra_objects$pbpkQualificationSummary %||% list()
+  assessment_context <- ngra_objects$assessmentContext %||% list()
+  evidence_basis <- qualification$evidenceBasis %||% list()
+  claim_boundaries <- qualification$workflowClaimBoundaries %||% list()
+  review_status <- qualification$reviewStatus %||% list()
+
+  qualification_label <- safe_chr(qualification$label) %||%
+    safe_chr(qualification$state, "unreported")
+  workflow <- safe_chr(assessment_context$workflowRole$workflow, "declared-workflow")
+  in_vivo_status <- safe_chr(evidence_basis$inVivoSupportStatus, "not-declared")
+  direct_dose_derivation <- safe_chr(
+    claim_boundaries$directRegulatoryDoseDerivation,
+    "not-supported"
+  )
+
+  summary <- sprintf(
+    paste(
+      "PBPK MCP currently supports %s use in an %s workflow,",
+      "with in vivo support status '%s'.",
+      "Direct regulatory dose derivation remains '%s',",
+      "so human review is still required."
+    ),
+    qualification_label,
+    workflow,
+    in_vivo_status,
+    direct_dose_derivation
+  )
+
+  if (safe_num(review_status$unresolvedDissentCount, 0) > 0) {
+    summary <- paste(
+      summary,
+      "Explicit reviewer dissent also remains unresolved."
+    )
+  }
+
+  summary
+}
+
+summary_transport_risk_from_objects <- function(ngra_objects, missing_evidence = list()) {
+  assessment_context <- ngra_objects$assessmentContext %||% list()
+  qualification <- ngra_objects$pbpkQualificationSummary %||% list()
+  claim_boundaries <- qualification$workflowClaimBoundaries %||% list()
+  review_status <- qualification$reviewStatus %||% list()
+  missing_items <- normalize_text_values(missing_evidence)
+  risk_drivers <- c("trust-bearing-summary-can-detach-from-basis")
+
+  if (!safe_lgl(qualification$riskAssessmentReady, FALSE)) {
+    risk_drivers <- c(
+      risk_drivers,
+      "summary-can-overread-non-regulatory-ready-state"
+    )
+  }
+  if (!safe_lgl(qualification$withinDeclaredContext, FALSE)) {
+    risk_drivers <- c(
+      risk_drivers,
+      "summary-can-hide-context-mismatch"
+    )
+  }
+  if (!identical(
+    safe_chr(claim_boundaries$directRegulatoryDoseDerivation, "not-supported"),
+    "supported"
+  )) {
+    risk_drivers <- c(
+      risk_drivers,
+      "summary-can-hide-non-decision-boundary"
+    )
+  }
+  if (safe_num(review_status$unresolvedDissentCount, 0) > 0) {
+    risk_drivers <- c(
+      risk_drivers,
+      "summary-can-hide-open-review-interventions"
+    )
+  }
+  if (length(missing_items) > 0) {
+    risk_drivers <- c(
+      risk_drivers,
+      "summary-can-hide-known-evidence-gaps"
+    )
+  }
+
+  risk_level <- if (length(unique(risk_drivers)) >= 3) "high" else "medium"
+
+  list(
+    sectionVersion = "pbpk-summary-transport-risk.v1",
+    riskLevel = risk_level,
+    detachedSummaryUnsafe = TRUE,
+    plainLanguageSummary = paste(
+      "Do not let short summaries, screenshots, or forwarded report fragments travel without",
+      "qualification state, review status, evidence basis, claim boundaries, and anti-misread guidance."
+    ),
+    lossyViewModes = as.list(c(
+      "report-card",
+      "screenshot",
+      "chat-snippet",
+      "forwarded-bundle",
+      "thin-api-response"
+    )),
+    mustTravelWith = as.list(c(
+      "qualificationState",
+      "reviewStatus",
+      "evidenceBasis",
+      "claimBoundaries",
+      "misreadRiskSummary.plainLanguageSummary"
+    )),
+    reviewInterventionVisibilityRequired = safe_num(review_status$unresolvedDissentCount, 0) > 0 ||
+      length(normalize_text_values(review_status$openTopics %||% list())) > 0,
+    riskDrivers = as.list(unique(risk_drivers)),
+    workflow = safe_chr(assessment_context$workflowRole$workflow, "not-declared")
+  )
+}
+
+export_block_policy_from_objects <- function(ngra_objects, missing_evidence = list()) {
+  qualification <- ngra_objects$pbpkQualificationSummary %||% list()
+  claim_boundaries <- qualification$workflowClaimBoundaries %||% list()
+  review_status <- qualification$reviewStatus %||% list()
+  transport_risk <- summary_transport_risk_from_objects(
+    ngra_objects,
+    missing_evidence = missing_evidence
+  )
+  missing_items <- normalize_text_values(missing_evidence)
+  blocked_view_modes <- unique(normalize_text_values(
+    transport_risk$lossyViewModes %||% list(
+      "report-card",
+      "screenshot",
+      "chat-snippet",
+      "forwarded-bundle",
+      "thin-api-response"
+    )
+  ))
+  required_fields <- unique(normalize_text_values(c(
+    transport_risk$mustTravelWith %||% list(),
+    "summaryTransportRisk.plainLanguageSummary",
+    "misreadRiskSummary.plainLanguageSummary"
+  )))
+  block_reasons <- list()
+
+  add_reason <- function(code, applies_to, message, current_status = NULL, severity = "high") {
+    payload <- list(
+      code = safe_chr(code),
+      severity = safe_chr(severity, "high"),
+      appliesTo = as.list(unique(normalize_text_values(applies_to))),
+      message = safe_chr(message)
+    )
+    status_value <- safe_chr(current_status)
+    if (!is.null(status_value)) {
+      payload$currentStatus <- status_value
+    }
+    if (length(required_fields) > 0) {
+      payload$requiredFields <- as.list(required_fields)
+    }
+    block_reasons[[length(block_reasons) + 1]] <<- payload
+  }
+
+  add_reason(
+    "detached-summary-blocked",
+    blocked_view_modes,
+    paste(
+      "Block lossy report cards, screenshots, chat snippets, or forwarded bundles when",
+      "qualification state, review status, evidence basis, claim boundaries, and anti-misread guidance cannot travel with them."
+    ),
+    safe_chr(transport_risk$riskLevel, "high")
+  )
+  add_reason(
+    "bare-review-summary-blocked",
+    c("review-badge", "report-card", "thin-api-response"),
+    paste(
+      "Do not render the trust-bearing PBPK review summary alone.",
+      "Adjacent caveats and anti-misread guidance are required."
+    ),
+    "context-required"
+  )
+
+  direct_dose_derivation <- safe_chr(
+    claim_boundaries$directRegulatoryDoseDerivation,
+    "not-supported"
+  )
+  if (!identical(direct_dose_derivation, "supported")) {
+    add_reason(
+      "direct-regulatory-dose-derivation-blocked",
+      c("regulatory-dose-claim", "regulatory-decision-summary", "decision-recommendation"),
+      paste(
+        "Block downstream presentations that frame this PBPK output as a direct regulatory dose derivation",
+        "or final decision recommendation."
+      ),
+      direct_dose_derivation
+    )
+  }
+
+  if (!safe_lgl(qualification$riskAssessmentReady, FALSE)) {
+    add_reason(
+      "risk-assessment-ready-overclaim-blocked",
+      c("decision-card", "release-highlight", "automation-forwarding"),
+      paste(
+        "Block decision-ready or regulatory-ready framing when the current qualification remains bounded",
+        "to research or illustrative use."
+      ),
+      safe_chr(qualification$state, "research-use")
+    )
+  }
+
+  if (!safe_lgl(qualification$withinDeclaredContext, FALSE)) {
+    add_reason(
+      "outside-declared-context-overclaim-blocked",
+      c("cross-population-extrapolation-claim", "decision-card", "forwarded-bundle"),
+      "Block stronger downstream claims when the current request falls outside the declared PBPK context of use.",
+      "outside-declared-context"
+    )
+  }
+
+  if (safe_num(review_status$unresolvedDissentCount, 0) > 0) {
+    add_reason(
+      "open-review-intervention-blocked",
+      c("approval-badge", "decision-card", "public-summary"),
+      "Block approval-style rendering while reviewer dissent or open intervention topics remain unresolved.",
+      safe_chr(review_status$status, "declared-with-unresolved-dissent")
+    )
+  }
+
+  if (length(missing_items) > 0) {
+    add_reason(
+      "known-evidence-gap-overclaim-blocked",
+      c("approval-badge", "public-summary", "release-highlight"),
+      "Block stronger publication or approval framing when known evidence gaps remain declared in the report.",
+      paste(missing_items, collapse = "; ")
+    )
+  }
+
+  list(
+    policyVersion = "pbpk-export-block-policy.v1",
+    defaultAction = "block-lossy-or-decision-leaning-exports",
+    contextualizedRenderOnly = TRUE,
+    blockedViewModes = as.list(blocked_view_modes),
+    requiredFields = as.list(required_fields),
+    blockReasons = block_reasons,
+    notes = as.list(c(
+      "This policy is descriptive and machine-readable so analyst-facing clients can refuse unsafe thin views.",
+      "Operator sign-off does not remove these blocks or create regulatory decision authority."
+    ))
+  )
+}
+
+missing_evidence_caution_descriptor <- function(item) {
+  text <- tolower(safe_chr(item, ""))
+  if (!nzchar(text)) {
+    return(list(
+      cautionType = "evidence-gap",
+      severity = "high",
+      handling = "blocking",
+      scope = "evidence-basis"
+    ))
+  }
+  if (grepl("dose[ -]?metric", text)) {
+    return(list(
+      cautionType = "dose-metric-mismatch",
+      severity = "high",
+      handling = "blocking",
+      scope = "endpoint"
+    ))
+  }
+  if (grepl("ivive|in vitro", text)) {
+    return(list(
+      cautionType = "weak-ivive-linkage",
+      severity = "medium",
+      handling = "advisory",
+      scope = "evidence-basis"
+    ))
+  }
+  if (grepl("protein binding|transporter|clearance|parameter", text)) {
+    return(list(
+      cautionType = "parameter-transfer-uncertainty",
+      severity = "medium",
+      handling = "advisory",
+      scope = "model"
+    ))
+  }
+  list(
+    cautionType = "evidence-gap",
+    severity = "high",
+    handling = "blocking",
+    scope = "evidence-basis"
+  )
+}
+
+caution_summary_from_objects <- function(ngra_objects, missing_evidence = list()) {
+  assessment_context <- ngra_objects$assessmentContext %||% list()
+  qualification <- ngra_objects$pbpkQualificationSummary %||% list()
+  evidence_basis <- qualification$evidenceBasis %||% list()
+  claim_boundaries <- qualification$workflowClaimBoundaries %||% list()
+  review_status <- qualification$reviewStatus %||% list()
+  population_support <- assessment_context$populationSupport %||% list()
+  transport_risk <- summary_transport_risk_from_objects(
+    ngra_objects,
+    missing_evidence = missing_evidence
+  )
+  missing_items <- normalize_text_values(missing_evidence)
+  cautions <- list()
+
+  add_caution <- function(
+    code,
+    caution_type,
+    severity,
+    handling,
+    scope,
+    source_surface,
+    message,
+    current_status = NULL
+  ) {
+    payload <- list(
+      code = safe_chr(code),
+      cautionType = safe_chr(caution_type),
+      severity = safe_chr(severity, "medium"),
+      handling = safe_chr(handling, "advisory"),
+      scope = safe_chr(scope, "model"),
+      sourceSurface = safe_chr(source_surface),
+      message = safe_chr(message),
+      requiresHumanReview = TRUE
+    )
+    status_value <- safe_chr(current_status)
+    if (!is.null(status_value)) {
+      payload$currentStatus <- status_value
+    }
+    cautions[[length(cautions) + 1]] <<- payload
+  }
+
+  add_caution(
+    "detached-summary-overread",
+    "summary-transport-risk",
+    "high",
+    "blocking",
+    "summary-surface",
+    "summaryTransportRisk",
+    paste(
+      "Thin report cards, screenshots, or forwarded PBPK summaries can detach",
+      "trust-bearing labels from the caveats they need."
+    ),
+    safe_chr(transport_risk$riskLevel, "high")
+  )
+
+  direct_dose_derivation <- safe_chr(
+    claim_boundaries$directRegulatoryDoseDerivation,
+    "not-supported"
+  )
+  if (!identical(direct_dose_derivation, "supported")) {
+    add_caution(
+      "direct-regulatory-dose-derivation-blocked",
+      "decision-overclaim-risk",
+      "high",
+      "blocking",
+      "workflow-claim",
+      "workflowClaimBoundaries",
+      paste(
+        "Current PBPK outputs should not be presented as direct regulatory dose derivations",
+        "or final decision recommendations."
+      ),
+      direct_dose_derivation
+    )
+  }
+
+  if (!safe_lgl(qualification$riskAssessmentReady, FALSE)) {
+    add_caution(
+      "risk-assessment-ready-overclaim",
+      "decision-overclaim-risk",
+      "high",
+      "blocking",
+      "workflow-claim",
+      "qualificationState",
+      paste(
+        "Decision-ready or regulatory-ready framing should stay blocked while",
+        "the current qualification remains bounded."
+      ),
+      safe_chr(qualification$state, "research-use")
+    )
+  }
+
+  if (!safe_lgl(qualification$withinDeclaredContext, FALSE)) {
+    add_caution(
+      "outside-declared-context",
+      "context-mismatch",
+      "high",
+      "blocking",
+      "scenario",
+      "assessmentContext",
+      "The current PBPK request falls outside the declared context and should not support stronger downstream claims.",
+      "outside-declared-context"
+    )
+  }
+
+  if (safe_num(review_status$unresolvedDissentCount, 0) > 0) {
+    add_caution(
+      "reviewer-dissent-open",
+      "review-dissent",
+      "high",
+      "blocking",
+      "review",
+      "reviewStatus",
+      paste(
+        "Explicit reviewer dissent remains unresolved and should stay visible before",
+        "stronger qualification-facing claims are made."
+      ),
+      safe_chr(review_status$status, "declared-with-unresolved-dissent")
+    )
+  }
+
+  ivive_status <- safe_chr(evidence_basis$iviveLinkageStatus, "not-declared")
+  if (identical(ivive_status, "not-declared") ||
+      identical(ivive_status, "external-or-not-declared")) {
+    add_caution(
+      "ivive-linkage-limited",
+      "weak-ivive-linkage",
+      "medium",
+      "advisory",
+      "evidence-basis",
+      "evidenceBasis",
+      paste(
+        "IVIVE linkage remains weak or undeclared, so reverse-dosimetry or",
+        "exposure-led interpretations need extra review."
+      ),
+      ivive_status
+    )
+  }
+
+  parameter_basis <- safe_chr(evidence_basis$parameterizationBasis, "not-declared")
+  if (!is.null(parameter_basis) &&
+      grepl("literature|transfer|default", parameter_basis, ignore.case = TRUE)) {
+    add_caution(
+      "parameter-transfer-uncertainty",
+      "parameter-transfer-uncertainty",
+      "medium",
+      "advisory",
+      "model",
+      "evidenceBasis",
+      paste(
+        "Parameterization depends on transferred, literature-derived, or default assumptions,",
+        "so parameter-transfer uncertainty should be reviewed before stronger claims."
+      ),
+      parameter_basis
+    )
+  }
+
+  variability_status <- safe_chr(
+    evidence_basis$populationVariabilityStatus,
+    safe_chr(population_support$variabilityRepresentation, "not-declared")
+  )
+  if (identical(variability_status, "not-declared") ||
+      identical(variability_status, "declared-without-structured-variability")) {
+    add_caution(
+      "population-variability-limited",
+      "population-variability",
+      "medium",
+      "advisory",
+      "population",
+      "populationSupport",
+      paste(
+        "Population variability support remains limited or weakly structured, so extrapolation",
+        "beyond the declared population context needs extra review."
+      ),
+      variability_status
+    )
+  }
+
+  if (length(missing_items) > 0) {
+    for (index in seq_along(missing_items)) {
+      item <- missing_items[[index]]
+      descriptor <- missing_evidence_caution_descriptor(item)
+      code <- sprintf(
+        "%s-%02d",
+        gsub("[^a-z0-9]+", "-", safe_chr(descriptor$cautionType, "evidence-gap")),
+        index
+      )
+      add_caution(
+        code,
+        descriptor$cautionType,
+        descriptor$severity,
+        descriptor$handling,
+        descriptor$scope,
+        "missingEvidence",
+        safe_chr(item),
+        safe_chr(item)
+      )
+    }
+  }
+
+  severity_levels <- c("low", "medium", "high")
+  severities <- vapply(
+    cautions %||% list(),
+    function(entry) safe_chr(entry$severity, "medium"),
+    character(1)
+  )
+  severity_index <- match(severities, severity_levels, nomatch = 2L)
+  highest_severity <- if (length(severities) == 0) {
+    "medium"
+  } else {
+    severity_levels[[max(severity_index)]]
+  }
+  handlings <- vapply(
+    cautions %||% list(),
+    function(entry) safe_chr(entry$handling, "advisory"),
+    character(1)
+  )
+
+  list(
+    summaryVersion = "pbpk-caution-summary.v1",
+    highestSeverity = highest_severity,
+    blockingCount = as.integer(sum(handlings == "blocking")),
+    advisoryCount = as.integer(sum(handlings == "advisory")),
+    requiresHumanReview = TRUE,
+    blockingRecommended = any(handlings == "blocking"),
+    cautions = cautions
+  )
+}
+
+human_review_rendering_guardrails_from_objects <- function(ngra_objects, missing_evidence = list()) {
+  export_block_policy <- export_block_policy_from_objects(
+    ngra_objects,
+    missing_evidence = missing_evidence
+  )
+  qualification <- ngra_objects$pbpkQualificationSummary %||% list()
+  review_status <- qualification$reviewStatus %||% list()
+  severity <- if (
+    !safe_lgl(qualification$riskAssessmentReady, FALSE) ||
+    safe_num(review_status$unresolvedDissentCount, 0) > 0 ||
+    length(normalize_text_values(missing_evidence)) > 0
+  ) {
+    "warning"
+  } else {
+    "info"
+  }
+
+  list(
+    guardVersion = "pbpk-human-review-rendering-guardrails.v1",
+    allowBareSummary = FALSE,
+    severity = severity,
+    inlineWarning = paste(
+      "Do not render the trust-bearing report summary without adjacent anti-misread guidance,",
+      "transport-risk context, and review-status visibility."
+    ),
+    actionIfRequiredFieldsMissing = "refuse-rendering",
+    refusalMessage = "Refuse lossy analyst-facing rendering when the required caveat fields cannot be shown inline.",
+    requiredFields = export_block_policy$requiredFields %||% list(),
+    blockedViewModes = export_block_policy$blockedViewModes %||% list(),
+    blockReasonCodes = as.list(Filter(
+      nzchar,
+      vapply(
+        export_block_policy$blockReasons %||% list(),
+        function(entry) safe_chr(entry$code, ""),
+        character(1)
+      )
+    )),
+    requiredAdjacentBlocks = as.list(c(
+      "plainLanguageSummary",
+      "summaryTransportRisk.plainLanguageSummary",
+      "misreadRiskSummary.plainLanguageSummary",
+      "reviewStatus.status"
+    )),
+    notes = as.list(c(
+      "Future analyst-facing clients should treat these guardrails as refusal rules, not only presentation hints.",
+      "Operator sign-off should be shown as additive review traceability, not as a replacement for the boundary statements."
+    ))
+  )
+}
+
+human_review_summary_from_objects <- function(ngra_objects, missing_evidence = list()) {
+  assessment_context <- ngra_objects$assessmentContext %||% list()
+  qualification <- ngra_objects$pbpkQualificationSummary %||% list()
+  internal_exposure <- ngra_objects$internalExposureEstimate %||% list()
+  uncertainty_handoff <- ngra_objects$uncertaintyHandoff %||% list()
+  ber_bundle <- ngra_objects$berInputBundle %||% list()
+  export_block_policy <- export_block_policy_from_objects(
+    ngra_objects,
+    missing_evidence = missing_evidence
+  )
+
+  list(
+    summaryVersion = "pbpk-human-review-summary.v1",
+    humanReviewRequired = TRUE,
+    intendedWorkflow = list(
+      workflow = safe_chr(assessment_context$workflowRole$workflow),
+      role = safe_chr(assessment_context$workflowRole$role),
+      regulatoryUse = safe_chr(assessment_context$contextOfUse$regulatoryUse$effective),
+      scientificPurpose = safe_chr(assessment_context$contextOfUse$scientificPurpose$effective),
+      decisionContext = safe_chr(assessment_context$contextOfUse$decisionContext$effective)
+    ),
+    evidenceBasis = qualification$evidenceBasis %||% list(),
+    populationSupport = assessment_context$populationSupport %||% list(),
+    claimBoundaries = qualification$workflowClaimBoundaries %||% list(),
+    reviewStatus = qualification$reviewStatus %||% list(),
+    cautionSummary = qualification$cautionSummary %||% caution_summary_from_objects(
+      ngra_objects,
+      missing_evidence = missing_evidence
+    ),
+    summaryTransportRisk = summary_transport_risk_from_objects(
+      ngra_objects,
+      missing_evidence = missing_evidence
+    ),
+    exportBlockPolicy = export_block_policy,
+    renderingGuardrails = human_review_rendering_guardrails_from_objects(
+      ngra_objects,
+      missing_evidence = missing_evidence
+    ),
+    readiness = list(
+      qualificationState = safe_chr(qualification$state),
+      withinDeclaredContext = safe_lgl(qualification$withinDeclaredContext, FALSE),
+      executableVerificationStatus = safe_chr(qualification$executableVerificationStatus),
+      internalExposureStatus = safe_chr(internal_exposure$status),
+      uncertaintyHandoffStatus = safe_chr(uncertainty_handoff$status),
+      berBundleStatus = safe_chr(ber_bundle$status)
+    ),
+    keyLimitations = as.list(unique(normalize_text_values(qualification$limitations))),
+    reviewFocus = human_review_focus_from_objects(
+      ngra_objects,
+      missing_evidence = missing_evidence
+    ),
+    plainLanguageSummary = human_review_plain_language_summary(ngra_objects)
+  )
+}
+
+misread_risk_summary_from_objects <- function(ngra_objects, missing_evidence = list()) {
+  assessment_context <- ngra_objects$assessmentContext %||% list()
+  qualification <- ngra_objects$pbpkQualificationSummary %||% list()
+  evidence_basis <- qualification$evidenceBasis %||% list()
+  claim_boundaries <- qualification$workflowClaimBoundaries %||% list()
+  population_support <- assessment_context$populationSupport %||% list()
+  review_status <- qualification$reviewStatus %||% list()
+
+  qualification_label <- safe_chr(qualification$label) %||%
+    safe_chr(qualification$state, "unreported")
+  in_vivo_status <- safe_chr(evidence_basis$inVivoSupportStatus, "not-declared")
+  ivive_status <- safe_chr(evidence_basis$iviveLinkageStatus, "not-declared")
+  variability_status <- safe_chr(
+    evidence_basis$populationVariabilityStatus,
+    safe_chr(population_support$variabilityRepresentation, "not-declared")
+  )
+  extrapolation_policy <- safe_chr(
+    population_support$extrapolationPolicy,
+    "outside-declared-population-context-requires-human-review"
+  )
+  direct_dose_derivation <- safe_chr(
+    claim_boundaries$directRegulatoryDoseDerivation,
+    "not-supported"
+  )
+  transport_risk <- summary_transport_risk_from_objects(
+    ngra_objects,
+    missing_evidence = missing_evidence
+  )
+
+  missing_items <- normalize_text_values(missing_evidence)
+  statements <- list()
+  add_statement <- function(code, message, current_status = NULL) {
+    payload <- list(
+      code = safe_chr(code),
+      message = safe_chr(message)
+    )
+    status_value <- safe_chr(current_status)
+    if (!is.null(status_value)) {
+      payload$currentStatus <- status_value
+    }
+    statements[[length(statements) + 1]] <<- payload
+  }
+
+  add_statement(
+    "regulatory-dose-overclaim",
+    paste(
+      "Do not treat this report as a direct regulatory dose derivation,",
+      "safe dose recommendation, or regulatory decision."
+    ),
+    direct_dose_derivation
+  )
+  add_statement(
+    "workflow-readiness-is-not-broad-qualification",
+    sprintf(
+      paste(
+        "A structured OECD-style export and qualification label '%s' do not,",
+        "by themselves, prove the model is decision-ready outside its declared context."
+      ),
+      qualification_label
+    ),
+    qualification_label
+  )
+  add_statement(
+    "external-workflow-still-required",
+    paste(
+      "PBPK MCP supplies PBPK-side execution, qualification, and handoff objects,",
+      "but exposure assessment, hazard interpretation, and final NGRA decision policy remain external."
+    ),
+    safe_chr(assessment_context$workflowRole$workflow, "not-declared")
+  )
+  add_statement(
+    "evidence-basis-overclaim",
+    paste(
+      "Do not read the current evidence-basis declaration as equivalent to broad external validation.",
+      "Check in vivo support, IVIVE linkage, and parameterization basis directly."
+    ),
+    sprintf("inVivo=%s; ivive=%s", in_vivo_status, ivive_status)
+  )
+  add_statement(
+    "population-extrapolation-overclaim",
+    paste(
+      "Do not extrapolate beyond the declared supported population or variability assumptions",
+      "without explicit human review."
+    ),
+    sprintf("variability=%s; policy=%s", variability_status, extrapolation_policy)
+  )
+  add_statement(
+    "detached-summary-overread",
+    paste(
+      "Short report cards, screenshots, or forwarded fragments can make the PBPK summary",
+      "look stronger than its boundaries, evidence basis, and reviewer context."
+    ),
+    safe_chr(transport_risk$riskLevel, "high")
+  )
+  if (safe_num(review_status$unresolvedDissentCount, 0) > 0) {
+    add_statement(
+      "reviewer-dissent-still-open",
+      paste(
+        "Do not treat reviewer-facing qualification labels as settled when explicit reviewer",
+        "dissent or change requests remain unresolved."
+      ),
+      safe_chr(review_status$status, "declared-with-unresolved-dissent")
+    )
+  }
+  if (length(missing_items) > 0) {
+    add_statement(
+      "known-evidence-gaps",
+      "Known missing evidence remains declared in this report and should be resolved or explicitly accepted before stronger reuse.",
+      paste(missing_items, collapse = "; ")
+    )
+  }
+
+  reviewer_checks <- c(
+    "Check the declared context of use, intended workflow role, and claim boundaries before reusing any numeric output.",
+    "Check whether the evidence basis and IVIVE linkage are strong enough for the real downstream question.",
+    "Check whether the supported population and variability assumptions match the population you intend to discuss.",
+    "If this output is forwarded or excerpted, keep the summary-transport risk guidance and reviewer-status context attached.",
+    human_review_focus_from_objects(
+      ngra_objects,
+      missing_evidence = missing_evidence
+    )
+  )
+
+  list(
+    sectionVersion = "pbpk-misread-risk-summary.v1",
+    sectionTitle = "How this output could be misread",
+    requiredReading = TRUE,
+    plainLanguageSummary = paste(
+      "Successful PBPK execution and structured OECD-style export do not mean",
+      "direct regulatory dose derivation, complete IVIVE support, broad population validity,",
+      "or resolved evidence gaps. Read the boundary statements before reuse."
+    ),
+    riskStatements = statements,
+    requiredReviewerChecks = as.list(unique(normalize_text_values(reviewer_checks)))
+  )
 }
 
 verification_check <- function(id, label, status, summary = NULL, ...) {
@@ -7268,6 +8669,14 @@ build_oecd_report <- function(
     executable_verification = executable_verification,
     parameter_table = parameter_table
   )
+  human_review_summary <- human_review_summary_from_objects(
+    ngra_objects,
+    missing_evidence = missing_evidence
+  )
+  misread_risk_summary <- misread_risk_summary_from_objects(
+    ngra_objects,
+    missing_evidence = missing_evidence
+  )
 
   list(
     reportVersion = "pbpk-oecd-report.v1",
@@ -7290,6 +8699,17 @@ build_oecd_report <- function(
     oecdChecklistScore = checklist_score,
     oecdCoverage = oecd_coverage,
     missingEvidence = missing_evidence,
+    humanReviewSummary = human_review_summary,
+    cautionSummary = human_review_summary$cautionSummary %||% caution_summary_from_objects(
+      ngra_objects,
+      missing_evidence = missing_evidence
+    ),
+    exportBlockPolicy = human_review_summary$exportBlockPolicy %||%
+      export_block_policy_from_objects(
+        ngra_objects,
+        missing_evidence = missing_evidence
+      ),
+    misreadRiskSummary = misread_risk_summary,
     performanceEvidence = performance_evidence,
     uncertaintyEvidence = uncertainty_evidence,
     verificationEvidence = verification_evidence,

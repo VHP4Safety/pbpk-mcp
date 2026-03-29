@@ -1,0 +1,14 @@
+{
+  "properties": {
+    "filePath": {
+      "minLength": 1,
+      "title": "Filepath",
+      "type": "string"
+    }
+  },
+  "required": [
+    "filePath"
+  ],
+  "title": "ValidateModelManifestRequest",
+  "type": "object"
+}

@@ -15,7 +15,8 @@ from mcp_bridge.adapter.interface import OspsuiteAdapter
 from ..session_registry import SessionRegistry, SessionRegistryError, registry
 
 SUPPORTED_EXTENSIONS = {".pkml", ".r"}
-MODEL_PATH_ENV = "MCP_MODEL_SEARCH_PATHS"
+MODEL_PATH_ENV = "ADAPTER_MODEL_PATHS"
+MODEL_PATH_ENV_ALIASES = ("ADAPTER_MODEL_PATHS", "MCP_MODEL_SEARCH_PATHS")
 TOOL_NAME = "load_simulation"
 CONTRACT_VERSION = "pbpk-mcp.v1"
 DEFAULT_ALLOWED_ROOTS = [
@@ -130,7 +131,7 @@ class LoadSimulationResponse(BaseModel):
 
 
 def _resolve_allowed_roots() -> list[Path]:
-    raw = os.getenv(MODEL_PATH_ENV)
+    raw = next((os.getenv(name) for name in MODEL_PATH_ENV_ALIASES if os.getenv(name)), None)
     if not raw:
         return [root for root in DEFAULT_ALLOWED_ROOTS if root.exists()]
 

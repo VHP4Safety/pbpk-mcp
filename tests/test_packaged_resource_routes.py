@@ -15,6 +15,7 @@ if str(SRC_ROOT) not in sys.path:
 
 try:  # pragma: no cover - exercised in the full contract env
     from mcp_bridge.contract import contract_manifest_document  # noqa: E402
+    from mcp_bridge.contract import release_bundle_manifest_document  # noqa: E402
     from mcp_bridge.routes.resources import router  # noqa: E402
     from mcp_bridge.routes import resources_base  # noqa: E402
 except ModuleNotFoundError as exc:  # pragma: no cover - local lightweight envs
@@ -23,6 +24,7 @@ except ModuleNotFoundError as exc:  # pragma: no cover - local lightweight envs
         raise
     router = None
     contract_manifest_document = None
+    release_bundle_manifest_document = None
     resources_base = None
 
 
@@ -38,6 +40,7 @@ class PackagedResourceRouteTests(unittest.TestCase):
             "/mcp/resources/schemas/{schema_id}",
             "/mcp/resources/capability-matrix",
             "/mcp/resources/contract-manifest",
+            "/mcp/resources/release-bundle-manifest",
         }
         self.assertTrue(expected.issubset(paths))
 
@@ -56,6 +59,28 @@ class PackagedResourceRouteTests(unittest.TestCase):
                 resources_base.CONTRACT_MANIFEST_PATH = original_path
 
         packaged_manifest = contract_manifest_document()
+        packaged_sha256 = hashlib.sha256(
+            (json.dumps(packaged_manifest, indent=2, sort_keys=True) + "\n").encode("utf-8")
+        ).hexdigest()
+        self.assertEqual(manifest, packaged_manifest)
+        self.assertEqual(manifest_sha256, packaged_sha256)
+        self.assertEqual(last_modified, 0.0)
+
+    @unittest.skipIf(resources_base is None, "fastapi is required for packaged route import checks")
+    def test_packaged_release_bundle_manifest_is_authoritative_over_runtime_patch_copy(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="pbpk_release_bundle_precedence_") as temp_dir:
+            fake_manifest_path = Path(temp_dir) / "release_bundle_manifest.json"
+            fake_manifest = {"contractVersion": "stale-runtime-copy", "fileCount": 0}
+            fake_manifest_path.write_text(json.dumps(fake_manifest), encoding="utf-8")
+
+            original_path = resources_base.RELEASE_BUNDLE_MANIFEST_PATH
+            try:
+                resources_base.RELEASE_BUNDLE_MANIFEST_PATH = fake_manifest_path
+                manifest, manifest_sha256, last_modified = resources_base._release_bundle_manifest_document()
+            finally:
+                resources_base.RELEASE_BUNDLE_MANIFEST_PATH = original_path
+
+        packaged_manifest = release_bundle_manifest_document()
         packaged_sha256 = hashlib.sha256(
             (json.dumps(packaged_manifest, indent=2, sort_keys=True) + "\n").encode("utf-8")
         ).hexdigest()

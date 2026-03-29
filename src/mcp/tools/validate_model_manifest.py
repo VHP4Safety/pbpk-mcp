@@ -31,6 +31,7 @@ class ValidateModelManifestResponse(BaseModel):
     backend: str
     runtime_format: str = Field(alias="runtimeFormat")
     manifest: dict[str, Any] = Field(default_factory=dict)
+    curation_summary: dict[str, Any] = Field(default_factory=dict, alias="curationSummary")
 
     @classmethod
     def from_manifest(cls, payload: Mapping[str, Any]) -> "ValidateModelManifestResponse":
@@ -41,6 +42,7 @@ class ValidateModelManifestResponse(BaseModel):
             backend=str(payload.get("backend")),
             runtimeFormat=str(payload.get("runtimeFormat")),
             manifest=dict(payload.get("manifest") or {}),
+            curationSummary=dict(payload.get("curationSummary") or {}),
         )
 
 

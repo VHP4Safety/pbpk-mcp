@@ -1,0 +1,310 @@
+{
+  "fetchedSourceCount": 5,
+  "formatVersion": 1,
+  "generatedAt": "2026-03-29T20:52:19Z",
+  "goldsetRoot": "benchmarks/regulatory_goldset",
+  "includeLarge": true,
+  "sourceManifestPath": "benchmarks/regulatory_goldset/sources.lock.json",
+  "sources": [
+    {
+      "artifacts": [
+        {
+          "archiveEntryCount": null,
+          "bytes": 1041517630,
+          "candidateFileCount": 30,
+          "candidateFilesSample": [
+            "benchmarks/regulatory_goldset/extracted/tce_tsca_package/tce_package_zip/TCE.1.2.3.3/ATSDR-comparison/TCE.risk6.1.2.3.3.pop.model",
+            "benchmarks/regulatory_goldset/extracted/tce_tsca_package/tce_package_zip/TCE.1.2.3.3/Human.seqpriors.v1/Human.seqpriors.v1.addldata.datalabs.txt",
+            "benchmarks/regulatory_goldset/extracted/tce_tsca_package/tce_package_zip/TCE.1.2.3.3/Human.seqpriors.v1/Human.seqpriors.v1.check.addldata.23.pdf",
+            "benchmarks/regulatory_goldset/extracted/tce_tsca_package/tce_package_zip/TCE.1.2.3.3/Human.seqpriors.v1/Human.seqpriors.v1.check.x.23b.pdf",
+            "benchmarks/regulatory_goldset/extracted/tce_tsca_package/tce_package_zip/TCE.1.2.3.3/Human.seqpriors.v1/Human.seqpriors.v1.checkone.9.pdf",
+            "benchmarks/regulatory_goldset/extracted/tce_tsca_package/tce_package_zip/TCE.1.2.3.3/Human.seqpriors.v1/Human.seqpriors.v1.checkone.two.23b.pdf",
+            "benchmarks/regulatory_goldset/extracted/tce_tsca_package/tce_package_zip/TCE.1.2.3.3/Human.seqpriors.v1/Human.seqpriors.v1.datalabs.txt",
+            "benchmarks/regulatory_goldset/extracted/tce_tsca_package/tce_package_zip/TCE.1.2.3.3/Human.seqpriors.v1/PopPred/Human.seqpriors.v1.posteriors.x.23.pdf",
+            "benchmarks/regulatory_goldset/extracted/tce_tsca_package/tce_package_zip/TCE.1.2.3.3/ModelResults.R",
+            "benchmarks/regulatory_goldset/extracted/tce_tsca_package/tce_package_zip/TCE.1.2.3.3/Mouse/Mouse.addldata.Kim.datalabs.txt",
+            "benchmarks/regulatory_goldset/extracted/tce_tsca_package/tce_package_zip/TCE.1.2.3.3/Mouse/Mouse.check.addldata.Kim-rev.5.pdf",
+            "benchmarks/regulatory_goldset/extracted/tce_tsca_package/tce_package_zip/TCE.1.2.3.3/Mouse/Mouse.check.x.5.pdf",
+            "benchmarks/regulatory_goldset/extracted/tce_tsca_package/tce_package_zip/TCE.1.2.3.3/Mouse/Mouse.checkone.5.pdf",
+            "benchmarks/regulatory_goldset/extracted/tce_tsca_package/tce_package_zip/TCE.1.2.3.3/Mouse/Mouse.checkone.two.5.pdf",
+            "benchmarks/regulatory_goldset/extracted/tce_tsca_package/tce_package_zip/TCE.1.2.3.3/Mouse/Mouse.datalabs.txt",
+            "benchmarks/regulatory_goldset/extracted/tce_tsca_package/tce_package_zip/TCE.1.2.3.3/Mouse/PopPred/Mouse.posteriors.x.5.pdf",
+            "benchmarks/regulatory_goldset/extracted/tce_tsca_package/tce_package_zip/TCE.1.2.3.3/OutputVar-labels-plot.csv",
+            "benchmarks/regulatory_goldset/extracted/tce_tsca_package/tce_package_zip/TCE.1.2.3.3/README.docx",
+            "benchmarks/regulatory_goldset/extracted/tce_tsca_package/tce_package_zip/TCE.1.2.3.3/Rat.seqpriors.test4/PopPred/Rat.seqpriors.test4.posteriors.x.10.pdf",
+            "benchmarks/regulatory_goldset/extracted/tce_tsca_package/tce_package_zip/TCE.1.2.3.3/Rat.seqpriors.test4/Rat.seqpriors.test4.addldata.Liu.datalabs.txt",
+            "benchmarks/regulatory_goldset/extracted/tce_tsca_package/tce_package_zip/TCE.1.2.3.3/Rat.seqpriors.test4/Rat.seqpriors.test4.addldata.datalabs.txt",
+            "benchmarks/regulatory_goldset/extracted/tce_tsca_package/tce_package_zip/TCE.1.2.3.3/Rat.seqpriors.test4/Rat.seqpriors.test4.check.addldata.10.pdf",
+            "benchmarks/regulatory_goldset/extracted/tce_tsca_package/tce_package_zip/TCE.1.2.3.3/Rat.seqpriors.test4/Rat.seqpriors.test4.check.addldata.Liu.10.pdf",
+            "benchmarks/regulatory_goldset/extracted/tce_tsca_package/tce_package_zip/TCE.1.2.3.3/Rat.seqpriors.test4/Rat.seqpriors.test4.check.x.10.pdf",
+            "benchmarks/regulatory_goldset/extracted/tce_tsca_package/tce_package_zip/TCE.1.2.3.3/Rat.seqpriors.test4/Rat.seqpriors.test4.checkone.10.pdf",
+            "benchmarks/regulatory_goldset/extracted/tce_tsca_package/tce_package_zip/TCE.1.2.3.3/Rat.seqpriors.test4/Rat.seqpriors.test4.checkone.two.10.pdf",
+            "benchmarks/regulatory_goldset/extracted/tce_tsca_package/tce_package_zip/TCE.1.2.3.3/Rat.seqpriors.test4/Rat.seqpriors.test4.datalabs.txt",
+            "benchmarks/regulatory_goldset/extracted/tce_tsca_package/tce_package_zip/TCE.1.2.3.3/TCE.evaluation.1.2.3.3.pop.model",
+            "benchmarks/regulatory_goldset/extracted/tce_tsca_package/tce_package_zip/TCE.1.2.3.3/TCE.risk5.1.2.3.3.pop.model",
+            "benchmarks/regulatory_goldset/extracted/tce_tsca_package/tce_package_zip/TCE.1.2.3.3/funcdefs.R"
+          ],
+          "contentType": null,
+          "downloadPath": "benchmarks/regulatory_goldset/downloads/tce_tsca_package/29._tce_supplemental_information_file_pbpk_model_and_readme_zipped.zip",
+          "extractPath": "benchmarks/regulatory_goldset/extracted/tce_tsca_package/tce_package_zip",
+          "extractedFileCount": 142,
+          "id": "tce_package_zip",
+          "label": "TCE TSCA PBPK package zip",
+          "sha256": "0d8f489eae25a9a6750015ce588b6afee9e85e79f28a2e784bd4265127bc9621",
+          "url": "https://www.epa.gov/sites/default/files/2020-11/29._tce_supplemental_information_file_pbpk_model_and_readme_zipped.zip",
+          "usedCachedDownload": true,
+          "usedCachedExtraction": true
+        }
+      ],
+      "benchmarkRole": "strict-core",
+      "coverageModels": [
+        "trichloroethylene"
+      ],
+      "id": "tce_tsca_package",
+      "notes": [
+        "Large public regulatory PBPK package used as the primary completeness benchmark.",
+        "Archive is large enough that it should stay out of the tracked git tree."
+      ],
+      "result": "fetched",
+      "status": "retrievable",
+      "title": "EPA TSCA trichloroethylene PBPK package"
+    },
+    {
+      "artifacts": [
+        {
+          "archiveEntryCount": null,
+          "bytes": 6432225,
+          "candidateFileCount": 139,
+          "candidateFilesSample": [
+            "benchmarks/regulatory_goldset/extracted/epa_voc_template/voc_template_zip/Code_revised/CF_Corley_scripts.R",
+            "benchmarks/regulatory_goldset/extracted/epa_voc_template/voc_template_zip/Code_revised/CF_Take_scripts.R",
+            "benchmarks/regulatory_goldset/extracted/epa_voc_template/voc_template_zip/Code_revised/DCM_IRIS_scripts.R",
+            "benchmarks/regulatory_goldset/extracted/epa_voc_template/voc_template_zip/Code_revised/Data/Data_CF/Take_acslx_output.xlsx",
+            "benchmarks/regulatory_goldset/extracted/epa_voc_template/voc_template_zip/Code_revised/Data/Data_CF/Take_dedicated_model_output.xlsx",
+            "benchmarks/regulatory_goldset/extracted/epa_voc_template/voc_template_zip/Code_revised/Data/Data_CF/corley_1990_chamber_exp.xlsx",
+            "benchmarks/regulatory_goldset/extracted/epa_voc_template/voc_template_zip/Code_revised/Data/Data_CF/corley_current params compare.xlsx",
+            "benchmarks/regulatory_goldset/extracted/epa_voc_template/voc_template_zip/Code_revised/Data/Data_CF/mouse_closed_chamber.xlsx",
+            "benchmarks/regulatory_goldset/extracted/epa_voc_template/voc_template_zip/Code_revised/Data/Data_CF/rat_closed_chamber.xlsx",
+            "benchmarks/regulatory_goldset/extracted/epa_voc_template/voc_template_zip/Code_revised/Data/Data_CF/take_data.xlsx",
+            "benchmarks/regulatory_goldset/extracted/epa_voc_template/voc_template_zip/Code_revised/Data/Data_DCM/gargas-inh-data2_NEW.csv",
+            "benchmarks/regulatory_goldset/extracted/epa_voc_template/voc_template_zip/Code_revised/Data/Data_Methanol/FigB4A.csv",
+            "benchmarks/regulatory_goldset/extracted/epa_voc_template/voc_template_zip/Code_revised/Data/Data_Methanol/FigB4A_0.25.csv",
+            "benchmarks/regulatory_goldset/extracted/epa_voc_template/voc_template_zip/Code_revised/Data/Data_Methanol/FigB4A_0.3.csv",
+            "benchmarks/regulatory_goldset/extracted/epa_voc_template/voc_template_zip/Code_revised/Data/Data_Methanol/FigB4B.csv",
+            "benchmarks/regulatory_goldset/extracted/epa_voc_template/voc_template_zip/Code_revised/Data/Data_Methanol/FigB4B_0.3.csv",
+            "benchmarks/regulatory_goldset/extracted/epa_voc_template/voc_template_zip/Code_revised/Data/Data_Methanol/FigB5A.csv",
+            "benchmarks/regulatory_goldset/extracted/epa_voc_template/voc_template_zip/Code_revised/Data/Data_Methanol/FigB5B.csv",
+            "benchmarks/regulatory_goldset/extracted/epa_voc_template/voc_template_zip/Code_revised/Data/Data_Methanol/FigB7.csv",
+            "benchmarks/regulatory_goldset/extracted/epa_voc_template/voc_template_zip/Code_revised/Data/Data_Methanol/FigB8conc.csv",
+            "benchmarks/regulatory_goldset/extracted/epa_voc_template/voc_template_zip/Code_revised/Data/Data_Methanol/FigB8tot.csv",
+            "benchmarks/regulatory_goldset/extracted/epa_voc_template/voc_template_zip/Code_revised/Data/Data_Methanol/Fig_B11_sim.csv",
+            "benchmarks/regulatory_goldset/extracted/epa_voc_template/voc_template_zip/Code_revised/Data/Data_Methanol/Fig_B13_sim.csv",
+            "benchmarks/regulatory_goldset/extracted/epa_voc_template/voc_template_zip/Code_revised/Data/Data_Methanol/Haffner_92_Fig1.csv",
+            "benchmarks/regulatory_goldset/extracted/epa_voc_template/voc_template_zip/Code_revised/Data/Data_Methanol/IRIS_FigB3_r100.csv",
+            "benchmarks/regulatory_goldset/extracted/epa_voc_template/voc_template_zip/Code_revised/Data/Data_Methanol/IRIS_FigB3_r2500.csv",
+            "benchmarks/regulatory_goldset/extracted/epa_voc_template/voc_template_zip/Code_revised/Data/Data_Methanol/IRIS_FigB3_r500.csv",
+            "benchmarks/regulatory_goldset/extracted/epa_voc_template/voc_template_zip/Code_revised/Data/Data_Methanol/Pollack_500mg_iv.csv",
+            "benchmarks/regulatory_goldset/extracted/epa_voc_template/voc_template_zip/Code_revised/Data/Data_Methanol/RatInh_10k.csv",
+            "benchmarks/regulatory_goldset/extracted/epa_voc_template/voc_template_zip/Code_revised/Data/Data_Methanol/RatInh_15k.csv",
+            "benchmarks/regulatory_goldset/extracted/epa_voc_template/voc_template_zip/Code_revised/Data/Data_Methanol/RatInh_1k.csv",
+            "benchmarks/regulatory_goldset/extracted/epa_voc_template/voc_template_zip/Code_revised/Data/Data_Methanol/RatInh_20k.csv",
+            "benchmarks/regulatory_goldset/extracted/epa_voc_template/voc_template_zip/Code_revised/Data/Data_Methanol/RatInh_5k.csv",
+            "benchmarks/regulatory_goldset/extracted/epa_voc_template/voc_template_zip/Code_revised/Data/Data_Methanol/Schmutte_88_Fig1.csv",
+            "benchmarks/regulatory_goldset/extracted/epa_voc_template/voc_template_zip/Code_revised/Data/Data_Methanol/Sedv157.csv",
+            "benchmarks/regulatory_goldset/extracted/epa_voc_template/voc_template_zip/Code_revised/Data/Data_Methanol/Sedv231.csv",
+            "benchmarks/regulatory_goldset/extracted/epa_voc_template/voc_template_zip/Code_revised/Data/Data_Methanol/Sedv78.csv",
+            "benchmarks/regulatory_goldset/extracted/epa_voc_template/voc_template_zip/Code_revised/Data/Data_Methanol/rat_Ward_iv_1.csv",
+            "benchmarks/regulatory_goldset/extracted/epa_voc_template/voc_template_zip/Code_revised/Data/Data_Methanol/rat_Ward_iv_25.csv",
+            "benchmarks/regulatory_goldset/extracted/epa_voc_template/voc_template_zip/Code_revised/Data/Data_Methanol/ratoral1.csv"
+          ],
+          "contentType": null,
+          "downloadPath": "benchmarks/regulatory_goldset/downloads/epa_voc_template/PBPK_Model_Template_VOC_Extension_Code_revised.zip",
+          "extractPath": "benchmarks/regulatory_goldset/extracted/epa_voc_template/voc_template_zip",
+          "extractedFileCount": 154,
+          "id": "voc_template_zip",
+          "label": "VOC template code zip",
+          "sha256": "fec17b9c7eca9cb4c89635f841527ca145a46cc0a2534ed33f9111f07ececce5",
+          "url": "https://pasteur.epa.gov/uploads/10.23719/1527967/PBPK_Model_Template_VOC_Extension_Code_revised.zip",
+          "usedCachedDownload": true,
+          "usedCachedExtraction": true
+        },
+        {
+          "bytes": 124367,
+          "contentType": null,
+          "downloadPath": "benchmarks/regulatory_goldset/downloads/epa_voc_template/PBPK_Model_Template_VOC_Extension_Instructions.pdf",
+          "id": "voc_template_instructions",
+          "label": "VOC template run guide",
+          "sha256": "d964e85b19671ffaeed0df94f01f084c9ef50965a10304a87a1c6033afb8b088",
+          "url": "https://pasteur.epa.gov/uploads/10.23719/1527967/PBPK_Model_Template_VOC_Extension_Instructions.pdf",
+          "usedCachedDownload": true
+        }
+      ],
+      "benchmarkRole": "strict-core",
+      "coverageModels": [
+        "dichloromethane",
+        "vinyl chloride",
+        "carbon tetrachloride",
+        "methanol"
+      ],
+      "id": "epa_voc_template",
+      "notes": [
+        "Primary public-code package for the solvent/VOC reproducibility benchmark stack.",
+        "Covers the strict core models other than TCE."
+      ],
+      "result": "fetched",
+      "status": "retrievable",
+      "title": "EPA VOC PBPK template package"
+    },
+    {
+      "artifacts": [
+        {
+          "archiveEntryCount": null,
+          "bytes": 1353769,
+          "candidateFileCount": 72,
+          "candidateFilesSample": [
+            "benchmarks/regulatory_goldset/extracted/epa_pfas_template/pfas_template_zip/Bernstein_PFAS_pbpk_template_code/Data/Digitized_Data_PFDA/Fig8a.csv",
+            "benchmarks/regulatory_goldset/extracted/epa_pfas_template/pfas_template_zip/Bernstein_PFAS_pbpk_template_code/Data/Digitized_Data_PFDA/Fig8a.xlsx",
+            "benchmarks/regulatory_goldset/extracted/epa_pfas_template/pfas_template_zip/Bernstein_PFAS_pbpk_template_code/Data/Digitized_Data_PFDA/Fig8b.csv",
+            "benchmarks/regulatory_goldset/extracted/epa_pfas_template/pfas_template_zip/Bernstein_PFAS_pbpk_template_code/Data/Digitized_Data_PFDA/Fig8b.xlsx",
+            "benchmarks/regulatory_goldset/extracted/epa_pfas_template/pfas_template_zip/Bernstein_PFAS_pbpk_template_code/Data/Digitized_Data_PFDA/Fig8c.csv",
+            "benchmarks/regulatory_goldset/extracted/epa_pfas_template/pfas_template_zip/Bernstein_PFAS_pbpk_template_code/Data/Digitized_Data_PFDA/Fig8c.xlsx",
+            "benchmarks/regulatory_goldset/extracted/epa_pfas_template/pfas_template_zip/Bernstein_PFAS_pbpk_template_code/Data/Digitized_Data_PFDA/Fig8d.csv",
+            "benchmarks/regulatory_goldset/extracted/epa_pfas_template/pfas_template_zip/Bernstein_PFAS_pbpk_template_code/Data/Digitized_Data_PFDA/Fig8d.xlsx",
+            "benchmarks/regulatory_goldset/extracted/epa_pfas_template/pfas_template_zip/Bernstein_PFAS_pbpk_template_code/Data/Digitized_Data_PFHxS/Fig7a.csv",
+            "benchmarks/regulatory_goldset/extracted/epa_pfas_template/pfas_template_zip/Bernstein_PFAS_pbpk_template_code/Data/Digitized_Data_PFHxS/Fig7a.xlsx",
+            "benchmarks/regulatory_goldset/extracted/epa_pfas_template/pfas_template_zip/Bernstein_PFAS_pbpk_template_code/Data/Digitized_Data_PFHxS/Fig7b.csv",
+            "benchmarks/regulatory_goldset/extracted/epa_pfas_template/pfas_template_zip/Bernstein_PFAS_pbpk_template_code/Data/Digitized_Data_PFHxS/Fig7b.xlsx",
+            "benchmarks/regulatory_goldset/extracted/epa_pfas_template/pfas_template_zip/Bernstein_PFAS_pbpk_template_code/Data/Digitized_Data_PFHxS/Fig7c.csv",
+            "benchmarks/regulatory_goldset/extracted/epa_pfas_template/pfas_template_zip/Bernstein_PFAS_pbpk_template_code/Data/Digitized_Data_PFHxS/Fig7c.xlsx",
+            "benchmarks/regulatory_goldset/extracted/epa_pfas_template/pfas_template_zip/Bernstein_PFAS_pbpk_template_code/Data/Digitized_Data_PFHxS/Fig7d.csv",
+            "benchmarks/regulatory_goldset/extracted/epa_pfas_template/pfas_template_zip/Bernstein_PFAS_pbpk_template_code/Data/Digitized_Data_PFHxS/Fig7d.xlsx",
+            "benchmarks/regulatory_goldset/extracted/epa_pfas_template/pfas_template_zip/Bernstein_PFAS_pbpk_template_code/Data/Digitized_Data_PFHxS/Fig7e.csv",
+            "benchmarks/regulatory_goldset/extracted/epa_pfas_template/pfas_template_zip/Bernstein_PFAS_pbpk_template_code/Data/Digitized_Data_PFHxS/Fig7e.xlsx",
+            "benchmarks/regulatory_goldset/extracted/epa_pfas_template/pfas_template_zip/Bernstein_PFAS_pbpk_template_code/Data/Digitized_Data_PFHxS/Fig7f.csv",
+            "benchmarks/regulatory_goldset/extracted/epa_pfas_template/pfas_template_zip/Bernstein_PFAS_pbpk_template_code/Data/Digitized_Data_PFHxS/Fig7f.xlsx",
+            "benchmarks/regulatory_goldset/extracted/epa_pfas_template/pfas_template_zip/Bernstein_PFAS_pbpk_template_code/Data/Digitized_Data_PFHxS/Fig8a.csv",
+            "benchmarks/regulatory_goldset/extracted/epa_pfas_template/pfas_template_zip/Bernstein_PFAS_pbpk_template_code/Data/Digitized_Data_PFHxS/Fig8a.xlsx",
+            "benchmarks/regulatory_goldset/extracted/epa_pfas_template/pfas_template_zip/Bernstein_PFAS_pbpk_template_code/Data/Digitized_Data_PFHxS/Fig8b.csv",
+            "benchmarks/regulatory_goldset/extracted/epa_pfas_template/pfas_template_zip/Bernstein_PFAS_pbpk_template_code/Data/Digitized_Data_PFHxS/Fig8b.xlsx",
+            "benchmarks/regulatory_goldset/extracted/epa_pfas_template/pfas_template_zip/Bernstein_PFAS_pbpk_template_code/Data/Digitized_Data_PFHxS/Fig8c.csv",
+            "benchmarks/regulatory_goldset/extracted/epa_pfas_template/pfas_template_zip/Bernstein_PFAS_pbpk_template_code/Data/Digitized_Data_PFHxS/Fig8c.xlsx",
+            "benchmarks/regulatory_goldset/extracted/epa_pfas_template/pfas_template_zip/Bernstein_PFAS_pbpk_template_code/Data/Digitized_Data_PFHxS/Fig8d.csv",
+            "benchmarks/regulatory_goldset/extracted/epa_pfas_template/pfas_template_zip/Bernstein_PFAS_pbpk_template_code/Data/Digitized_Data_PFHxS/Fig8d.xlsx",
+            "benchmarks/regulatory_goldset/extracted/epa_pfas_template/pfas_template_zip/Bernstein_PFAS_pbpk_template_code/Data/Digitized_Data_PFHxS/Fig8e.csv",
+            "benchmarks/regulatory_goldset/extracted/epa_pfas_template/pfas_template_zip/Bernstein_PFAS_pbpk_template_code/Data/Digitized_Data_PFHxS/Fig8e.xlsx",
+            "benchmarks/regulatory_goldset/extracted/epa_pfas_template/pfas_template_zip/Bernstein_PFAS_pbpk_template_code/Data/Digitized_Data_PFHxS/Fig8f.csv",
+            "benchmarks/regulatory_goldset/extracted/epa_pfas_template/pfas_template_zip/Bernstein_PFAS_pbpk_template_code/Data/Digitized_Data_PFHxS/Fig8f.xlsx",
+            "benchmarks/regulatory_goldset/extracted/epa_pfas_template/pfas_template_zip/Bernstein_PFAS_pbpk_template_code/Data/Digitized_Data_PFNA/Fig7a.csv",
+            "benchmarks/regulatory_goldset/extracted/epa_pfas_template/pfas_template_zip/Bernstein_PFAS_pbpk_template_code/Data/Digitized_Data_PFNA/Fig7a.xlsx",
+            "benchmarks/regulatory_goldset/extracted/epa_pfas_template/pfas_template_zip/Bernstein_PFAS_pbpk_template_code/Data/Digitized_Data_PFNA/Fig7b.csv",
+            "benchmarks/regulatory_goldset/extracted/epa_pfas_template/pfas_template_zip/Bernstein_PFAS_pbpk_template_code/Data/Digitized_Data_PFNA/Fig7b.xlsx",
+            "benchmarks/regulatory_goldset/extracted/epa_pfas_template/pfas_template_zip/Bernstein_PFAS_pbpk_template_code/Data/Digitized_Data_PFNA/Fig7c.csv",
+            "benchmarks/regulatory_goldset/extracted/epa_pfas_template/pfas_template_zip/Bernstein_PFAS_pbpk_template_code/Data/Digitized_Data_PFNA/Fig7c.xlsx",
+            "benchmarks/regulatory_goldset/extracted/epa_pfas_template/pfas_template_zip/Bernstein_PFAS_pbpk_template_code/Data/Digitized_Data_PFNA/Fig7d.csv",
+            "benchmarks/regulatory_goldset/extracted/epa_pfas_template/pfas_template_zip/Bernstein_PFAS_pbpk_template_code/Data/Digitized_Data_PFNA/Fig7d.xlsx"
+          ],
+          "contentType": null,
+          "downloadPath": "benchmarks/regulatory_goldset/downloads/epa_pfas_template/Bernstein2021_PFAS_pbpk_template_model.zip",
+          "extractPath": "benchmarks/regulatory_goldset/extracted/epa_pfas_template/pfas_template_zip",
+          "extractedFileCount": 78,
+          "id": "pfas_template_zip",
+          "label": "PFAS template code zip",
+          "sha256": "4957d55f9f5115228f128f6d63839eacd87b264474c51399b1d66b56a459b951",
+          "url": "https://pasteur.epa.gov/uploads/10.23719/1520081/Bernstein2021_PFAS_pbpk_template_model.zip",
+          "usedCachedDownload": true,
+          "usedCachedExtraction": true
+        },
+        {
+          "bytes": 30076,
+          "contentType": null,
+          "downloadPath": "benchmarks/regulatory_goldset/downloads/epa_pfas_template/PFAS_PBPK_Model_Template_Project_Instructions.docx",
+          "id": "pfas_template_instructions",
+          "label": "PFAS template instructions",
+          "sha256": "6989d76ac74b7871179e6676cb3e141dc20bbee8be7d81a7109ae9212509fa5a",
+          "url": "https://pasteur.epa.gov/uploads/10.23719/1520081/PFAS_PBPK_Model_Template_Project_Instructions.docx",
+          "usedCachedDownload": true
+        }
+      ],
+      "benchmarkRole": "adjunct-challenge-set",
+      "coverageModels": [
+        "PFAS template"
+      ],
+      "id": "epa_pfas_template",
+      "notes": [
+        "Use as the modern reproducibility and transparency stress test."
+      ],
+      "result": "fetched",
+      "status": "retrievable",
+      "title": "EPA PFAS PBPK template package"
+    },
+    {
+      "artifacts": [
+        {
+          "archiveEntryCount": null,
+          "bytes": 7409877,
+          "candidateFileCount": 23,
+          "candidateFilesSample": [
+            "benchmarks/regulatory_goldset/extracted/pfos_ges_lac/pfos_ges_lac_zip/PFOS-Ges-Lac-master/Additional files/ModFit/Human/CodingBook_Human.xlsx",
+            "benchmarks/regulatory_goldset/extracted/pfos_ges_lac/pfos_ges_lac_zip/PFOS-Ges-Lac-master/Additional files/ModFit/Human/Data_H.csv",
+            "benchmarks/regulatory_goldset/extracted/pfos_ges_lac/pfos_ges_lac_zip/PFOS-Ges-Lac-master/Additional files/ModFit/Human/FitCode_Human.R",
+            "benchmarks/regulatory_goldset/extracted/pfos_ges_lac/pfos_ges_lac_zip/PFOS-Ges-Lac-master/Additional files/ModFit/Human/HMod.R",
+            "benchmarks/regulatory_goldset/extracted/pfos_ges_lac/pfos_ges_lac_zip/PFOS-Ges-Lac-master/Additional files/ModFit/Rat/CodeBook_Rat.xlsx",
+            "benchmarks/regulatory_goldset/extracted/pfos_ges_lac/pfos_ges_lac_zip/PFOS-Ges-Lac-master/Additional files/ModFit/Rat/Data_R.csv",
+            "benchmarks/regulatory_goldset/extracted/pfos_ges_lac/pfos_ges_lac_zip/PFOS-Ges-Lac-master/Additional files/ModFit/Rat/FitCode_Rat.R",
+            "benchmarks/regulatory_goldset/extracted/pfos_ges_lac/pfos_ges_lac_zip/PFOS-Ges-Lac-master/Additional files/ModFit/Rat/RMod.R",
+            "benchmarks/regulatory_goldset/extracted/pfos_ges_lac/pfos_ges_lac_zip/PFOS-Ges-Lac-master/Additional files/Results/PlotCode/Data_H.csv",
+            "benchmarks/regulatory_goldset/extracted/pfos_ges_lac/pfos_ges_lac_zip/PFOS-Ges-Lac-master/Additional files/Results/PlotCode/Data_R.csv",
+            "benchmarks/regulatory_goldset/extracted/pfos_ges_lac/pfos_ges_lac_zip/PFOS-Ges-Lac-master/Additional files/Results/PlotCode/Fig_2.R",
+            "benchmarks/regulatory_goldset/extracted/pfos_ges_lac/pfos_ges_lac_zip/PFOS-Ges-Lac-master/Additional files/Results/PlotCode/Fig_3.R",
+            "benchmarks/regulatory_goldset/extracted/pfos_ges_lac/pfos_ges_lac_zip/PFOS-Ges-Lac-master/Additional files/Results/PlotCode/Fig_4.R",
+            "benchmarks/regulatory_goldset/extracted/pfos_ges_lac/pfos_ges_lac_zip/PFOS-Ges-Lac-master/Additional files/Results/PlotCode/Fig_5.R",
+            "benchmarks/regulatory_goldset/extracted/pfos_ges_lac/pfos_ges_lac_zip/PFOS-Ges-Lac-master/Additional files/Results/PlotCode/Fig_6.R",
+            "benchmarks/regulatory_goldset/extracted/pfos_ges_lac/pfos_ges_lac_zip/PFOS-Ges-Lac-master/Additional files/Results/PlotCode/Fig_S1-S2.R",
+            "benchmarks/regulatory_goldset/extracted/pfos_ges_lac/pfos_ges_lac_zip/PFOS-Ges-Lac-master/Additional files/Results/PlotCode/Fig_S3.R",
+            "benchmarks/regulatory_goldset/extracted/pfos_ges_lac/pfos_ges_lac_zip/PFOS-Ges-Lac-master/Additional files/Results/PlotCode/HMod.R",
+            "benchmarks/regulatory_goldset/extracted/pfos_ges_lac/pfos_ges_lac_zip/PFOS-Ges-Lac-master/Additional files/Results/PlotCode/Pred_H.R",
+            "benchmarks/regulatory_goldset/extracted/pfos_ges_lac/pfos_ges_lac_zip/PFOS-Ges-Lac-master/Additional files/Results/PlotCode/Pred_Rat.R",
+            "benchmarks/regulatory_goldset/extracted/pfos_ges_lac/pfos_ges_lac_zip/PFOS-Ges-Lac-master/Additional files/Results/PlotCode/RMod.R",
+            "benchmarks/regulatory_goldset/extracted/pfos_ges_lac/pfos_ges_lac_zip/PFOS-Ges-Lac-master/Additional files/Results/PlotCode/Table_4.R",
+            "benchmarks/regulatory_goldset/extracted/pfos_ges_lac/pfos_ges_lac_zip/PFOS-Ges-Lac-master/Additional files/Results/PlotCode/Table_5.R"
+          ],
+          "contentType": null,
+          "downloadPath": "benchmarks/regulatory_goldset/downloads/pfos_ges_lac/master",
+          "extractPath": "benchmarks/regulatory_goldset/extracted/pfos_ges_lac/pfos_ges_lac_zip",
+          "extractedFileCount": 47,
+          "id": "pfos_ges_lac_zip",
+          "label": "PFOS-Ges-Lac GitHub archive",
+          "sha256": "8cf7c8667a0ef4bcc4b1c2e70f87dffda8698648b218aa2662cb721e4aaf449b",
+          "url": "https://codeload.github.com/KSUICCM/PFOS-Ges-Lac/zip/refs/heads/master",
+          "usedCachedDownload": true,
+          "usedCachedExtraction": true
+        }
+      ],
+      "benchmarkRole": "adjunct-challenge-set",
+      "coverageModels": [
+        "PFOS"
+      ],
+      "id": "pfos_ges_lac",
+      "notes": [
+        "Open PFOS model adjunct for the PFAS challenge set."
+      ],
+      "result": "fetched",
+      "status": "retrievable",
+      "title": "PFOS-Ges-Lac open PFOS model"
+    },
+    {
+      "artifacts": [],
+      "benchmarkRole": "documentation-only",
+      "coverageModels": [
+        "2-butoxyethanol"
+      ],
+      "id": "two_butoxyethanol_reference",
+      "notes": [
+        "Keep as a prose confidence benchmark, but do not treat it as a fetched executable/code package until a direct public model archive is confirmed."
+      ],
+      "result": "unresolved-source",
+      "status": "unresolved",
+      "title": "2-Butoxyethanol confidence-language benchmark"
+    }
+  ]
+}

@@ -1,0 +1,211 @@
+{
+  "$defs": {
+    "DiscoverableModelModel": {
+      "properties": {
+        "backend": {
+          "title": "Backend",
+          "type": "string"
+        },
+        "curationSummary": {
+          "additionalProperties": true,
+          "title": "Curationsummary",
+          "type": "object"
+        },
+        "discoveryState": {
+          "title": "Discoverystate",
+          "type": "string"
+        },
+        "displayName": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Displayname"
+        },
+        "filePath": {
+          "title": "Filepath",
+          "type": "string"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "isLoaded": {
+          "title": "Isloaded",
+          "type": "boolean"
+        },
+        "loadedSimulationIds": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Loadedsimulationids",
+          "type": "array"
+        },
+        "manifestStatus": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Manifeststatus"
+        },
+        "metadata": {
+          "additionalProperties": true,
+          "title": "Metadata",
+          "type": "object"
+        },
+        "modelId": {
+          "title": "Modelid",
+          "type": "string"
+        },
+        "modelVersion": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Modelversion"
+        },
+        "modifiedAt": {
+          "title": "Modifiedat",
+          "type": "string"
+        },
+        "populationSimulation": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Populationsimulation"
+        },
+        "profileSource": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Profilesource"
+        },
+        "qualificationState": {
+          "additionalProperties": true,
+          "title": "Qualificationstate",
+          "type": "object"
+        },
+        "relativePath": {
+          "title": "Relativepath",
+          "type": "string"
+        },
+        "rootPath": {
+          "title": "Rootpath",
+          "type": "string"
+        },
+        "runtimeFormat": {
+          "title": "Runtimeformat",
+          "type": "string"
+        },
+        "scientificProfile": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Scientificprofile"
+        },
+        "suggestedSimulationId": {
+          "title": "Suggestedsimulationid",
+          "type": "string"
+        },
+        "validationHook": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Validationhook"
+        }
+      },
+      "required": [
+        "id",
+        "modelId",
+        "suggestedSimulationId",
+        "filePath",
+        "relativePath",
+        "rootPath",
+        "backend",
+        "runtimeFormat",
+        "discoveryState",
+        "isLoaded",
+        "modifiedAt"
+      ],
+      "title": "DiscoverableModelModel",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "contractVersion": {
+      "default": "pbpk-mcp.v1",
+      "title": "Contractversion",
+      "type": "string"
+    },
+    "items": {
+      "items": {
+        "$ref": "#/$defs/DiscoverableModelModel"
+      },
+      "title": "Items",
+      "type": "array"
+    },
+    "limit": {
+      "title": "Limit",
+      "type": "integer"
+    },
+    "page": {
+      "title": "Page",
+      "type": "integer"
+    },
+    "tool": {
+      "default": "discover_models",
+      "title": "Tool",
+      "type": "string"
+    },
+    "total": {
+      "title": "Total",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "page",
+    "limit",
+    "total"
+  ],
+  "title": "DiscoverModelsResponse",
+  "type": "object"
+}

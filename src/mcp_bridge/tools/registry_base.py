@@ -150,7 +150,7 @@ def get_base_tool_registry(
         ),
         "discover_models": ToolDescriptor(
             name="discover_models",
-            description="Discover supported PBPK model files under MCP_MODEL_SEARCH_PATHS, including unloaded workspace models.",
+            description="Discover supported PBPK model files under ADAPTER_MODEL_PATHS, including unloaded workspace models.",
             request_model=DiscoverModelsRequest,
             response_model=DiscoverModelsResponse,
             handler=discover_models,

@@ -29,7 +29,7 @@ flowchart LR
     end
 
     subgraph Contracts["Discovery and Qualification Layer"]
-        Catalog["Filesystem model catalog\nMCP_MODEL_SEARCH_PATHS"]
+        Catalog["Filesystem model catalog\nADAPTER_MODEL_PATHS"]
         Manifest["Static manifest validation\nvalidate_model_manifest"]
         Qualification["Qualification metadata\ncapabilities, profile,\nvalidation, qualificationState"]
         Verification["Executable verification\nrun_verification_checks"]
@@ -78,13 +78,15 @@ The current implementation follows a layered model:
 - `Release metadata checks` now verify that package version markers, compose/env `SERVICE_VERSION`, README release markers, the top changelog entry, and the matching `docs/releases/` note stay aligned.
 - `Release artifact evidence` now retains a machine-readable report with `sdist`/wheel hashes and the linked contract-manifest identity during tag builds.
 
-See `docs/architecture/dual_backend_pbpk_mcp.md` for the fuller architecture narrative, `docs/architecture/capability_matrix.md` for the published support matrix, `docs/architecture/mcp_payload_conventions.md` for the response contract, and `docs/deployment/runtime_patch_flow.md` for the operator path behind the current local deployment model.
+See `docs/architecture/dual_backend_pbpk_mcp.md` for the fuller architecture narrative, `docs/architecture/capability_matrix.md` for the published support matrix, `docs/architecture/mcp_payload_conventions.md` for the response contract, `docs/deployment/runtime_patch_flow.md` for the operator path behind the current local deployment model, and `docs/pbpk_model_onboarding_checklist.md` for the recommended trust pipeline when onboarding another chemical model.
+See `docs/architecture/exposure_led_ngra_role.md` for the explicit boundary statement on what PBPK MCP does and does not own inside exposure-led NGRA workflows.
+See `benchmarks/regulatory_goldset/regulatory_goldset_summary.md` for the current gold-set documentation benchmark summary derived from the fetched public-code PBPK corpus. Internal examples such as the bundled synthetic reference model remain bounded MCP rehearsal models, not benchmark exemplars.
 
-## What's new in v0.4.2
+## What's new in v0.4.3
 
-- Fixed the packaged worker-image rebuild path so the version assertion now reads the expected package version from `pyproject.toml` instead of hardcoding a stale release string.
-- Added deployment-profile regression coverage to prevent worker-image version drift from slipping through future release bumps.
-- Preserved the `v0.4.1` packaged-default local runtime behavior while making fresh image rebuilds and local redeploys honest again.
+- Added benchmark-derived dossier guidance, onboarding guidance, and explicit trust-surface reporting so MCP can show what is still missing before a PBPK model can credibly approach regulatory-grade use.
+- Tightened the public runtime posture by keeping the analyst UI retired, preserving viewer-only anonymous development mode, and keeping critical actions behind confirmation and sign-off surfaces.
+- Hardened release and audit evidence by shipping a reproducible gold-set benchmark dossier, a verifiable synthetic reference-model audit pack, and stricter contract/release-bundle integrity checks on the live stack.
 
 ## Why this project exists
 
@@ -96,6 +98,15 @@ The PBPK MCP server wraps those workflows in a **single, programmable interface*
 - **Dual-backend execution** – `.pkml` models run on `ospsuite`; MCP-ready `.R` models run on `rxode2`.
 - **Qualification-aware workflows** – runtime capability, scientific profile, preflight validation, and derived `qualificationState` stay separate.
 - **NGRA-ready PBPK objects** – validation and dossier export expose PBPK-side typed objects such as `assessmentContext`, `pbpkQualificationSummary`, `uncertaintySummary`, `uncertaintyHandoff`, `internalExposureEstimate`, a typed external uncertainty-register reference, and a typed external PoD reference handoff, now with explicit boundary/support metadata plus additive `semanticCoverage` for PBPK-side uncertainty semantics, without collapsing PBPK MCP into a full decision engine.
+- **Exposure-led boundary clarity** – `assessmentContext.workflowRole`, `assessmentContext.populationSupport`, `pbpkQualificationSummary.evidenceBasis`, `pbpkQualificationSummary.workflowClaimBoundaries`, and `pbpkQualificationSummary.reviewStatus` now make IVIVE/exposure dependencies, supported population contexts, no-direct-in-vivo status, reviewer-attention requirements, and claim boundaries explicit.
+- **Static curation feedback for NGRA gaps** – `validate_model_manifest` now exposes `manifest.ngraCoverage` plus a compact `curationSummary`, so missing workflow-role, population-support, evidence-basis, and claim-boundary declarations are visible before load in both machine-readable and reviewer-facing form; that summary now also carries an anti-misread block, explicit summary-transport risk for thin/forwarded views, a normalized `cautionSummary` with advisory-versus-blocking handling, a machine-readable `exportBlockPolicy`, and rendering guardrails for analyst-facing clients.
+- **Regulatory benchmark bar** – the workspace now also ships a gold-set benchmark dossier under `benchmarks/regulatory_goldset/` plus an advisory `curationSummary.regulatoryBenchmarkReadiness` block, so MCP reviewers can compare a model dossier to public regulatory-grade PBPK packaging without promoting research models to regulatory-ready status. That advisory block now also carries per-dimension evaluation paths, benchmark examples, and concrete next-artifact guidance for closing documentation gaps.
+- **Reviewer-friendly discovery summaries** – `discover_models` and `/mcp/resources/models` now surface `manifestStatus`, `qualificationState`, and a compact `curationSummary` so curated illustrative examples can be distinguished from exploratory or partially declared models at discovery time, with explicit anti-misread guidance and no official “bare label only” rendering path.
+- **Human-review summary** – OECD report export now includes a compact `humanReviewSummary` block that pulls those boundary fields into one reviewer-facing surface, including reviewer-status, unresolved-dissent context, normalized `cautionSummary`, summary-transport risk, `exportBlockPolicy`, and rendering guardrails, without creating a second hidden score or decision engine.
+- **Anti-misread report section** – OECD report export now also includes a mandatory `misreadRiskSummary` block so common over-interpretations are stated explicitly next to the primary report summary instead of being left implicit.
+- **Audit-backed operator sign-off** – trust-bearing outputs now surface an additive `operatorReviewSignoff` summary plus an explicit `operatorReviewGovernance` block derived from the real workflow contract, and the REST surface now exposes viewer-readable `/review_signoff/history` so recorded acknowledgement, bounded-use sign-off, rejection, and revocation remain auditable without being mistaken for a second qualification score, override path, or decision authority.
+- **No bundled analyst UI in the current release** – trust-bearing review remains on the MCP and REST surfaces for now; `/console` and `/console/api/*` are intentionally absent until a stronger reviewer-facing client exists.
+- **Thin-client trust-surface contract** – trust-bearing MCP tool results now also expose a top-level `trustSurfaceContract` so thin clients can find the nested summary surfaces, required adjacent caveats, and primary block reasons they must carry together instead of rediscovering those paths tool by tool.
 - **Traceable predictive evidence** – performance bundles can now carry traceability supplements, and the report path now warns when bundled benchmark rows do not actually line up with the declared datasets, target outputs, or acceptance criteria.
 - **Discovery before execution** – models are discoverable from disk before they are loaded into a live session.
 - **Release-tested local deployment** – the packaged local runtime and the explicit source-overlay maintainer profile are both exercised with unit tests, live-stack tests, and a readiness check.
@@ -110,7 +121,7 @@ The PBPK MCP server wraps those workflows in a **single, programmable interface*
 | Capability | Description |
 | --- | --- |
 | 🧬 **Dual-backend PBPK execution** | Route `.pkml` models to `ospsuite` and MCP-ready `.R` models to `rxode2` through one MCP surface. |
-| 🗂️ **Model discovery and curation** | Discover supported model files from `MCP_MODEL_SEARCH_PATHS`, inspect unloaded models, and run static manifest checks before load. |
+| 🗂️ **Model discovery and curation** | Discover supported model files from `ADAPTER_MODEL_PATHS`, inspect unloaded models, and run static manifest checks before load. |
 | 🛡️ **OECD-oriented qualification** | Keep `capabilities`, `profile`, `validation`, and `qualificationState` explicit; expose applicability, provenance, uncertainty, implementation verification, software-platform qualification, and qualification gaps. |
 | 🧱 **NGRA-ready PBPK objects** | Emit typed PBPK-side objects such as `assessmentContext`, `pbpkQualificationSummary`, `uncertaintySummary`, `uncertaintyHandoff`, `internalExposureEstimate`, a typed `uncertaintyRegisterReference`, a typed `pointOfDepartureReference`, and a thin BER-ready reference bundle in dossier export, with explicit boundary/support flags plus additive uncertainty `semanticCoverage` for downstream NGRA orchestration and without embedding BER decision logic in PBPK MCP. |
 | 📐 **Published object schemas** | Publish machine-readable JSON Schemas and example payloads for the PBPK-side NGRA handoff object family under `schemas/` so downstream tooling can validate the public object layer directly. |
@@ -182,6 +193,7 @@ Design intent:
 - require the stable core fields only
 - allow additive convenience fields
 - keep BER calculation and final decision policy outside PBPK MCP
+- keep exposure assessment, IVIVE policy, reverse dosimetry, and direct regulatory dose derivation outside PBPK MCP
 - make the PBPK-side handoff layer consumable by downstream validators and orchestrators without scraping examples out of tests
 
 See `schemas/README.md` for the short schema guide and `tests/test_ngra_object_schemas.py` for the validation gate that keeps the published schemas aligned with live payload generation. The same schema family is also exposed through the live MCP resource surface at `/mcp/resources/schemas`. In the current local packaged runtime, the live schema/capability/contract-manifest resources treat the packaged `mcp_bridge.contract` content as authoritative rather than depending on copied JSON under `/app/var/contract`. `scripts/check_installed_package_contract.py` is the maintainer gate that proves the generated package fallback still matches the published JSON artifacts after a non-editable local install. When you explicitly opt into the workspace source-overlay profile, `scripts/runtime_src_overlay.pth` promotes `/app/src` ahead of the installed package.
@@ -246,6 +258,7 @@ Once the server is running:
 - Model discovery resource: `http://localhost:8000/mcp/resources/models`
 - Architecture docs: `docs/architecture/dual_backend_pbpk_mcp.md`
 - Runtime operator docs: `docs/deployment/runtime_patch_flow.md`
+- New-model trust pipeline: `docs/pbpk_model_onboarding_checklist.md`
 
 ## Verification (smoke test)
 
@@ -258,15 +271,15 @@ curl -s http://localhost:8000/health | jq .
 # list MCP tools
 curl -s http://localhost:8000/mcp/list_tools | jq .
 
-# discover cisplatin
+# discover reference_compound
 curl -s -X POST http://localhost:8000/mcp/call_tool \
   -H "Content-Type: application/json" \
-  -d '{"tool":"discover_models","arguments":{"search":"cisplatin","limit":10}}' | jq .
+  -d '{"tool":"discover_models","arguments":{"search":"reference_compound","limit":10}}' | jq .
 
 # static manifest validation
 curl -s -X POST http://localhost:8000/mcp/call_tool \
   -H "Content-Type: application/json" \
-  -d '{"tool":"validate_model_manifest","arguments":{"filePath":"/app/var/models/rxode2/cisplatin/cisplatin_population_rxode2_model.R"}}' | jq .
+  -d '{"tool":"validate_model_manifest","arguments":{"filePath":"/app/var/models/rxode2/reference_compound/reference_compound_population_rxode2_model.R"}}' | jq .
 ```
 
 For the full live-stack gate, run:
@@ -275,19 +288,27 @@ For the full live-stack gate, run:
 python3 scripts/release_readiness_check.py
 ```
 
+That live readiness gate now also reruns the curated manifest publication check for the bundled synthetic reference model and pregnancy examples, and it fails if those examples regress to implicit NGRA workflow-role, population-support, evidence-basis, or claim-boundary declarations.
+
+For the standalone static gate on that same curated publication set, run:
+
+```bash
+python3 scripts/validate_model_manifests.py --strict --require-explicit-ngra --curated-publication-set
+```
+
 To smoke-test the actual discovered model inventory in the current workspace, run:
 
 ```bash
-python3 scripts/workspace_model_smoke.py
-python3 scripts/workspace_model_smoke.py --include-population
+python3 scripts/workspace_model_smoke.py --auth-dev-secret pbpk-local-dev-secret
+python3 scripts/workspace_model_smoke.py --include-population --auth-dev-secret pbpk-local-dev-secret
 ```
 
-The script discovers runtime-supported models through `/mcp/resources/models`, runs static manifest validation, loads each model, submits a deterministic simulation, retrieves stored results, and optionally runs a small population smoke for `rxode2` models that declare population support. It writes a JSON report to `var/workspace_model_smoke_report.json`.
+The script discovers runtime-supported models through `/mcp/resources/models`, runs static manifest validation, loads each model, submits a deterministic simulation, retrieves stored results, and optionally runs a small population smoke for `rxode2` models that declare population support. It writes a JSON report to `var/workspace_model_smoke_report.json`. On hardened local stacks, the load/run operations require operator or admin access, so pass `--auth-dev-secret pbpk-local-dev-secret` for the default development profile or provide a real bearer token.
 
 For the GitHub-hosted verification path, the repository also carries:
 
 - a lightweight `CI` workflow for patch/runtime contract checks on pushes and pull requests
-- a heavier `Model Smoke` workflow that builds the Docker-backed stack, runs the live readiness gate, executes `workspace_model_smoke.py --include-population`, and uploads the resulting JSON reports as workflow artifacts
+- a heavier `Model Smoke` workflow that builds the Docker-backed stack, runs the live readiness gate, executes `workspace_model_smoke.py --include-population --auth-dev-secret pbpk-local-dev-secret`, and uploads the resulting JSON reports as workflow artifacts
 
 ---
 
@@ -297,16 +318,18 @@ The default local packaged stack is defined in `docker-compose.celery.yml`. An e
 
 | Variable | Default | Description |
 | --- | --- | --- |
-| `MCP_MODEL_SEARCH_PATHS` | `/app/var` | Filesystem roots scanned by `discover_models` and `/mcp/resources/models`. |
+| `ADAPTER_MODEL_PATHS` | `/app/var` | Filesystem roots scanned by `discover_models` and `/mcp/resources/models`. |
 | `ADAPTER_BACKEND` | `subprocess` | Uses the R / OSPSuite subprocess bridge instead of an in-memory mock path. |
 | `JOB_BACKEND` | `celery` | Enables asynchronous job submission through Redis-backed Celery workers. |
 | `CELERY_BROKER_URL` | `redis://redis:6379/0` | Queue broker for asynchronous jobs. |
 | `CELERY_RESULT_BACKEND` | `redis://redis:6379/1` | Result storage for job handles and async result chaining. |
-| `R_PATH` / `R_HOME` | container defaults | Point the bridge to the R runtime used by `rxode2` and OSPSuite tooling. |
+| `ADAPTER_R_PATH` / `ADAPTER_R_HOME` | container defaults | Point the bridge to the R runtime used by `rxode2` and OSPSuite tooling. |
+| `ADAPTER_TIMEOUT_MS` | `30000` | Default adapter timeout in milliseconds. |
+| `AUDIT_ENABLED` | `true` in local compose | Enables audit-backed sign-off, verification traceability, and readable history surfaces. |
 | `R_MAX_VSIZE` | `2G` | Caps R virtual memory use inside the current local worker setup. |
 | `DOTNET_GCHeapLimitPercent` | `60` | Constrains the .NET heap used by the OSPSuite runtime. |
 | `PBPK_ENABLE_SRC_OVERLAY` | `false` | Keeps `/app/src` out of import precedence by default; `docker-compose.overlay.yml` sets it to `true` for workspace-override development. |
-| `SERVICE_VERSION` | `0.4.2` | Exposed through `/health` and compose-level runtime metadata. |
+| `SERVICE_VERSION` | `0.4.3` | Exposed through `/health` and compose-level runtime metadata. |
 | `AUTH_ALLOW_ANONYMOUS` | `true` | Development-friendly local default; do not expose beyond localhost without hardening. |
 | `PBPK_BIND_HOST` | `127.0.0.1` | Host/interface used by the hardened overlay when publishing the API port. |
 | `PBPK_BIND_PORT` | `8000` | Host port used by the hardened overlay when publishing the API port. |
@@ -315,6 +338,8 @@ The default local packaged stack is defined in `docker-compose.celery.yml`. An e
 | `AUTH_JWKS_URL` | unset | Required by the hardened overlay. JWKS endpoint used to validate bearer tokens. |
 
 For the default packaged local runtime, use `docker-compose.celery.yml` through `./scripts/deploy_rxode2_stack.sh`. When you need workspace overrides, use `./scripts/deploy_source_overlay_stack.sh`, which layers `docker-compose.overlay.yml` over the same local stack and enables `/app/src` precedence. For a more production-like local or operator-managed deployment, use `./scripts/deploy_hardened_stack.sh`, which layers `docker-compose.hardened.yml` over the packaged local runtime and waits for stable readiness before returning.
+
+Legacy aliases such as `R_PATH`, `R_HOME`, `R_LIBS`, `MCP_MODEL_SEARCH_PATHS`, `ADAPTER_TIMEOUT_SECONDS`, and `AUDIT_TRAIL_ENABLED` are still accepted for compatibility, but startup now warns that they are scheduled for removal in `v0.5.0`.
 
 See `docker-compose.celery.yml`, `docker-compose.overlay.yml`, `docker-compose.hardened.yml`, `docs/deployment/runtime_patch_flow.md`, and `docs/deployment/rxode2_worker_image.md` for the current operator-facing deployment surface.
 
@@ -403,17 +428,17 @@ For `.R` models, richer OECD-oriented reporting is enabled by hooks such as:
 - `pbpk_run_verification_checks(...)`
 - `pbpk_platform_qualification_evidence(...)`
 
-For example, the cisplatin `rxode2` model now exports bounded local sensitivity evidence and a compact variability-propagation summary through `uncertaintyEvidence`, using the currently loaded parameter state rather than a hard-coded placeholder row. Its `performanceEvidence` is also explicitly classified as runtime-only/internal evidence so executable smoke checks cannot be mistaken for predictive validation.
+For example, the reference_compound `rxode2` model now exports bounded local sensitivity evidence and a compact variability-propagation summary through `uncertaintyEvidence`, using the currently loaded parameter state rather than a hard-coded placeholder row. Its `performanceEvidence` is also explicitly classified as runtime-only/internal evidence so executable smoke checks cannot be mistaken for predictive validation.
 
 `export_oecd_report` now also adds `oecdCoverage`, an additive coverage map aligned to OECD PBK Guidance Tables 3.1 and 3.2. It is intentionally descriptive: it shows which dossier sections/questions are covered by the current report payload and which remain incomplete, but it does not alter `oecdChecklistScore`, `qualificationState`, or any downstream decision boundary.
 
-Researchers can also attach generic companion performance bundles next to either `.pkml` or `.R` models without modifying the bridge code. See [performance_evidence_bundles.md](/Volumes/Storage/topotox_offload/20260220_space_relief/manual_offload/PBPK_MCP/docs/integration_guides/performance_evidence_bundles.md) and the starter template at [performance_evidence_bundle.template.json](/Volumes/Storage/topotox_offload/20260220_space_relief/manual_offload/PBPK_MCP/examples/performance_evidence_bundle.template.json). Those bundles can now carry both row-level evidence and a traceability-only `profileSupplement` for predictive dataset records, acceptance criteria, and target outputs. The MCP validates row-level claims conservatively and keeps the supplement descriptive rather than silently upgrading the qualification boundary.
+Researchers can also attach generic companion performance bundles next to either `.pkml` or `.R` models without modifying the bridge code. See [performance_evidence_bundles.md](docs/integration_guides/performance_evidence_bundles.md) and the starter template at [performance_evidence_bundle.template.json](examples/performance_evidence_bundle.template.json). Those bundles can now carry both row-level evidence and a traceability-only `profileSupplement` for predictive dataset records, acceptance criteria, and target outputs. The MCP validates row-level claims conservatively and keeps the supplement descriptive rather than silently upgrading the qualification boundary.
 
 `modelPerformance` can now also declare structured `datasetRecords` and `acceptanceCriteria` inside `goodnessOfFit`, `predictiveChecks`, or `evaluationData`. The bridge normalizes those fields and exposes additive traceability counts so predictive support is not reduced to a single status token.
 
-The same pattern now exists for uncertainty evidence. See [uncertainty_evidence_bundles.md](/Volumes/Storage/topotox_offload/20260220_space_relief/manual_offload/PBPK_MCP/docs/integration_guides/uncertainty_evidence_bundles.md) and [uncertainty_evidence_bundle.template.json](/Volumes/Storage/topotox_offload/20260220_space_relief/manual_offload/PBPK_MCP/examples/uncertainty_evidence_bundle.template.json). The MCP surfaces warnings when uncertainty rows are missing method/summary or scope information, and `variability-propagation` rows are only treated as quantified propagation evidence when they actually include quantitative outputs such as `value`, `lowerBound`, `upperBound`, `mean`, or `sd`.
+The same pattern now exists for uncertainty evidence. See [uncertainty_evidence_bundles.md](docs/integration_guides/uncertainty_evidence_bundles.md) and [uncertainty_evidence_bundle.template.json](examples/uncertainty_evidence_bundle.template.json). The MCP surfaces warnings when uncertainty rows are missing method/summary or scope information, and `variability-propagation` rows are only treated as quantified propagation evidence when they actually include quantitative outputs such as `value`, `lowerBound`, `upperBound`, `mean`, or `sd`.
 
-The same companion-bundle pattern now exists for richer parameter tables. See [parameter_table_bundles.md](/Volumes/Storage/topotox_offload/20260220_space_relief/manual_offload/PBPK_MCP/docs/integration_guides/parameter_table_bundles.md) and [parameter_table_bundle.template.json](/Volumes/Storage/topotox_offload/20260220_space_relief/manual_offload/PBPK_MCP/examples/parameter_table_bundle.template.json). `export_oecd_report` and `validate_model_manifest` now surface row-level coverage for sources, citations, distributions, study conditions, and rationale so dossier gaps are visible without custom bridge code.
+The same companion-bundle pattern now exists for richer parameter tables. See [parameter_table_bundles.md](docs/integration_guides/parameter_table_bundles.md) and [parameter_table_bundle.template.json](examples/parameter_table_bundle.template.json). `export_oecd_report` and `validate_model_manifest` now surface row-level coverage for sources, citations, distributions, study conditions, and rationale so dossier gaps are visible without custom bridge code.
 
 Structured peer-engagement traceability can now stay inside the existing `peerReview` profile section. If a model declares `reviewRecords`, `priorRegulatoryUse`, `revisionStatus`, or `revisionHistory`, the bridge now normalizes those fields and exposes dossier-ready coverage counts instead of treating peer review as a single free-text status flag.
 
@@ -494,6 +519,7 @@ The server currently produces and exposes:
 - population summary payloads and chunk handles
 - PK metric outputs from `calculate_pk_parameters`
 - OECD-style dossier/report exports with checklist state, missing-evidence hints, performance evidence, uncertainty evidence, verification evidence, software-platform qualification evidence, and parameter provenance when declared
+- local/internal audit generators can produce verifiable evidence packs for bounded rehearsal models, but those study-specific outputs are not part of the public release surface and should not be treated as benchmark or distribution artifacts
 
 ---
 
@@ -555,10 +581,21 @@ python3 -m unittest -v tests/test_oecd_bridge.py
 python3 -m unittest -v tests/test_model_discovery_live_stack.py
 python3 -m unittest -v tests/test_oecd_live_stack.py
 python3 scripts/release_readiness_check.py
-python3 scripts/workspace_model_smoke.py
+python3 scripts/workspace_model_smoke.py --auth-dev-secret pbpk-local-dev-secret
 ```
 
-`make runtime-contract-test` in the public repository now runs the same dependency preflight first, so missing `build`, `pydantic`, or `jsonschema` causes an explicit failure instead of a quietly skipped schema-validation gate. It also runs `scripts/generate_contract_artifacts.py --check`, builds a temporary `sdist` and `wheel` outside the repo worktree, validates that the normative contract files survive source distribution packaging, and performs an installed-package check of `mcp_bridge.contract` against the built wheel so the published contract artifacts are validated across both source and distribution boundaries.
+`make runtime-contract-test` in the public repository now runs the same dependency preflight first, runs the named misuse-prevention gate, reruns the strict curated-manifest NGRA gate for the bundled example models, builds a temporary `sdist` and `wheel` outside the repo worktree, validates that the normative contract files survive source distribution packaging, and performs an installed-package check of `mcp_bridge.contract` against the built wheel so the published contract artifacts are validated across both source and distribution boundaries.
+
+The same strict curated-manifest NGRA gate is now part of `make runtime-contract-test`, `scripts/release_readiness_check.py`, and the `Release Artifacts` workflow, so bundled example models cannot quietly regress to implicit NGRA workflow role, population support, evidence basis, or claim-boundary declarations on the normal release-prep path.
+
+That gate is now selected through `--curated-publication-set`, so the Makefile, workflow, and manual release checklist all use one curated model inventory instead of duplicating path lists.
+
+Human-process release artifacts now live alongside the runtime gates:
+
+- `docs/hardening_migration_notes.md`
+- `docs/pbpk_model_onboarding_checklist.md`
+- `docs/pbk_reviewer_signoff_checklist.md`
+- `docs/post_release_audit_plan.md`
 
 Repository automation is split intentionally:
 
@@ -587,8 +624,8 @@ If you are maintaining the local stack in the current convergence stage:
    - `curl -s http://localhost:8000/health`
    - `curl -s http://localhost:8000/mcp/list_tools`
    - `python3 scripts/release_readiness_check.py`
-   - `python3 scripts/workspace_model_smoke.py`
-   - `python3 scripts/workspace_model_smoke.py --include-population`
+   - `python3 scripts/workspace_model_smoke.py --auth-dev-secret pbpk-local-dev-secret`
+   - `python3 scripts/workspace_model_smoke.py --include-population --auth-dev-secret pbpk-local-dev-secret`
 
 Important boundaries:
 
@@ -625,12 +662,16 @@ Important boundaries:
 - `docs/integration_guides/rxode2_adapter.md`
 - `docs/integration_guides/ospsuite_profile_sidecars.md`
 - `docs/github_publication_checklist.md`
+- `docs/hardening_migration_notes.md`
+- `docs/pbpk_model_onboarding_checklist.md`
+- `docs/pbk_reviewer_signoff_checklist.md`
+- `docs/post_release_audit_plan.md`
 
 ---
 
 ## Contributing
 
-Use the clean GitHub clone as the release source of truth when publishing. Before proposing a release or publication update, run the readiness checks above and review the publication checklist in `docs/github_publication_checklist.md`.
+Use the clean GitHub clone as the release source of truth when publishing. Before proposing a release or publication update, run the readiness checks above and review the publication checklist in `docs/github_publication_checklist.md`, the migration notes in `docs/hardening_migration_notes.md`, the model-onboarding checklist in `docs/pbpk_model_onboarding_checklist.md`, the reviewer checklist in `docs/pbk_reviewer_signoff_checklist.md`, and the post-release audit plan in `docs/post_release_audit_plan.md`.
 
 For the published repo, follow `CONTRIBUTING.md`.
 

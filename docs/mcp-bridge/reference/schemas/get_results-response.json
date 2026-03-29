@@ -1,0 +1,87 @@
+{
+  "$defs": {
+    "SimulationSeriesModel": {
+      "properties": {
+        "parameter": {
+          "title": "Parameter",
+          "type": "string"
+        },
+        "unit": {
+          "title": "Unit",
+          "type": "string"
+        },
+        "values": {
+          "items": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "type": "object"
+          },
+          "title": "Values",
+          "type": "array"
+        }
+      },
+      "required": [
+        "parameter",
+        "unit"
+      ],
+      "title": "SimulationSeriesModel",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "backend": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Backend"
+    },
+    "contractVersion": {
+      "default": "pbpk-mcp.v1",
+      "title": "Contractversion",
+      "type": "string"
+    },
+    "generatedAt": {
+      "title": "Generatedat",
+      "type": "string"
+    },
+    "metadata": {
+      "additionalProperties": true,
+      "title": "Metadata",
+      "type": "object"
+    },
+    "resultsId": {
+      "title": "Resultsid",
+      "type": "string"
+    },
+    "series": {
+      "items": {
+        "$ref": "#/$defs/SimulationSeriesModel"
+      },
+      "title": "Series",
+      "type": "array"
+    },
+    "simulationId": {
+      "title": "Simulationid",
+      "type": "string"
+    },
+    "tool": {
+      "default": "get_results",
+      "title": "Tool",
+      "type": "string"
+    }
+  },
+  "required": [
+    "resultsId",
+    "simulationId",
+    "generatedAt"
+  ],
+  "title": "GetResultsResponse",
+  "type": "object"
+}

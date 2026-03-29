@@ -22,8 +22,12 @@ COPY_IGNORE_GLOBS = (
     "*.egg-info",
     "var",
     "reports",
-    "cisplatin_models",
+    "output",
+    "tmp",
+    "private_models",
     "figures",
+    "downloads",
+    "extracted",
     "~",
 )
 

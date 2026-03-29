@@ -1,0 +1,32 @@
+{
+  "properties": {
+    "request": {
+      "additionalProperties": true,
+      "title": "Request",
+      "type": "object"
+    },
+    "simulationId": {
+      "maxLength": 64,
+      "minLength": 1,
+      "title": "Simulationid",
+      "type": "string"
+    },
+    "stage": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Stage"
+    }
+  },
+  "required": [
+    "simulationId"
+  ],
+  "title": "ValidateSimulationRequestRequest",
+  "type": "object"
+}

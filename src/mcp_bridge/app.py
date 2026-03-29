@@ -8,10 +8,8 @@ from collections.abc import Awaitable
 from pathlib import Path
 from typing import Callable
 
-from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import FileResponse
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.routing import APIRouter
-from fastapi.staticfiles import StaticFiles
 from prometheus_client import (
     CONTENT_TYPE_LATEST,
     Counter,
@@ -27,7 +25,7 @@ from starlette.types import ASGIApp
 
 from .audit import AuditTrail, LocalAuditTrail, S3AuditTrail
 from .audit.middleware import AuditMiddleware
-from .config import AppConfig, ConfigError, load_config
+from .config import AppConfig, ConfigError, config_env_warnings, load_config
 from .constants import CORRELATION_HEADER
 from .errors import (
     DetailedHTTPException,
@@ -43,7 +41,6 @@ from .logging import DEFAULT_LOG_LEVEL, bind_context, clear_context, get_logger,
 from .routes import audit as audit_routes
 from .routes import jsonrpc as jsonrpc_routes
 from .routes import mcp as mcp_routes
-from .routes import console as console_routes
 from .routes import resources as resource_routes
 from .routes import simulation as simulation_routes
 from .runtime.factory import (
@@ -53,6 +50,7 @@ from .runtime.factory import (
     build_snapshot_store,
     should_offload_adapter_calls,
 )
+from .security.auth import AuthContext, require_roles
 from .services.job_service import create_job_service
 from mcp.session_registry import set_registry
 
@@ -133,6 +131,9 @@ class RequestContextMiddleware(BaseHTTPMiddleware):
         else:
             duration_ms = (time.perf_counter() - start) * 1000
             response.headers[CORRELATION_HEADER] = correlation_id
+            config = getattr(request.app.state, "config", None)
+            if getattr(config, "auth_allow_anonymous", False):
+                response.headers.setdefault("X-PBPK-Security-Mode", "anonymous-development")
             self._logger.info(
                 "request.complete", status_code=response.status_code, durationMs=duration_ms
             )
@@ -182,23 +183,13 @@ def create_app(config: AppConfig | None = None, log_level: str | None = None) ->
 
     setup_logging(log_level or config.log_level or DEFAULT_LOG_LEVEL)
     logger = get_logger(__name__)
+    for warning in config_env_warnings():
+        logger.warning("config.alias_env_in_use", warning=warning)
 
     app = FastAPI(title="MCP Bridge", version=config.service_version)
     app.state.config = config
     app.add_middleware(RequestContextMiddleware)
     app.state.started_at = time.monotonic()
-
-    console_static_dir = Path(__file__).resolve().parents[1] / "ui" / "analyst-console"
-    if console_static_dir.exists():
-        app.mount(
-            "/console/static",
-            StaticFiles(directory=str(console_static_dir)),
-            name="console-static",
-        )
-
-        @app.get("/console", include_in_schema=False)
-        async def console_index() -> FileResponse:
-            return FileResponse(console_static_dir / "index.html")
 
     population_store = build_population_store(config)
     app.state.population_store = population_store
@@ -325,10 +316,11 @@ def create_app(config: AppConfig | None = None, log_level: str | None = None) ->
     app.include_router(resource_routes.router)
     app.include_router(simulation_routes.router)
     app.include_router(audit_routes.router)
-    app.include_router(console_routes.router)
 
     @app.get("/metrics", include_in_schema=False)
-    async def metrics() -> Response:
+    async def metrics(
+        _auth: AuthContext = Depends(require_roles("admin")),
+    ) -> Response:
         payload = generate_latest()
         headers = {"Cache-Control": "no-store"}
         return Response(payload, media_type=CONTENT_TYPE_LATEST, headers=headers)
@@ -341,6 +333,13 @@ def create_app(config: AppConfig | None = None, log_level: str | None = None) ->
             version=config.service_version,
             adapterBackend=config.adapter_backend,
         )
+        if config.auth_allow_anonymous:
+            logger.warning(
+                "security.anonymous_mode_enabled",
+                environment=config.environment,
+                host=config.host,
+                message="Anonymous access is development-only and limited to viewer scope.",
+            )
 
     @app.on_event("shutdown")
     async def _shutdown_event() -> None:

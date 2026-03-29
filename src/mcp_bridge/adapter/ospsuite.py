@@ -615,7 +615,7 @@ class SubprocessOspsuiteAdapter(OspsuiteAdapter):
     def _compile_allowed_roots(self, configured: Iterable[str]) -> tuple[Path, ...]:
         roots = [Path(entry).expanduser().resolve() for entry in configured if entry]
         if not roots:
-            env_paths = os.getenv("MCP_MODEL_SEARCH_PATHS", "")
+            env_paths = os.getenv("ADAPTER_MODEL_PATHS") or os.getenv("MCP_MODEL_SEARCH_PATHS", "")
             for chunk in env_paths.split(os.pathsep):
                 if chunk.strip():
                     roots.append(Path(chunk).expanduser().resolve())

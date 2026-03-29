@@ -2,46 +2,51 @@
 
 Thanks for contributing to PBPK MCP.
 
-## Development Setup
+## Scope
 
-1. Clone the repository.
-2. Create a virtual environment.
-3. Install dependencies:
+This repository is a public PBPK MCP server with a published contract surface, live runtime checks, and release evidence gates. Contributions should preserve:
 
-```bash
-python -m pip install --upgrade pip
-python -m pip install -e '.[dev]'
-```
+- contract clarity
+- conservative scientific boundaries
+- explicit auth and runtime safety
+- reproducible release behavior
 
-## Local Quality Gates
+## Pull Requests
 
-Run these before opening a pull request:
+Before opening a pull request:
 
-```bash
-make lint
-make type
-make test
-```
+- run the relevant local tests for the area you changed
+- update docs when behavior, contracts, or workflow expectations change
+- avoid widening scientific or regulatory claims without explicit evidence and matching tests
+- keep temporary files, credentials, machine-local paths, and generated runtime artifacts out of the patch
 
-Optional heavier checks:
+For release-facing or trust-surface changes, review:
 
-```bash
-make test-e2e
-make compliance
-make benchmark
-```
+- `docs/github_publication_checklist.md`
+- `docs/hardening_migration_notes.md`
+- `docs/pbk_reviewer_signoff_checklist.md`
+- `docs/post_release_audit_plan.md`
 
-## Pull Request Guidelines
+## Model And Contract Changes
 
-- Keep changes focused and small where possible.
-- Add or update tests for behavior changes.
-- Update docs when APIs, config, or workflows change.
-- Include a concise summary and validation notes in the PR description.
+If you change:
 
-## Commit Style
+- MCP tools or routes
+- public schemas or examples
+- trust-bearing summaries
+- release or readiness checks
 
-Conventional commit prefixes are recommended (`feat:`, `fix:`, `docs:`, `chore:`, `test:`).
+also update the matching tests and generated contract artifacts.
 
-## License
+## Security And Scientific Claims
 
-By submitting a contribution, you agree that your contributions are licensed under the Apache License 2.0 in this repository.
+Do not:
+
+- commit secrets, bearer tokens, or local credentials
+- present runtime readiness as scientific adequacy
+- present illustrative examples as regulatory-ready evidence
+- remove caveats, block reasons, or scope boundaries from trust-bearing outputs without replacing them with something stronger
+
+## Communication
+
+Use issues and pull requests for normal changes. For sensitive security problems, follow `SECURITY.md` instead of opening a public issue with exploit details.

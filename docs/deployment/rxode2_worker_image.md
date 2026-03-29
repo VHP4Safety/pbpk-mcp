@@ -29,7 +29,7 @@ and then bakes in:
 - the workspace `src/` tree at `/app/src` for the explicit overlay profile only
 - the runtime overlay hook in `scripts/runtime_src_overlay.pth` for the explicit source-overlay maintainer profile
 - the hybrid bridge in `scripts/ospsuite_bridge.R`
-- the reference cisplatin model module in `cisplatin_models/cisplatin_population_rxode2_model.R`
+- the synthetic reference model module in `reference_models/reference_compound_population_rxode2_model.R`
 
 The current `0.4.x` debt-reduction step removes the old image-build patch installer from this path. The worker Dockerfile now copies those baseline runtime assets directly into their final locations and validates the overlay hook plus both R files during the image build itself.
 

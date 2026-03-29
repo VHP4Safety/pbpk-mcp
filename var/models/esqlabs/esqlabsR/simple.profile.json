@@ -40,6 +40,65 @@
       "Not a qualified exposure or PK prediction model."
     ]
   },
+  "workflowRole": {
+    "role": "minimal-mobi-transfer-file-integration-fixture",
+    "workflow": "integration-testing-and-runtime-validation",
+    "upstreamDependencies": [
+      "MoBi transfer-file topology and generic molecules defined outside PBPK MCP.",
+      "Scientific ADME, IVIVE, and exposure evidence are intentionally out of scope for this fixture.",
+      "Any scientific interpretation or decision framework remains external to PBPK MCP."
+    ],
+    "downstreamOutputs": [
+      "Integration-fixture execution traces and internal concentration trajectories for generic molecules A and B.",
+      "Profile-scoped qualification and uncertainty handoff objects for runtime regression checks.",
+      "Workflow-verification evidence showing that minimal MoBi transfer files can be loaded and executed."
+    ],
+    "nonGoals": [
+      "Scientific decision support.",
+      "Exposure-led prioritization or dosimetry use.",
+      "Standalone hazard or PK interpretation."
+    ]
+  },
+  "populationSupport": {
+    "supportedSpecies": [],
+    "supportedPhysiologyContexts": [
+      "Minimal organism-liver fixture topology encoded in the transfer file."
+    ],
+    "supportedLifeStages": [],
+    "supportedGenotypesOrPhenotypes": [],
+    "variabilityRepresentation": "not-applicable-to-fixture",
+    "extrapolationPolicy": "fixture-not-for-scientific-extrapolation"
+  },
+  "evidenceBasis": {
+    "basisType": "integration-fixture-and-runtime-smoke-only",
+    "inVivoSupportStatus": "not-applicable-to-fixture",
+    "iviveLinkageStatus": "not-applicable-to-fixture",
+    "parameterizationBasis": "mobi-transfer-file-fixture-context",
+    "populationVariabilityStatus": "not-applicable-to-fixture"
+  },
+  "workflowClaimBoundaries": {
+    "forwardDosimetry": "not-supported-for-integration-fixture",
+    "reverseDosimetry": "not-performed-directly-external-workflow-required",
+    "exposureLedPrioritization": "not-supported-for-integration-fixture",
+    "directRegulatoryDoseDerivation": "not-supported"
+  },
+  "modelPerformance": {
+    "status": "not-applicable-to-fixture",
+    "summary": "Predictive model-performance evidence is intentionally out of scope for this minimal integration fixture.",
+    "missingEvidence": [
+      "Predictive qualification is intentionally out of scope for this model."
+    ]
+  },
+  "parameterProvenance": {
+    "status": "fixture-structure-only",
+    "sourceTable": "runtime-derived-ospsuite-parameter-table",
+    "coverage": "Transfer-file parameter names and current values can be inspected at runtime, but scientific provenance is intentionally out of scope for this fixture.",
+    "provenanceMethod": "MoBi transfer-file inspection for runtime regression purposes only.",
+    "missingEvidence": [
+      "Scientific parameter provenance is intentionally out of scope for this integration fixture."
+    ],
+    "summary": "Parameter provenance is limited to transfer-file inspection for runtime regression and integration testing."
+  },
   "uncertainty": {
     "status": "not-applicable-to-fixture",
     "summary": "No uncertainty package is expected for this integration fixture.",
@@ -58,6 +117,17 @@
     "missingChecks": [
       "Extended regression suite for MoBi-specific fixtures"
     ]
+  },
+  "platformQualification": {
+    "status": "runtime-platform-documented",
+    "softwareName": "ospsuite",
+    "runtime": "R",
+    "qualificationBasis": "The shared ospsuite runtime and bridge path are documented for execution traceability, but no formal software-platform qualification dossier is expected for this integration fixture.",
+    "missingEvidence": [
+      "Formal software-platform qualification dossier.",
+      "Documented software validation or acceptance criteria."
+    ],
+    "summary": "Execution occurs through the shared ospsuite runtime, but this remains a traceability record rather than formal platform qualification evidence."
   },
   "peerReview": {
     "status": "not-applicable-to-fixture",

@@ -3,15 +3,43 @@ from __future__ import annotations
 import json
 import shutil
 import subprocess
+import sys
 import textwrap
 import time
 import unittest
+import urllib.parse
+from pathlib import Path
 from uuid import uuid4
+
+WORKSPACE_ROOT = Path(__file__).resolve().parents[1]
+SRC_ROOT = WORKSPACE_ROOT / "src"
+if str(SRC_ROOT) not in sys.path:
+    sys.path.insert(0, str(SRC_ROOT))
+
+from mcp_bridge.security.simple_jwt import jwt  # noqa: E402
 
 
 API_CONTAINER = "pbpk_mcp-api-1"
 CONTRACT_VERSION = "pbpk-mcp.v1"
 PKSIM5_PROJECT = "/app/var/demos/cimetidine/Cimetidine-Model.pksim5"
+DEV_AUTH_SECRET = "pbpk-local-dev-secret"
+
+
+def _auth_headers(role: str = "operator") -> dict[str, str]:
+    token = jwt.encode(
+        {
+            "sub": f"oecd-live-stack-{role}",
+            "roles": [role],
+            "iat": int(time.time()),
+            "exp": int(time.time()) + 3600,
+        },
+        DEV_AUTH_SECRET,
+        algorithm="HS256",
+    )
+    return {
+        "content-type": "application/json",
+        "authorization": f"Bearer {token}",
+    }
 
 
 def docker_exec_json(script: str):
@@ -24,18 +52,28 @@ def docker_exec_json(script: str):
     return json.loads(completed.stdout.strip() or "null")
 
 
-def call_tool(payload: dict):
+def api_request(
+    path: str,
+    *,
+    payload: dict | None = None,
+    headers: dict[str, str] | None = None,
+    params: dict[str, object] | None = None,
+):
+    request_headers = headers or _auth_headers()
+    request_path = path
+    if params:
+        request_path = f"{path}?{urllib.parse.urlencode(params)}"
     script = textwrap.dedent(
         f"""
         import json
         import urllib.error
         import urllib.request
 
-        payload = json.loads({json.dumps(json.dumps(payload))})
+        payload = json.loads({json.dumps(json.dumps(payload) if payload is not None else "null")})
         req = urllib.request.Request(
-            "http://127.0.0.1:8000/mcp/call_tool",
-            data=json.dumps(payload).encode(),
-            headers={{"content-type": "application/json"}},
+            "http://127.0.0.1:8000{request_path}",
+            data=json.dumps(payload).encode() if payload is not None else None,
+            headers=json.loads({json.dumps(json.dumps(request_headers))}),
         )
         try:
             with urllib.request.urlopen(req) as resp:
@@ -53,6 +91,10 @@ def call_tool(payload: dict):
     return docker_exec_json(script)
 
 
+def call_tool(payload: dict):
+    return api_request("/mcp/call_tool", payload=payload)
+
+
 @unittest.skipUnless(shutil.which("docker"), "docker is required for live-stack OECD tests")
 class OecdLiveStackTests(unittest.TestCase):
     @classmethod
@@ -65,14 +107,14 @@ class OecdLiveStackTests(unittest.TestCase):
         if probe.returncode != 0:
             raise unittest.SkipTest(f"{API_CONTAINER} is not available")
 
-    def test_cisplatin_scalar_context_validation(self) -> None:
-        simulation_id = f"oecd-live-cis-{uuid4().hex[:8]}"
+    def test_reference_model_scalar_context_validation(self) -> None:
+        simulation_id = f"oecd-live-ref-{uuid4().hex[:8]}"
         load_response = call_tool(
             {
                 "tool": "load_simulation",
                 "critical": True,
                 "arguments": {
-                    "filePath": "/app/var/models/rxode2/cisplatin/cisplatin_population_rxode2_model.R",
+                    "filePath": "/app/var/models/rxode2/reference_compound/reference_compound_population_rxode2_model.R",
                     "simulationId": simulation_id,
                 },
             }
@@ -98,10 +140,24 @@ class OecdLiveStackTests(unittest.TestCase):
         self.assertEqual(validation_payload["contractVersion"], CONTRACT_VERSION)
         self.assertEqual(validation_payload["backend"], "rxode2")
         self.assertEqual(validation_payload["qualificationState"]["state"], "research-use")
+        self.assertIn("trustSurfaceContract", validation_payload)
+        self.assertEqual(validation_payload["trustSurfaceContract"]["tool"], "validate_simulation_request")
+        self.assertEqual(
+            validation_payload["trustSurfaceContract"]["surfaces"][0]["surfacePath"],
+            "ngraObjects.pbpkQualificationSummary",
+        )
         self.assertIn("ngraObjects", validation_payload)
         self.assertEqual(
             validation_payload["ngraObjects"]["assessmentContext"]["objectType"],
             "assessmentContext.v1",
+        )
+        self.assertEqual(
+            validation_payload["ngraObjects"]["assessmentContext"]["workflowRole"]["workflow"],
+            "exposure-led-ngra",
+        )
+        self.assertEqual(
+            validation_payload["ngraObjects"]["assessmentContext"]["populationSupport"]["extrapolationPolicy"],
+            "outside-declared-adult-human-reference-context-requires-human-review",
         )
         self.assertEqual(
             validation_payload["ngraObjects"]["pbpkQualificationSummary"]["state"],
@@ -113,6 +169,21 @@ class OecdLiveStackTests(unittest.TestCase):
         )
         self.assertFalse(
             validation_payload["ngraObjects"]["pbpkQualificationSummary"]["supports"]["regulatoryDecision"],
+        )
+        self.assertEqual(
+            validation_payload["ngraObjects"]["pbpkQualificationSummary"]["evidenceBasis"]["inVivoSupportStatus"],
+            "not-declared",
+        )
+        self.assertEqual(
+            validation_payload["ngraObjects"]["pbpkQualificationSummary"]["workflowClaimBoundaries"]["reverseDosimetry"],
+            "not-performed-directly-external-workflow-required",
+        )
+        self.assertEqual(
+            validation_payload["ngraObjects"]["pbpkQualificationSummary"]["reviewStatus"]["status"],
+            "not-declared",
+        )
+        self.assertTrue(
+            validation_payload["ngraObjects"]["pbpkQualificationSummary"]["reviewStatus"]["requiresReviewerAttention"],
         )
         self.assertEqual(
             validation_payload["ngraObjects"]["internalExposureEstimate"]["status"],
@@ -168,6 +239,30 @@ class OecdLiveStackTests(unittest.TestCase):
         self.assertEqual(load_payload["tool"], "load_simulation")
         self.assertEqual(load_payload["contractVersion"], CONTRACT_VERSION)
         self.assertEqual(load_payload["backend"], "ospsuite")
+        self.assertEqual(
+            load_payload["profile"]["workflowRole"]["workflow"],
+            "method-development-and-onboarding",
+        )
+        self.assertEqual(
+            load_payload["profile"]["modelPerformance"]["status"],
+            "not-bundled",
+        )
+        self.assertEqual(
+            load_payload["profile"]["parameterProvenance"]["status"],
+            "transfer-file-context-only",
+        )
+        self.assertEqual(
+            load_payload["profile"]["evidenceBasis"]["inVivoSupportStatus"],
+            "no-direct-in-vivo-support",
+        )
+        self.assertEqual(
+            load_payload["profile"]["platformQualification"]["status"],
+            "runtime-platform-documented",
+        )
+        self.assertEqual(
+            load_payload["profile"]["workflowClaimBoundaries"]["directRegulatoryDoseDerivation"],
+            "not-supported",
+        )
 
         validation_response = call_tool(
             {
@@ -196,7 +291,7 @@ class OecdLiveStackTests(unittest.TestCase):
                 "tool": "load_simulation",
                 "critical": True,
                 "arguments": {
-                    "filePath": "/app/var/models/rxode2/cisplatin/cisplatin_population_rxode2_model.R",
+                    "filePath": "/app/var/models/rxode2/reference_compound/reference_compound_population_rxode2_model.R",
                     "simulationId": simulation_id,
                 },
             }
@@ -230,6 +325,14 @@ class OecdLiveStackTests(unittest.TestCase):
         self.assertEqual(report_payload["contractVersion"], CONTRACT_VERSION)
         self.assertEqual(report_payload["backend"], "rxode2")
         self.assertEqual(report_payload["qualificationState"]["state"], "research-use")
+        self.assertIn("trustSurfaceContract", report_payload)
+        self.assertEqual(report_payload["trustSurfaceContract"]["tool"], "export_oecd_report")
+        self.assertEqual(report_payload["trustSurfaceContract"]["surfaceCount"], 2)
+        surface_paths = {
+            surface["surfacePath"] for surface in report_payload["trustSurfaceContract"]["surfaces"]
+        }
+        self.assertIn("report.humanReviewSummary", surface_paths)
+        self.assertIn("report.ngraObjects.pbpkQualificationSummary", surface_paths)
         self.assertIn("ngraObjects", report_payload)
         report = report_payload["report"]
         self.assertEqual(report["reportVersion"], "pbpk-oecd-report.v1")
@@ -237,9 +340,74 @@ class OecdLiveStackTests(unittest.TestCase):
         self.assertEqual(report["qualificationState"]["state"], "research-use")
         self.assertIn("ngraObjects", report)
         self.assertIn("oecdCoverage", report)
+        self.assertIn("humanReviewSummary", report)
+        self.assertIn("misreadRiskSummary", report)
+        self.assertIn("cautionSummary", report)
         self.assertEqual(report["oecdCoverage"]["coverageVersion"], "pbpk-oecd-coverage.v1")
         self.assertFalse(report["oecdCoverage"]["affectsChecklistScore"])
         self.assertFalse(report["oecdCoverage"]["affectsQualificationState"])
+        self.assertTrue(report["humanReviewSummary"]["humanReviewRequired"])
+        self.assertEqual(
+            report["humanReviewSummary"]["intendedWorkflow"]["workflow"],
+            "exposure-led-ngra",
+        )
+        self.assertEqual(
+            report["humanReviewSummary"]["claimBoundaries"]["directRegulatoryDoseDerivation"],
+            "not-supported",
+        )
+        self.assertEqual(
+            report["humanReviewSummary"]["reviewStatus"]["status"],
+            "not-declared",
+        )
+        self.assertIn("cautionSummary", report["humanReviewSummary"])
+        self.assertEqual(
+            report["humanReviewSummary"]["cautionSummary"]["highestSeverity"],
+            "high",
+        )
+        self.assertIn(
+            "ivive-linkage-limited",
+            {entry["code"] for entry in report["humanReviewSummary"]["cautionSummary"]["cautions"]},
+        )
+        self.assertEqual(
+            report["humanReviewSummary"]["summaryTransportRisk"]["riskLevel"],
+            "high",
+        )
+        self.assertTrue(
+            report["humanReviewSummary"]["summaryTransportRisk"]["detachedSummaryUnsafe"]
+        )
+        self.assertEqual(
+            report["humanReviewSummary"]["renderingGuardrails"]["actionIfRequiredFieldsMissing"],
+            "refuse-rendering",
+        )
+        self.assertEqual(
+            report["exportBlockPolicy"]["defaultAction"],
+            "block-lossy-or-decision-leaning-exports",
+        )
+        self.assertIn(
+            "detached-summary-blocked",
+            {entry["code"] for entry in report["exportBlockPolicy"]["blockReasons"]},
+        )
+        self.assertIn(
+            "human review is still required",
+            report["humanReviewSummary"]["plainLanguageSummary"].lower(),
+        )
+        self.assertEqual(
+            report["misreadRiskSummary"]["sectionTitle"],
+            "How this output could be misread",
+        )
+        self.assertTrue(report["misreadRiskSummary"]["requiredReading"])
+        self.assertIn(
+            "direct regulatory dose derivation",
+            report["misreadRiskSummary"]["plainLanguageSummary"].lower(),
+        )
+        risk_codes = {entry["code"] for entry in report["misreadRiskSummary"]["riskStatements"]}
+        self.assertIn("detached-summary-overread", risk_codes)
+        self.assertTrue(
+            any(
+                "context of use" in item.lower()
+                for item in report["misreadRiskSummary"]["requiredReviewerChecks"]
+            )
+        )
         self.assertEqual(
             report["oecdCoverage"]["reportingTemplate"]["sections"]["modelPerformance"]["status"],
             "partial",
@@ -253,6 +421,10 @@ class OecdLiveStackTests(unittest.TestCase):
             "assessmentContext.v1",
         )
         self.assertEqual(
+            report["ngraObjects"]["assessmentContext"]["workflowRole"]["workflow"],
+            "exposure-led-ngra",
+        )
+        self.assertEqual(
             report_payload["ngraObjects"]["pbpkQualificationSummary"]["state"],
             "research-use",
         )
@@ -260,6 +432,150 @@ class OecdLiveStackTests(unittest.TestCase):
             report_payload["ngraObjects"]["pbpkQualificationSummary"]["assessmentBoundary"],
             "pbpk-execution-and-qualification-substrate-only",
         )
+        self.assertEqual(
+            report_payload["ngraObjects"]["pbpkQualificationSummary"]["reviewStatus"]["status"],
+            "not-declared",
+        )
+        self.assertIn(
+            "exportBlockPolicy",
+            report_payload["ngraObjects"]["pbpkQualificationSummary"],
+        )
+        self.assertIn(
+            "cautionSummary",
+            report_payload["ngraObjects"]["pbpkQualificationSummary"],
+        )
+        self.assertEqual(
+            report["ngraObjects"]["pbpkQualificationSummary"]["workflowClaimBoundaries"]["directRegulatoryDoseDerivation"],
+            "not-supported",
+        )
+
+    def test_trust_bearing_outputs_surface_operator_review_signoff(self) -> None:
+        simulation_id = f"oecd-live-signoff-{uuid4().hex[:8]}"
+        load_response = call_tool(
+            {
+                "tool": "load_simulation",
+                "critical": True,
+                "arguments": {
+                    "filePath": "/app/var/models/rxode2/reference_compound/reference_compound_population_rxode2_model.R",
+                    "simulationId": simulation_id,
+                },
+            }
+        )
+        self.assertEqual(load_response["status"], 200)
+
+        validation_signoff = api_request(
+            "/review_signoff",
+            payload={
+                "simulationId": simulation_id,
+                "scope": "validate_simulation_request",
+                "disposition": "acknowledged",
+                "rationale": "Validation output reviewed for bounded use and kept within the declared research-only context.",
+                "reviewFocus": ["Context of use", "Qualification boundary"],
+                "confirm": True,
+            },
+        )
+        self.assertEqual(validation_signoff["status"], 200)
+        self.assertEqual(
+            validation_signoff["body"]["operatorReviewSignoff"]["status"],
+            "recorded",
+        )
+
+        validation_response = call_tool(
+            {
+                "tool": "validate_simulation_request",
+                "arguments": {
+                    "simulationId": simulation_id,
+                    "request": {"route": "iv-infusion", "contextOfUse": "research-only"},
+                },
+            }
+        )
+        self.assertEqual(validation_response["status"], 200)
+        validation_payload = validation_response["body"]["structuredContent"]
+        self.assertEqual(validation_payload["operatorReviewSignoff"]["status"], "recorded")
+        self.assertEqual(
+            validation_payload["operatorReviewSignoff"]["scope"],
+            "validate_simulation_request",
+        )
+
+        report_signoff = api_request(
+            "/review_signoff",
+            payload={
+                "simulationId": simulation_id,
+                "scope": "export_oecd_report",
+                "disposition": "approved-for-bounded-use",
+                "rationale": "Report export reviewed for bounded sharing with the declared caveats left intact.",
+                "limitationsAccepted": ["Adult human synthetic reference context only"],
+                "reviewFocus": ["Detached-summary risk", "Claim boundaries"],
+                "confirm": True,
+            },
+        )
+        self.assertEqual(report_signoff["status"], 200)
+        self.assertEqual(
+            report_signoff["body"]["operatorReviewSignoff"]["disposition"],
+            "approved-for-bounded-use",
+        )
+
+        verify_response = call_tool(
+            {
+                "tool": "run_verification_checks",
+                "arguments": {
+                    "simulationId": simulation_id,
+                    "request": {"route": "iv-infusion", "contextOfUse": "research-only"},
+                },
+            }
+        )
+        self.assertEqual(verify_response["status"], 200)
+
+        report_response = call_tool(
+            {
+                "tool": "export_oecd_report",
+                "arguments": {
+                    "simulationId": simulation_id,
+                    "request": {"route": "iv-infusion", "contextOfUse": "research-only"},
+                    "parameterLimit": 5,
+                },
+            }
+        )
+        self.assertEqual(report_response["status"], 200)
+        report_payload = report_response["body"]["structuredContent"]
+        report = report_payload["report"]
+        self.assertEqual(report_payload["operatorReviewSignoff"]["status"], "recorded")
+        self.assertEqual(
+            report_payload["operatorReviewSignoff"]["disposition"],
+            "approved-for-bounded-use",
+        )
+        self.assertEqual(
+            report_payload["report"]["humanReviewSummary"]["operatorReviewSignoff"]["status"],
+            "recorded",
+        )
+        self.assertEqual(
+            report_payload["report"]["humanReviewSummary"]["operatorReviewSignoff"]["scope"],
+            "export_oecd_report",
+        )
+        self.assertEqual(
+            report_payload["operatorReviewGovernance"]["workflowStatus"],
+            "descriptive-signoff-only",
+        )
+        self.assertFalse(report_payload["operatorReviewGovernance"]["supportsOverride"])
+        self.assertFalse(
+            report_payload["report"]["humanReviewSummary"]["operatorReviewGovernance"]["supportsAdjudication"]
+        )
+
+        signoff_history = api_request(
+            "/review_signoff/history",
+            params={"simulationId": simulation_id, "scope": "export_oecd_report", "limit": 10},
+            headers=_auth_headers("viewer"),
+        )
+        self.assertEqual(signoff_history["status"], 200)
+        self.assertEqual(
+            signoff_history["body"]["operatorReviewSignoffHistory"]["entries"][0]["action"],
+            "recorded",
+        )
+        self.assertEqual(
+            signoff_history["body"]["operatorReviewSignoffHistory"]["entries"][0]["disposition"],
+            "approved-for-bounded-use",
+        )
+        self.assertFalse(signoff_history["body"]["operatorReviewGovernance"]["signoffConfersDecisionAuthority"])
         self.assertEqual(
             report["ngraObjects"]["internalExposureEstimate"]["status"],
             "available",
@@ -365,7 +681,7 @@ class OecdLiveStackTests(unittest.TestCase):
                 "tool": "load_simulation",
                 "critical": True,
                 "arguments": {
-                    "filePath": "/app/var/models/rxode2/cisplatin/cisplatin_population_rxode2_model.R",
+                    "filePath": "/app/var/models/rxode2/reference_compound/reference_compound_population_rxode2_model.R",
                     "simulationId": simulation_id,
                 },
             }
@@ -390,6 +706,12 @@ class OecdLiveStackTests(unittest.TestCase):
         self.assertEqual(verify_payload["contractVersion"], CONTRACT_VERSION)
         self.assertEqual(verify_payload["backend"], "rxode2")
         self.assertEqual(verify_payload["qualificationState"]["state"], "research-use")
+        self.assertIn("trustSurfaceContract", verify_payload)
+        self.assertEqual(verify_payload["trustSurfaceContract"]["tool"], "run_verification_checks")
+        self.assertEqual(
+            verify_payload["trustSurfaceContract"]["surfaces"][0]["surfacePath"],
+            "qualificationState",
+        )
 
         verification = verify_payload["verification"]
         self.assertEqual(verification["status"], "passed")
@@ -478,7 +800,7 @@ class OecdLiveStackTests(unittest.TestCase):
                 "tool": "load_simulation",
                 "critical": True,
                 "arguments": {
-                    "filePath": "/app/var/models/rxode2/cisplatin/cisplatin_population_rxode2_model.R",
+                    "filePath": "/app/var/models/rxode2/reference_compound/reference_compound_population_rxode2_model.R",
                     "simulationId": simulation_id,
                 },
             }
@@ -525,7 +847,7 @@ class OecdLiveStackTests(unittest.TestCase):
             {
                 "tool": "validate_model_manifest",
                 "arguments": {
-                    "filePath": "/app/var/models/rxode2/cisplatin/cisplatin_population_rxode2_model.R",
+                    "filePath": "/app/var/models/rxode2/reference_compound/reference_compound_population_rxode2_model.R",
                 },
             }
         )
@@ -534,10 +856,59 @@ class OecdLiveStackTests(unittest.TestCase):
         self.assertEqual(payload["tool"], "validate_model_manifest")
         self.assertEqual(payload["contractVersion"], CONTRACT_VERSION)
         self.assertEqual(payload["backend"], "rxode2")
+        self.assertIn("trustSurfaceContract", payload)
+        self.assertEqual(payload["trustSurfaceContract"]["tool"], "validate_model_manifest")
+        self.assertEqual(
+            payload["trustSurfaceContract"]["surfaces"][0]["surfacePath"],
+            "curationSummary",
+        )
+        self.assertTrue(payload["curationSummary"]["ngraDeclarationsExplicit"])
+        self.assertEqual(payload["curationSummary"]["manifestStatus"], "valid")
+        self.assertIn("complete static curation", payload["curationSummary"]["reviewLabel"].lower())
+        self.assertIn("misreadRiskSummary", payload["curationSummary"])
+        self.assertTrue(payload["curationSummary"]["misreadRiskSummary"]["requiredReading"])
+        self.assertIn(
+            "decision readiness",
+            payload["curationSummary"]["misreadRiskSummary"]["riskStatements"][0]["message"].lower(),
+        )
+        self.assertIn("renderingGuardrails", payload["curationSummary"])
+        self.assertFalse(payload["curationSummary"]["renderingGuardrails"]["allowBareReviewLabel"])
+        self.assertTrue(payload["curationSummary"]["renderingGuardrails"]["requiresInlineMisreadGuidance"])
+        self.assertEqual(
+            payload["curationSummary"]["renderingGuardrails"]["actionIfRequiredFieldsMissing"],
+            "refuse-rendering",
+        )
+        self.assertIn("summaryTransportRisk", payload["curationSummary"])
+        self.assertEqual(payload["curationSummary"]["summaryTransportRisk"]["riskLevel"], "high")
+        self.assertIn("regulatoryBenchmarkReadiness", payload["curationSummary"])
+        benchmark_readiness = payload["curationSummary"]["regulatoryBenchmarkReadiness"]
+        self.assertTrue(benchmark_readiness["advisoryOnly"])
+        self.assertEqual(
+            benchmark_readiness["overallStatus"],
+            "below-benchmark-bar",
+        )
+        self.assertTrue(benchmark_readiness["benchmarkBarSource"]["sourceManifestSha256"])
+        self.assertTrue(benchmark_readiness["benchmarkBarSource"]["fetchedLockSha256"])
+        self.assertIn(
+            benchmark_readiness["benchmarkBarSource"]["sourceResolution"],
+            {"direct-lock-files", "audit-manifest-fallback", "packaged-contract-fallback"},
+        )
+        self.assertTrue(benchmark_readiness["recommendedNextArtifacts"])
+        self.assertIn("cautionSummary", payload["curationSummary"])
+        self.assertEqual(payload["curationSummary"]["cautionSummary"]["highestSeverity"], "high")
+        self.assertIn("exportBlockPolicy", payload["curationSummary"])
         manifest = payload["manifest"]
         self.assertEqual(manifest["validationMode"], "static-manifest-inspection")
         self.assertEqual(manifest["qualificationState"]["state"], "research-use")
         self.assertTrue(manifest["hooks"]["modelProfile"])
+        self.assertTrue(manifest["ngraCoverage"]["allExplicitlyDeclared"])
+        self.assertEqual(manifest["ngraCoverage"]["declaredCount"], 4)
+        self.assertEqual(manifest["ngraCoverage"]["missingDeclarations"], [])
+        codes = {issue["code"] for issue in manifest["issues"]}
+        self.assertNotIn("ngra_workflow_role_missing", codes)
+        self.assertNotIn("ngra_population_support_missing", codes)
+        self.assertNotIn("ngra_evidence_basis_missing", codes)
+        self.assertNotIn("ngra_workflow_claim_boundaries_missing", codes)
 
     def test_load_simulation_rejects_pksim5_with_export_guidance(self) -> None:
         response = call_tool(
@@ -564,7 +935,7 @@ class OecdLiveStackTests(unittest.TestCase):
                 "tool": "load_simulation",
                 "critical": True,
                 "arguments": {
-                    "filePath": "/app/var/models/rxode2/cisplatin/cisplatin_population_rxode2_model.R",
+                    "filePath": "/app/var/models/rxode2/reference_compound/reference_compound_population_rxode2_model.R",
                     "simulationId": simulation_id,
                 },
             }

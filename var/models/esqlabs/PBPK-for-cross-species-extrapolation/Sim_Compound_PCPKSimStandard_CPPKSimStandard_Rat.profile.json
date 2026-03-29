@@ -41,6 +41,70 @@
       "Not declared for regulatory use or definitive interspecies extrapolation."
     ]
   },
+  "workflowRole": {
+    "role": "illustrative-rat-cross-species-transfer-file-validation-and-internal-dose-support",
+    "workflow": "cross-species-method-development",
+    "upstreamDependencies": [
+      "Transfer-file structure and intravenous bolus scenario exported outside PBPK MCP.",
+      "Chemical-specific ADME, IVIVE, and interspecies evidence are not bundled for the placeholder compound example.",
+      "Any species-translation, prioritization, or decision framework remains external to PBPK MCP."
+    ],
+    "downstreamOutputs": [
+      "Illustrative rat internal concentration trajectories for the declared cross-species transfer-file example.",
+      "Profile-scoped qualification and uncertainty handoff objects for reviewer-facing workflow checks.",
+      "Workflow-verification evidence showing that rat cross-species transfer files can be loaded and executed."
+    ],
+    "nonGoals": [
+      "Chemical-specific interspecies extrapolation claims.",
+      "Direct regulatory or decision-support use.",
+      "Standalone hazard or exposure assessment ownership."
+    ]
+  },
+  "populationSupport": {
+    "supportedSpecies": [
+      "rat"
+    ],
+    "supportedPhysiologyContexts": [
+      "Rat physiology encoded in the transfer file."
+    ],
+    "supportedLifeStages": [],
+    "supportedGenotypesOrPhenotypes": [],
+    "variabilityRepresentation": "not-declared",
+    "extrapolationPolicy": "outside-declared-rat-cross-species-example-context-requires-human-review"
+  },
+  "evidenceBasis": {
+    "basisType": "illustrative-sidecar-and-runtime-smoke-only",
+    "inVivoSupportStatus": "no-direct-in-vivo-support",
+    "iviveLinkageStatus": "not-declared",
+    "parameterizationBasis": "pk-sim-transfer-file-and-conservative-sidecar-context",
+    "populationVariabilityStatus": "not-declared"
+  },
+  "workflowClaimBoundaries": {
+    "forwardDosimetry": "illustrative-only-within-declared-rat-cross-species-example-context",
+    "reverseDosimetry": "not-performed-directly-external-workflow-required",
+    "exposureLedPrioritization": "not-supported-for-generic-compound-cross-species-example",
+    "directRegulatoryDoseDerivation": "not-supported"
+  },
+  "modelPerformance": {
+    "status": "not-bundled",
+    "summary": "No chemical-specific observed-versus-predicted dataset, cross-species benchmark, or qualification-oriented performance dossier is bundled with this illustrative rat example.",
+    "missingEvidence": [
+      "Chemical-specific calibration or observed-versus-predicted data.",
+      "Cross-species performance metrics and acceptance criteria.",
+      "External qualification or verification study package."
+    ]
+  },
+  "parameterProvenance": {
+    "status": "transfer-file-context-only",
+    "sourceTable": "runtime-derived-ospsuite-parameter-table",
+    "coverage": "Transfer-file parameter names and current values can be inspected at runtime, but source citations are not bundled in this sidecar.",
+    "provenanceMethod": "PK-Sim transfer-file inspection with conservative sidecar scope statements only.",
+    "missingEvidence": [
+      "Parameter-by-parameter literature citations and study conditions.",
+      "Documented justification for rat-specific parameter choices in this generic example."
+    ],
+    "summary": "Parameter provenance is limited to transfer-file inspection and high-level scope notes for this illustrative rat example."
+  },
   "uncertainty": {
     "status": "not-encoded",
     "summary": "No quantitative uncertainty or extrapolation-performance dossier is bundled with this rat example.",
@@ -67,6 +131,17 @@
       "The transfer file declares an empty OutputSelections block.",
       "The current MCP bridge auto-selects observer quantities at runtime so the model remains executable through the shared OSPSuite backend."
     ]
+  },
+  "platformQualification": {
+    "status": "runtime-platform-documented",
+    "softwareName": "ospsuite",
+    "runtime": "R",
+    "qualificationBasis": "The shared ospsuite runtime and bridge path are documented for execution traceability, but no formal software-platform qualification dossier is bundled for this illustrative rat example.",
+    "missingEvidence": [
+      "Formal software-platform qualification dossier.",
+      "Documented software validation or acceptance criteria."
+    ],
+    "summary": "Execution occurs through the shared ospsuite runtime, but this remains a traceability record rather than formal platform qualification evidence."
   },
   "peerReview": {
     "status": "not-reported",
