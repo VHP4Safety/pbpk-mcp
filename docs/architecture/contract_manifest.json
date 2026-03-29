@@ -167,7 +167,7 @@
       "classification": "supporting",
       "relativePath": "docs/architecture/release_bundle_manifest.json",
       "role": "whole release bundle hash inventory",
-      "sha256": "688031a03631e0281bb83a4b22c52e6ba03548ce0a2c7508e78941fe30d6846f"
+      "sha256": "a0dab98537c1a0f6d45d889a713f514d84cd926d7c1b8f1294c4ce77f7d5122c"
     },
     {
       "classification": "supporting",
@@ -293,7 +293,7 @@
       "classification": "supporting",
       "relativePath": "tests/test_runtime_security_live_stack.py",
       "role": "live runtime security regression test",
-      "sha256": "f13a7de9ab4f78285d14eb39311f22a1e51b051b91a2f44f0d4384a2e708b5b2"
+      "sha256": "7117ddb351c2bdb913f91691da82c7bafeb1b57884243ae302bbf17fabf289ad"
     },
     {
       "classification": "supporting",
