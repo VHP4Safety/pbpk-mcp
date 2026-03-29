@@ -2,32 +2,45 @@
 from __future__ import annotations
 
 import argparse
+import base64
+import hashlib
+import hmac
 import json
 import sys
 import time
 import urllib.error
 import urllib.request
+from pathlib import Path
 from typing import Any
 
+WORKSPACE_ROOT = Path(__file__).resolve().parents[1]
+SRC_ROOT = WORKSPACE_ROOT / "src"
+if str(SRC_ROOT) not in sys.path:
+    sys.path.insert(0, str(SRC_ROOT))
 
-DEFAULT_REQUIRED_TOOLS = (
-    "discover_models",
-    "export_oecd_report",
-    "get_job_status",
-    "get_population_results",
-    "get_results",
-    "ingest_external_pbpk_bundle",
-    "load_simulation",
-    "run_population_simulation",
-    "run_simulation",
-    "run_verification_checks",
-    "validate_model_manifest",
-    "validate_simulation_request",
-)
+from mcp_bridge.contract import release_probe_required_tools  # noqa: E402
+
+DEFAULT_REQUIRED_TOOLS = release_probe_required_tools()
 
 
-def http_json(url: str, *, timeout: float) -> Any:
-    req = urllib.request.Request(url)
+def _b64encode(data: bytes) -> str:
+    return base64.urlsafe_b64encode(data).rstrip(b"=").decode("ascii")
+
+
+def _encode_dev_token(payload: dict[str, Any], secret: str) -> str:
+    header = {"typ": "JWT", "alg": "HS256"}
+    segments = [
+        _b64encode(json.dumps(header, separators=(",", ":"), sort_keys=True).encode("utf-8")),
+        _b64encode(json.dumps(payload, separators=(",", ":"), sort_keys=True).encode("utf-8")),
+    ]
+    signing_input = ".".join(segments).encode("utf-8")
+    signature = hmac.new(secret.encode("utf-8"), signing_input, hashlib.sha256).digest()
+    segments.append(_b64encode(signature))
+    return ".".join(segments)
+
+
+def http_json(url: str, *, timeout: float, headers: dict[str, str] | None = None) -> Any:
+    req = urllib.request.Request(url, headers=headers or {})
     with urllib.request.urlopen(req, timeout=timeout) as response:
         return json.loads(response.read().decode())
 
@@ -71,6 +84,16 @@ def parse_args() -> argparse.Namespace:
         default=[],
         help="Required tool name. Repeat to override the default readiness catalog.",
     )
+    parser.add_argument(
+        "--auth-dev-secret",
+        default=None,
+        help="Optional development HS256 secret for probing operator-only tools.",
+    )
+    parser.add_argument(
+        "--auth-role",
+        default="operator",
+        help="Role to encode in the development probe token when --auth-dev-secret is set.",
+    )
     return parser.parse_args()
 
 
@@ -80,12 +103,26 @@ def main() -> int:
     deadline = time.time() + args.timeout_seconds
     stable_successes = 0
     last_error: str | None = None
+    headers: dict[str, str] = {}
+
+    if args.auth_dev_secret:
+        token = _encode_dev_token(
+            {
+                "sub": "runtime-ready-probe",
+                "roles": [args.auth_role],
+                "iat": int(time.time()),
+                "exp": int(time.time()) + max(int(args.timeout_seconds), 60),
+            },
+            args.auth_dev_secret,
+        )
+        headers["Authorization"] = f"Bearer {token}"
 
     while time.time() < deadline:
         try:
             health = http_json(
                 f"{args.base_url}/health",
                 timeout=args.per_request_timeout_seconds,
+                headers=headers,
             )
             if health.get("status") != "ok":
                 raise RuntimeError(f"health status is not ok: {health}")
@@ -93,6 +130,7 @@ def main() -> int:
             tools_payload = http_json(
                 f"{args.base_url}/mcp/list_tools",
                 timeout=args.per_request_timeout_seconds,
+                headers=headers,
             )
             tool_names = {
                 tool.get("name")

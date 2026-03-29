@@ -6,7 +6,7 @@ from __future__ import annotations
 import asyncio
 import json
 from datetime import datetime, timezone
-from typing import Any, AsyncGenerator, Dict, List, Optional
+from typing import Any, AsyncGenerator, Dict, List, Literal, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.responses import StreamingResponse
@@ -117,6 +117,14 @@ from ..errors import (
     validation_exception,
 )
 from ..logging import get_logger
+from ..review_signoff import (
+    TRUST_BEARING_SIGNOFF_SCOPES,
+    build_operator_review_governance,
+    build_operator_review_signoff_history,
+    build_operator_review_signoff_summary,
+    record_operator_review_signoff,
+    revoke_operator_review_signoff,
+)
 from ..services.job_service import BaseJobService, JobStatus
 from ..storage.population_store import (
     PopulationChunkNotFoundError,
@@ -384,10 +392,74 @@ class CancelJobResponse(CamelModel):
     status: str
 
 
+class RecordReviewSignoffRequest(CamelModel):
+    simulation_id: str = Field(alias="simulationId", min_length=1, max_length=64)
+    scope: Literal[
+        "validate_simulation_request",
+        "run_verification_checks",
+        "export_oecd_report",
+    ]
+    disposition: Literal["acknowledged", "approved-for-bounded-use", "rejected"]
+    rationale: str = Field(min_length=12, max_length=4000)
+    limitations_accepted: List[str] = Field(default_factory=list, alias="limitationsAccepted")
+    review_focus: List[str] = Field(default_factory=list, alias="reviewFocus")
+    confirm: Optional[bool] = None
+
+
+class RevokeReviewSignoffRequest(CamelModel):
+    simulation_id: str = Field(alias="simulationId", min_length=1, max_length=64)
+    scope: Literal[
+        "validate_simulation_request",
+        "run_verification_checks",
+        "export_oecd_report",
+    ]
+    rationale: str = Field(min_length=12, max_length=4000)
+    confirm: Optional[bool] = None
+
+
+class ReviewSignoffResponse(CamelModel):
+    operator_review_signoff: Dict[str, Any] = Field(
+        default_factory=dict,
+        alias="operatorReviewSignoff",
+    )
+    operator_review_governance: Dict[str, Any] = Field(
+        default_factory=dict,
+        alias="operatorReviewGovernance",
+    )
+
+
+class ReviewSignoffHistoryResponse(CamelModel):
+    operator_review_signoff_history: Dict[str, Any] = Field(
+        default_factory=dict,
+        alias="operatorReviewSignoffHistory",
+    )
+    operator_review_governance: Dict[str, Any] = Field(
+        default_factory=dict,
+        alias="operatorReviewGovernance",
+    )
+
+
 def _iso_timestamp(epoch: Optional[float]) -> Optional[str]:
     if epoch is None:
         return None
     return datetime.fromtimestamp(epoch, tz=timezone.utc).isoformat()
+
+
+def _service_version(request: Request) -> str:
+    config = getattr(request.app.state, "config", None)
+    return str(getattr(config, "service_version", "unknown"))
+
+
+def _ensure_signoff_writable(audit: AuditTrail) -> None:
+    if getattr(audit, "enabled", False):
+        return
+    raise http_error(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        message="Operator review sign-off requires audit recording to be enabled.",
+        code=ErrorCode.INTERNAL_ERROR,
+        field="audit",
+        hint="Enable AUDIT_ENABLED=true before recording or revoking sign-off state.",
+    )
 
 
 async def _job_event_stream(
@@ -467,7 +539,7 @@ async def load_simulation(
         hint = (
             "Ensure the simulation is not already loaded and the identifier is unique."
             if field == "simulationId"
-            else "Provide an absolute .pkml or .pksim5 path within MCP_MODEL_SEARCH_PATHS."
+            else "Provide an absolute .pkml or .pksim5 path within ADAPTER_MODEL_PATHS."
         )
         logger.warning(
             "simulation.invalid",
@@ -992,6 +1064,146 @@ async def get_simulation_snapshot(
     snapshots = [_format_snapshot_metadata(record) for record in records]
     latest = snapshots[0] if snapshots else None
     return SnapshotListResponse(snapshots=snapshots, latestSnapshot=latest)
+
+
+@router.get("/review_signoff", response_model=ReviewSignoffResponse)
+async def get_review_signoff(
+    simulation_id: str = Query(..., alias="simulationId", min_length=1, max_length=64),
+    scope: str = Query(..., min_length=1),
+    audit: AuditTrail = Depends(get_audit_trail),
+    _auth: AuthContext = Depends(require_roles("viewer", "operator", "admin")),
+) -> ReviewSignoffResponse:
+    if scope not in TRUST_BEARING_SIGNOFF_SCOPES:
+        raise http_error(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            message=f"Unsupported review sign-off scope '{scope}'.",
+            code=ErrorCode.INVALID_INPUT,
+            field="scope",
+            hint="Use one of validate_simulation_request, run_verification_checks, or export_oecd_report.",
+        )
+    return ReviewSignoffResponse(
+        operatorReviewSignoff=build_operator_review_signoff_summary(
+            audit,
+            simulation_id=simulation_id,
+            scope=scope,
+        ),
+        operatorReviewGovernance=build_operator_review_governance(scope),
+    )
+
+
+@router.get("/review_signoff/history", response_model=ReviewSignoffHistoryResponse)
+async def get_review_signoff_history(
+    simulation_id: str = Query(..., alias="simulationId", min_length=1, max_length=64),
+    scope: str = Query(..., min_length=1),
+    limit: int = Query(20, ge=1, le=100),
+    audit: AuditTrail = Depends(get_audit_trail),
+    _auth: AuthContext = Depends(require_roles("viewer", "operator", "admin")),
+) -> ReviewSignoffHistoryResponse:
+    if scope not in TRUST_BEARING_SIGNOFF_SCOPES:
+        raise http_error(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            message=f"Unsupported review sign-off scope '{scope}'.",
+            code=ErrorCode.INVALID_INPUT,
+            field="scope",
+            hint="Use one of validate_simulation_request, run_verification_checks, or export_oecd_report.",
+        )
+    return ReviewSignoffHistoryResponse(
+        operatorReviewSignoffHistory=build_operator_review_signoff_history(
+            audit,
+            simulation_id=simulation_id,
+            scope=scope,
+            limit=limit,
+        ),
+        operatorReviewGovernance=build_operator_review_governance(scope),
+    )
+
+
+@router.post("/review_signoff", response_model=ReviewSignoffResponse)
+async def record_review_signoff(
+    payload: RecordReviewSignoffRequest,
+    request: Request,
+    audit: AuditTrail = Depends(get_audit_trail),
+    session_store=Depends(get_session_registry),
+    auth: AuthContext = Depends(require_roles("operator", "admin")),
+) -> ReviewSignoffResponse:
+    require_confirmation(request, confirmed=payload.confirm)
+    _ensure_signoff_writable(audit)
+    if not session_store.contains(payload.simulation_id):
+        raise http_error(
+            status_code=status.HTTP_404_NOT_FOUND,
+            message=f"Simulation '{payload.simulation_id}' is not loaded",
+            code=ErrorCode.NOT_FOUND,
+            field="simulationId",
+            hint="Load the simulation before recording sign-off state.",
+        )
+
+    record_operator_review_signoff(
+        audit,
+        auth=auth,
+        simulation_id=payload.simulation_id,
+        scope=payload.scope,
+        disposition=payload.disposition,
+        rationale=payload.rationale,
+        limitations_accepted=payload.limitations_accepted,
+        review_focus=payload.review_focus,
+        service_version=_service_version(request),
+    )
+    logger.info(
+        "simulation.review_signoff.recorded",
+        simulationId=payload.simulation_id,
+        scope=payload.scope,
+        disposition=payload.disposition,
+    )
+    return ReviewSignoffResponse(
+        operatorReviewSignoff=build_operator_review_signoff_summary(
+            audit,
+            simulation_id=payload.simulation_id,
+            scope=payload.scope,
+        ),
+        operatorReviewGovernance=build_operator_review_governance(payload.scope),
+    )
+
+
+@router.post("/review_signoff/revoke", response_model=ReviewSignoffResponse)
+async def revoke_review_signoff_route(
+    payload: RevokeReviewSignoffRequest,
+    request: Request,
+    audit: AuditTrail = Depends(get_audit_trail),
+    session_store=Depends(get_session_registry),
+    auth: AuthContext = Depends(require_roles("operator", "admin")),
+) -> ReviewSignoffResponse:
+    require_confirmation(request, confirmed=payload.confirm)
+    _ensure_signoff_writable(audit)
+    if not session_store.contains(payload.simulation_id):
+        raise http_error(
+            status_code=status.HTTP_404_NOT_FOUND,
+            message=f"Simulation '{payload.simulation_id}' is not loaded",
+            code=ErrorCode.NOT_FOUND,
+            field="simulationId",
+            hint="Load the simulation before revoking sign-off state.",
+        )
+
+    revoke_operator_review_signoff(
+        audit,
+        auth=auth,
+        simulation_id=payload.simulation_id,
+        scope=payload.scope,
+        rationale=payload.rationale,
+        service_version=_service_version(request),
+    )
+    logger.info(
+        "simulation.review_signoff.revoked",
+        simulationId=payload.simulation_id,
+        scope=payload.scope,
+    )
+    return ReviewSignoffResponse(
+        operatorReviewSignoff=build_operator_review_signoff_summary(
+            audit,
+            simulation_id=payload.simulation_id,
+            scope=payload.scope,
+        ),
+        operatorReviewGovernance=build_operator_review_governance(payload.scope),
+    )
 
 
 @router.get("/jobs/{job_id}/events")

@@ -114,6 +114,83 @@
       "type": "integer",
       "minimum": 0
     },
+    "reviewStatus": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "properties": {
+        "status": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "declaredStatus": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "summary": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "reviewRecordCount": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "priorUseCount": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "revisionEntryCount": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "unresolvedDissentCount": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "resolvedDissentCount": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "revisionStatus": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "focusTopics": {
+          "$ref": "#/$defs/stringArray"
+        },
+        "requiresReviewerAttention": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": true
+    },
     "performanceEvidenceBoundary": {
       "type": [
         "string",
@@ -137,6 +214,269 @@
       "items": {
         "type": "string"
       }
+    },
+    "evidenceBasis": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "properties": {
+        "basisType": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "inVivoSupportStatus": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "iviveLinkageStatus": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "parameterizationBasis": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "populationVariabilityStatus": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": true
+    },
+    "workflowClaimBoundaries": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "properties": {
+        "forwardDosimetry": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "reverseDosimetry": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "exposureLedPrioritization": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "directRegulatoryDoseDerivation": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": true
+    },
+    "exportBlockPolicy": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "properties": {
+        "policyVersion": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "defaultAction": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "contextualizedRenderOnly": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "workflow": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "blockedViewModes": {
+          "$ref": "#/$defs/stringArray"
+        },
+        "requiredFields": {
+          "$ref": "#/$defs/stringArray"
+        },
+        "blockReasons": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "severity": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "appliesTo": {
+                "$ref": "#/$defs/stringArray"
+              },
+              "message": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "currentStatus": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "requiredFields": {
+                "$ref": "#/$defs/stringArray"
+              }
+            },
+            "additionalProperties": true
+          }
+        },
+        "notes": {
+          "$ref": "#/$defs/stringArray"
+        }
+      },
+      "additionalProperties": true
+    },
+    "cautionSummary": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "properties": {
+        "summaryVersion": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "highestSeverity": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "blockingCount": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "advisoryCount": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "requiresHumanReview": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "blockingRecommended": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "cautions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "cautionType": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "severity": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "handling": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "scope": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "sourceSurface": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "message": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "currentStatus": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "requiresHumanReview": {
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              }
+            },
+            "additionalProperties": true
+          }
+        }
+      },
+      "additionalProperties": true
     },
     "supports": {
       "type": "object",

@@ -1,0 +1,132 @@
+{
+  "formatVersion": 1,
+  "generatedFor": "PBPK MCP regulatory benchmark acquisition",
+  "sources": [
+    {
+      "id": "tce_tsca_package",
+      "title": "EPA TSCA trichloroethylene PBPK package",
+      "benchmarkRole": "strict-core",
+      "coverageModels": [
+        "trichloroethylene"
+      ],
+      "sourceType": "epa-download",
+      "status": "retrievable",
+      "sizeClass": "large",
+      "notes": [
+        "Large public regulatory PBPK package used as the primary completeness benchmark.",
+        "Archive is large enough that it should stay out of the tracked git tree."
+      ],
+      "artifacts": [
+        {
+          "id": "tce_package_zip",
+          "label": "TCE TSCA PBPK package zip",
+          "url": "https://www.epa.gov/sites/default/files/2020-11/29._tce_supplemental_information_file_pbpk_model_and_readme_zipped.zip",
+          "archive": true,
+          "extract": true
+        }
+      ]
+    },
+    {
+      "id": "epa_voc_template",
+      "title": "EPA VOC PBPK template package",
+      "benchmarkRole": "strict-core",
+      "coverageModels": [
+        "dichloromethane",
+        "vinyl chloride",
+        "carbon tetrachloride",
+        "methanol"
+      ],
+      "sourceType": "epa-download",
+      "status": "retrievable",
+      "sizeClass": "medium",
+      "notes": [
+        "Primary public-code package for the solvent/VOC reproducibility benchmark stack.",
+        "Covers the strict core models other than TCE."
+      ],
+      "artifacts": [
+        {
+          "id": "voc_template_zip",
+          "label": "VOC template code zip",
+          "url": "https://pasteur.epa.gov/uploads/10.23719/1527967/PBPK_Model_Template_VOC_Extension_Code_revised.zip",
+          "archive": true,
+          "extract": true
+        },
+        {
+          "id": "voc_template_instructions",
+          "label": "VOC template run guide",
+          "url": "https://pasteur.epa.gov/uploads/10.23719/1527967/PBPK_Model_Template_VOC_Extension_Instructions.pdf",
+          "archive": false,
+          "extract": false
+        }
+      ]
+    },
+    {
+      "id": "epa_pfas_template",
+      "title": "EPA PFAS PBPK template package",
+      "benchmarkRole": "adjunct-challenge-set",
+      "coverageModels": [
+        "PFAS template"
+      ],
+      "sourceType": "epa-download",
+      "status": "retrievable",
+      "sizeClass": "medium",
+      "notes": [
+        "Use as the modern reproducibility and transparency stress test."
+      ],
+      "artifacts": [
+        {
+          "id": "pfas_template_zip",
+          "label": "PFAS template code zip",
+          "url": "https://pasteur.epa.gov/uploads/10.23719/1520081/Bernstein2021_PFAS_pbpk_template_model.zip",
+          "archive": true,
+          "extract": true
+        },
+        {
+          "id": "pfas_template_instructions",
+          "label": "PFAS template instructions",
+          "url": "https://pasteur.epa.gov/uploads/10.23719/1520081/PFAS_PBPK_Model_Template_Project_Instructions.docx",
+          "archive": false,
+          "extract": false
+        }
+      ]
+    },
+    {
+      "id": "pfos_ges_lac",
+      "title": "PFOS-Ges-Lac open PFOS model",
+      "benchmarkRole": "adjunct-challenge-set",
+      "coverageModels": [
+        "PFOS"
+      ],
+      "sourceType": "github-archive",
+      "status": "retrievable",
+      "sizeClass": "small",
+      "notes": [
+        "Open PFOS model adjunct for the PFAS challenge set."
+      ],
+      "artifacts": [
+        {
+          "id": "pfos_ges_lac_zip",
+          "label": "PFOS-Ges-Lac GitHub archive",
+          "url": "https://codeload.github.com/KSUICCM/PFOS-Ges-Lac/zip/refs/heads/master",
+          "archive": true,
+          "extract": true
+        }
+      ]
+    },
+    {
+      "id": "two_butoxyethanol_reference",
+      "title": "2-Butoxyethanol confidence-language benchmark",
+      "benchmarkRole": "documentation-only",
+      "coverageModels": [
+        "2-butoxyethanol"
+      ],
+      "sourceType": "unresolved-public-code",
+      "status": "unresolved",
+      "sizeClass": "n/a",
+      "notes": [
+        "Keep as a prose confidence benchmark, but do not treat it as a fetched executable/code package until a direct public model archive is confirmed."
+      ],
+      "artifacts": []
+    }
+  ]
+}

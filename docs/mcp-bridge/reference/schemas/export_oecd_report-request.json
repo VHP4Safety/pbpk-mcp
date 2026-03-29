@@ -1,0 +1,44 @@
+{
+  "properties": {
+    "includeParameterTable": {
+      "default": true,
+      "title": "Includeparametertable",
+      "type": "boolean"
+    },
+    "parameterLimit": {
+      "default": 200,
+      "maximum": 5000,
+      "minimum": 1,
+      "title": "Parameterlimit",
+      "type": "integer"
+    },
+    "parameterPattern": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Parameterpattern"
+    },
+    "request": {
+      "additionalProperties": true,
+      "title": "Request",
+      "type": "object"
+    },
+    "simulationId": {
+      "maxLength": 64,
+      "minLength": 1,
+      "title": "Simulationid",
+      "type": "string"
+    }
+  },
+  "required": [
+    "simulationId"
+  ],
+  "title": "ExportOecdReportRequest",
+  "type": "object"
+}

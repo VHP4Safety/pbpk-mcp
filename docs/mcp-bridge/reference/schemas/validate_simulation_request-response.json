@@ -1,0 +1,75 @@
+{
+  "properties": {
+    "backend": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Backend"
+    },
+    "capabilities": {
+      "additionalProperties": true,
+      "title": "Capabilities",
+      "type": "object"
+    },
+    "contractVersion": {
+      "default": "pbpk-mcp.v1",
+      "title": "Contractversion",
+      "type": "string"
+    },
+    "ngraObjects": {
+      "additionalProperties": true,
+      "title": "Ngraobjects",
+      "type": "object"
+    },
+    "profile": {
+      "additionalProperties": true,
+      "title": "Profile",
+      "type": "object"
+    },
+    "qualificationState": {
+      "anyOf": [
+        {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Qualificationstate"
+    },
+    "simulationId": {
+      "title": "Simulationid",
+      "type": "string"
+    },
+    "tool": {
+      "default": "validate_simulation_request",
+      "title": "Tool",
+      "type": "string"
+    },
+    "validation": {
+      "additionalProperties": true,
+      "title": "Validation",
+      "type": "object"
+    },
+    "warnings": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Warnings",
+      "type": "array"
+    }
+  },
+  "required": [
+    "simulationId"
+  ],
+  "title": "ValidateSimulationRequestResponse",
+  "type": "object"
+}

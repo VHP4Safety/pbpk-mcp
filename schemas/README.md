@@ -26,3 +26,4 @@ Schema design rules for this family:
 - allow additive convenience fields so `pbpk-mcp.v1` can grow without breaking validation
 - keep BER calculation and decision policy outside PBPK MCP
 - treat these schemas as the published machine-readable contract for the PBPK-side handoff layer
+- surface exposure-led NGRA role, population-support boundaries, evidence-basis status, and claim-boundary status additively rather than creating a second hidden qualification layer

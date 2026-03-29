@@ -38,6 +38,47 @@ class ReleaseMetadataTests(unittest.TestCase):
         self.assertEqual(summary["projectVersion"], summary["composeServiceVersion"])
         self.assertEqual(summary["projectVersion"], summary["releaseNoteVersion"])
 
+    def test_checker_accepts_or_style_version_fallback(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="pbpk_release_metadata_or_style_") as temp_dir:
+            temp_root = Path(temp_dir)
+            (temp_root / "src" / "mcp_bridge").mkdir(parents=True)
+            (temp_root / "docs" / "releases").mkdir(parents=True)
+
+            (temp_root / "pyproject.toml").write_text(
+                '[project]\nname = "mcp-bridge"\nversion = "9.9.9"\n',
+                encoding="utf-8",
+            )
+            (temp_root / "src" / "mcp_bridge" / "__init__.py").write_text(
+                'from importlib import metadata\n\n'
+                'try:\n'
+                '    _resolved_version = metadata.version("mcp-bridge")\n'
+                'except metadata.PackageNotFoundError:\n'
+                '    _resolved_version = None\n\n'
+                '__version__ = _resolved_version or "9.9.9"\n',
+                encoding="utf-8",
+            )
+            (temp_root / ".env.example").write_text('SERVICE_VERSION="9.9.9"\n', encoding="utf-8")
+            (temp_root / "docker-compose.celery.yml").write_text(
+                'services:\n  api:\n    environment:\n      SERVICE_VERSION: "9.9.9"\n',
+                encoding="utf-8",
+            )
+            (temp_root / "README.md").write_text(
+                "## What's new in v9.9.9\n\n| `SERVICE_VERSION` | `9.9.9` | Example |\n",
+                encoding="utf-8",
+            )
+            (temp_root / "CHANGELOG.md").write_text(
+                "# Changelog\n\n## v9.9.9 - 2026-03-21\n",
+                encoding="utf-8",
+            )
+            (temp_root / "docs" / "releases" / "v9.9.9.md").write_text(
+                "# PBPK MCP v9.9.9\n",
+                encoding="utf-8",
+            )
+
+            summary = validate_release_metadata(temp_root)
+
+        self.assertEqual(summary["packageFallbackVersion"], "9.9.9")
+
     def test_mismatched_service_version_is_reported(self) -> None:
         with tempfile.TemporaryDirectory(prefix="pbpk_release_metadata_") as temp_dir:
             temp_root = Path(temp_dir)

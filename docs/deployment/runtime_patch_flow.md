@@ -53,7 +53,7 @@ The worker image now bakes:
 - `src/` at `/app/src`
 - `scripts/runtime_src_overlay.pth`
 - `scripts/ospsuite_bridge.R`
-- `cisplatin_models/cisplatin_population_rxode2_model.R`
+- `reference_models/reference_compound_population_rxode2_model.R`
 
 The default packaged compose stack bind-mounts:
 
@@ -152,16 +152,19 @@ After deploy:
 curl -s http://127.0.0.1:8000/health
 curl -s http://127.0.0.1:8000/mcp/list_tools
 python3 scripts/release_readiness_check.py
-python3 scripts/workspace_model_smoke.py
+python3 scripts/workspace_model_smoke.py --auth-dev-secret pbpk-local-dev-secret
+make misuse-prevention-live-test PY=python3
 ```
 
 These checks should confirm:
 
 - the live version marker is correct
 - the documented tool surface is present
+- the bundled curated example models still pass the strict manifest publication gate with explicit NGRA boundaries
 - discovery, validation, deterministic results, and OECD report export still work
 - `.pksim5` rejection still carries explicit conversion guidance
 - the currently discovered runtime-supported models still load and execute through the live API
+- the named live misuse-prevention suite still proves the running server enforces the current trust-surface, sign-off, and security posture
 
 `./scripts/deploy_rxode2_stack.sh` includes a built-in readiness wait through `scripts/wait_for_runtime_ready.py`. That helper requires several consecutive successful `/health` and `/mcp/list_tools` probes before the deploy command exits, which reduces transient connection resets immediately after container recreate.
 
@@ -170,7 +173,7 @@ These checks should confirm:
 When you specifically want to exercise declared `rxode2` population support too, run:
 
 ```bash
-python3 scripts/workspace_model_smoke.py --include-population
+python3 scripts/workspace_model_smoke.py --include-population --auth-dev-secret pbpk-local-dev-secret
 ```
 
 This emits `var/workspace_model_smoke_report.json` and gives you a catalog-wide view of:
@@ -230,7 +233,7 @@ Fix:
 
 - verify `src/mcp/tools/load_simulation.py`
 - rerun `python3 scripts/release_readiness_check.py`
-- rerun `python3 scripts/workspace_model_smoke.py`
+- rerun `python3 scripts/workspace_model_smoke.py --auth-dev-secret pbpk-local-dev-secret`
 
 ### Hardened overlay fails before startup
 

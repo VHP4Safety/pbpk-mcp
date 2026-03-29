@@ -11,4 +11,5 @@ docker compose \
   -p pbpk_mcp \
   up -d --force-recreate --remove-orphans redis api worker
 
-python3 "${workspace_root}/scripts/wait_for_runtime_ready.py"
+python3 "${workspace_root}/scripts/wait_for_runtime_ready.py" \
+  --auth-dev-secret "pbpk-local-dev-secret"

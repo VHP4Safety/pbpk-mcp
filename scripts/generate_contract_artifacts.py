@@ -2,15 +2,22 @@
 from __future__ import annotations
 
 import argparse
+import fnmatch
 import hashlib
 import json
+import os
 import sys
+import tomllib
+from collections import Counter
 from pathlib import Path
+
+from contract_stage_utils import COPY_IGNORE_GLOBS
 
 
 WORKSPACE_ROOT = Path(__file__).resolve().parents[1]
 CAPABILITY_MATRIX_PATH = WORKSPACE_ROOT / "docs" / "architecture" / "capability_matrix.json"
 CONTRACT_MANIFEST_PATH = WORKSPACE_ROOT / "docs" / "architecture" / "contract_manifest.json"
+RELEASE_BUNDLE_MANIFEST_PATH = WORKSPACE_ROOT / "docs" / "architecture" / "release_bundle_manifest.json"
 SCHEMA_ROOT = WORKSPACE_ROOT / "schemas"
 SCHEMA_EXAMPLES_ROOT = SCHEMA_ROOT / "examples"
 PACKAGED_MODULE_PATH = WORKSPACE_ROOT / "src" / "mcp_bridge" / "contract" / "artifacts.py"
@@ -28,6 +35,30 @@ ARTIFACT_CLASSES = {
 }
 SUPPORTING_ARTIFACTS = (
     (
+        "benchmarks/regulatory_goldset/README.md",
+        "regulatory benchmark corpus guide",
+    ),
+    (
+        "benchmarks/regulatory_goldset/sources.lock.json",
+        "regulatory gold-set source lock",
+    ),
+    (
+        "benchmarks/regulatory_goldset/fetched.lock.json",
+        "regulatory gold-set fetch lock",
+    ),
+    (
+        "benchmarks/regulatory_goldset/regulatory_goldset_scorecard.json",
+        "regulatory gold-set scorecard",
+    ),
+    (
+        "benchmarks/regulatory_goldset/regulatory_goldset_summary.md",
+        "regulatory gold-set benchmark summary",
+    ),
+    (
+        "benchmarks/regulatory_goldset/regulatory_goldset_audit_manifest.json",
+        "regulatory gold-set audit manifest",
+    ),
+    (
         "docs/architecture/capability_matrix.md",
         "human-readable capability guide",
     ),
@@ -36,8 +67,32 @@ SUPPORTING_ARTIFACTS = (
         "payload contract reference",
     ),
     (
+        "docs/architecture/exposure_led_ngra_role.md",
+        "exposure-led NGRA boundary guide",
+    ),
+    (
+        "docs/architecture/release_bundle_manifest.json",
+        "whole release bundle hash inventory",
+    ),
+    (
+        "docs/hardening_migration_notes.md",
+        "hardening migration notes",
+    ),
+    (
+        "docs/pbpk_model_onboarding_checklist.md",
+        "PBPK model onboarding checklist",
+    ),
+    (
         "docs/github_publication_checklist.md",
         "publication checklist",
+    ),
+    (
+        "docs/pbk_reviewer_signoff_checklist.md",
+        "PBK reviewer sign-off checklist",
+    ),
+    (
+        "docs/post_release_audit_plan.md",
+        "post-release audit plan",
     ),
     (
         "schemas/README.md",
@@ -60,13 +115,62 @@ SUPPORTING_ARTIFACTS = (
         "contract dependency preflight script",
     ),
     (
+        "scripts/release_readiness_check.py",
+        "live release readiness gate",
+    ),
+    (
+        "scripts/wait_for_runtime_ready.py",
+        "runtime readiness probe",
+    ),
+    (
+        "scripts/workspace_model_smoke.py",
+        "workspace live smoke script",
+    ),
+    (
         "scripts/generate_contract_artifacts.py",
         "contract artifact generator",
+    ),
+    (
+        "scripts/generate_regulatory_goldset_audit.py",
+        "regulatory gold-set audit generator",
+    ),
+    (
+        "src/mcp_bridge/trust_surface.py",
+        "thin-client trust-surface contract helper",
+    ),
+    (
+        "src/mcp_bridge/benchmarking/regulatory_goldset.py",
+        "regulatory gold-set benchmark helper",
+    ),
+    (
+        "tests/test_release_readiness_script.py",
+        "release readiness regression test",
+    ),
+    (
+        "tests/test_regulatory_goldset_analysis.py",
+        "regulatory gold-set analysis regression test",
+    ),
+    (
+        "tests/test_trust_surface.py",
+        "trust-surface contract regression test",
+    ),
+    (
+        "tests/test_runtime_security_live_stack.py",
+        "live runtime security regression test",
+    ),
+    (
+        "tests/test_model_discovery_live_stack.py",
+        "live model discovery regression test",
+    ),
+    (
+        "tests/test_oecd_live_stack.py",
+        "live OECD workflow regression test",
     ),
 )
 RESOURCE_ENDPOINTS = {
     "capabilityMatrix": "/mcp/resources/capability-matrix",
     "contractManifest": "/mcp/resources/contract-manifest",
+    "releaseBundleManifest": "/mcp/resources/release-bundle-manifest",
     "schemaCatalog": "/mcp/resources/schemas",
 }
 
@@ -83,10 +187,113 @@ def _render_json(value: object) -> str:
     return json.dumps(value, indent=2, sort_keys=True)
 
 
+def _release_bundle_manifest_relative_path() -> str:
+    return RELEASE_BUNDLE_MANIFEST_PATH.relative_to(WORKSPACE_ROOT).as_posix()
+
+
+def _package_version() -> str:
+    pyproject = tomllib.loads((WORKSPACE_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    return str(((pyproject.get("project") or {}).get("version")) or "unknown")
+
+
+def _should_ignore_name(name: str) -> bool:
+    return any(fnmatch.fnmatch(name, pattern) for pattern in COPY_IGNORE_GLOBS)
+
+
+def _is_virtualenv_root(path: Path) -> bool:
+    return path.is_dir() and (path / "pyvenv.cfg").exists()
+
+
+def _should_ignore_path(path: Path) -> bool:
+    return _should_ignore_name(path.name) or _is_virtualenv_root(path)
+
+
+def _release_bundle_group(relative_path: str) -> str:
+    parts = Path(relative_path).parts
+    if not parts:
+        return "root"
+    first = parts[0]
+    return {
+        ".github": "governance",
+        "docker": "container",
+        "docs": "documentation",
+        "schemas": "contract",
+        "scripts": "operations",
+        "src": "source",
+        "tests": "verification",
+        "ui": "ui",
+    }.get(first, "root")
+
+
+def _release_bundle_entries() -> list[dict[str, object]]:
+    entries: list[dict[str, object]] = []
+    excluded_paths = {
+        _release_bundle_manifest_relative_path(),
+        CONTRACT_MANIFEST_PATH.relative_to(WORKSPACE_ROOT).as_posix(),
+        PACKAGED_MODULE_PATH.relative_to(WORKSPACE_ROOT).as_posix(),
+    }
+    for root, dirnames, filenames in os.walk(WORKSPACE_ROOT):
+        root_path = Path(root)
+        dirnames[:] = sorted(
+            name for name in dirnames if not _should_ignore_path(root_path / name)
+        )
+        for filename in sorted(filenames):
+            path = root_path / filename
+            if _should_ignore_path(path):
+                continue
+            relative_path = path.relative_to(WORKSPACE_ROOT).as_posix()
+            if relative_path in excluded_paths:
+                continue
+            entries.append(
+                {
+                    "relativePath": relative_path,
+                    "sha256": _sha256(path),
+                    "sizeBytes": path.stat().st_size,
+                    "group": _release_bundle_group(relative_path),
+                }
+            )
+    return entries
+
+
+def _bundle_sha256(entries: list[dict[str, object]]) -> str:
+    payload = "\n".join(
+        f"{entry['relativePath']}:{entry['sha256']}:{entry['sizeBytes']}"
+        for entry in entries
+    ) + "\n"
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def _build_release_bundle_manifest(capability_matrix: dict) -> dict:
+    entries = _release_bundle_entries()
+    group_counts = Counter(str(entry["group"]) for entry in entries)
+    total_bytes = sum(int(entry["sizeBytes"]) for entry in entries)
+    return {
+        "id": "pbpk-release-bundle-manifest.v1",
+        "contractVersion": capability_matrix["contractVersion"],
+        "packageVersion": _package_version(),
+        "selectionPolicy": {
+            "mode": "staged-source-tree-equivalent",
+            "excludedPatterns": list(COPY_IGNORE_GLOBS),
+            "acyclicIntegrityExclusions": [
+                _release_bundle_manifest_relative_path(),
+                CONTRACT_MANIFEST_PATH.relative_to(WORKSPACE_ROOT).as_posix(),
+                PACKAGED_MODULE_PATH.relative_to(WORKSPACE_ROOT).as_posix(),
+            ],
+        },
+        "bundleSha256": _bundle_sha256(entries),
+        "fileCount": len(entries),
+        "totalBytes": total_bytes,
+        "groupCounts": dict(sorted(group_counts.items())),
+        "files": entries,
+    }
+
+
 def _build_contract_manifest(
     capability_matrix: dict,
     schema_documents: dict[str, dict],
     schema_examples: dict[str, dict],
+    *,
+    supporting_sha_overrides: dict[str, str] | None = None,
 ) -> dict:
     entries: list[dict[str, object]] = []
     for schema_id in sorted(schema_documents):
@@ -109,7 +316,8 @@ def _build_contract_manifest(
             "classification": "supporting",
             "relativePath": relative_path,
             "role": role,
-            "sha256": _sha256(WORKSPACE_ROOT / relative_path),
+            "sha256": (supporting_sha_overrides or {}).get(relative_path)
+            or _sha256(WORKSPACE_ROOT / relative_path),
         }
         for relative_path, role in SUPPORTING_ARTIFACTS
     ]
@@ -150,6 +358,7 @@ def _build_contract_manifest(
 def _build_packaged_module(
     capability_matrix: dict,
     contract_manifest: dict,
+    release_bundle_manifest: dict,
     schema_documents: dict[str, dict],
     schema_examples: dict[str, dict],
 ) -> str:
@@ -164,6 +373,10 @@ def _build_packaged_module(
         "",
         '_CONTRACT_MANIFEST_JSON = r"""',
         _render_json(contract_manifest),
+        '"""',
+        "",
+        '_RELEASE_BUNDLE_MANIFEST_JSON = r"""',
+        _render_json(release_bundle_manifest),
         '"""',
         "",
         "_SCHEMA_JSON = {",
@@ -194,6 +407,9 @@ def _build_packaged_module(
             "",
             "def contract_manifest_document() -> dict[str, object]:",
             "    return json.loads(_CONTRACT_MANIFEST_JSON)",
+            "",
+            "def release_bundle_manifest_document() -> dict[str, object]:",
+            "    return json.loads(_RELEASE_BUNDLE_MANIFEST_JSON)",
             "",
             "def schema_documents() -> dict[str, dict]:",
             "    return {key: json.loads(value) for key, value in _SCHEMA_JSON.items()}",
@@ -234,33 +450,45 @@ def main() -> int:
     parser.add_argument(
         "--check",
         action="store_true",
-        help="Fail if the checked-in contract manifest or packaged contract module are out of date.",
+        help="Fail if the checked-in release/contract manifests or packaged contract module are out of date.",
     )
     args = parser.parse_args()
 
     capability_matrix, schema_documents, schema_examples = _current_contract_inputs()
+    release_bundle_manifest = _build_release_bundle_manifest(capability_matrix)
+    release_bundle_manifest_text = _render_json(release_bundle_manifest) + "\n"
+    release_bundle_manifest_sha256 = hashlib.sha256(
+        release_bundle_manifest_text.encode("utf-8")
+    ).hexdigest()
     contract_manifest = _build_contract_manifest(
         capability_matrix,
         schema_documents,
         schema_examples,
+        supporting_sha_overrides={
+            _release_bundle_manifest_relative_path(): release_bundle_manifest_sha256,
+        },
     )
     manifest_text = _render_json(contract_manifest) + "\n"
     packaged_module_text = _build_packaged_module(
         capability_matrix,
         contract_manifest,
+        release_bundle_manifest,
         schema_documents,
         schema_examples,
     )
 
     if args.check:
         ok = True
+        ok = _check_file(RELEASE_BUNDLE_MANIFEST_PATH, release_bundle_manifest_text) and ok
         ok = _check_file(CONTRACT_MANIFEST_PATH, manifest_text) and ok
         ok = _check_file(PACKAGED_MODULE_PATH, packaged_module_text) and ok
         return 0 if ok else 1
 
+    RELEASE_BUNDLE_MANIFEST_PATH.write_text(release_bundle_manifest_text, encoding="utf-8")
     CONTRACT_MANIFEST_PATH.write_text(manifest_text, encoding="utf-8")
     PACKAGED_MODULE_PATH.parent.mkdir(parents=True, exist_ok=True)
     PACKAGED_MODULE_PATH.write_text(packaged_module_text, encoding="utf-8")
+    print(f"Wrote {RELEASE_BUNDLE_MANIFEST_PATH}")
     print(f"Wrote {CONTRACT_MANIFEST_PATH}")
     print(f"Wrote {PACKAGED_MODULE_PATH}")
     return 0

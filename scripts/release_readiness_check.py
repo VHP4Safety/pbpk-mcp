@@ -14,56 +14,139 @@ from uuid import uuid4
 
 
 WORKSPACE_ROOT = Path(__file__).resolve().parents[1]
+SRC_ROOT = WORKSPACE_ROOT / "src"
+if str(SRC_ROOT) not in sys.path:
+    sys.path.insert(0, str(SRC_ROOT))
+
+from mcp_bridge.contract import published_schema_ids, release_probe_required_tools  # noqa: E402
+from mcp_bridge.curated_publication import (  # noqa: E402
+    curated_publication_model_paths,
+    curated_publication_model_relative_paths,
+)
+from mcp_bridge.security.simple_jwt import jwt  # noqa: E402
+
 DEFAULT_BASE_URL = "http://127.0.0.1:8000"
 CONTRACT_VERSION = "pbpk-mcp.v1"
 PUBLISHED_CONTRACT_MANIFEST = WORKSPACE_ROOT / "docs" / "architecture" / "contract_manifest.json"
-CISPLATIN_MODEL = "/app/var/models/rxode2/cisplatin/cisplatin_population_rxode2_model.R"
+PUBLISHED_RELEASE_BUNDLE_MANIFEST = WORKSPACE_ROOT / "docs" / "architecture" / "release_bundle_manifest.json"
+VALIDATE_MANIFESTS_SCRIPT = WORKSPACE_ROOT / "scripts" / "validate_model_manifests.py"
+CURATED_WORKSPACE_MODELS = curated_publication_model_paths(WORKSPACE_ROOT)
+CURATED_RELATIVE_PATHS = curated_publication_model_relative_paths()
+REFERENCE_MODEL = "/app/var/models/rxode2/reference_compound/reference_compound_population_rxode2_model.R"
 PREGNANCY_PKML = "/app/var/models/esqlabs/pregnancy-neonates-batch-run/Pregnant_simulation_PKSim.pkml"
 PKSIM5_PROJECT = "/app/var/demos/cimetidine/Cimetidine-Model.pksim5"
-REQUIRED_TOOLS = {
-    "discover_models",
-    "ingest_external_pbpk_bundle",
-    "validate_model_manifest",
-    "load_simulation",
-    "validate_simulation_request",
-    "run_verification_checks",
-    "run_simulation",
-    "run_population_simulation",
-    "get_job_status",
-    "get_results",
-    "get_population_results",
-    "export_oecd_report",
-}
-REQUIRED_SCHEMA_IDS = {
-    "assessmentContext.v1",
-    "pbpkQualificationSummary.v1",
-    "uncertaintySummary.v1",
-    "uncertaintyHandoff.v1",
-    "uncertaintyRegisterReference.v1",
-    "internalExposureEstimate.v1",
-    "pointOfDepartureReference.v1",
-    "berInputBundle.v1",
-}
+REQUIRED_TOOLS = frozenset(release_probe_required_tools())
+REQUIRED_SCHEMA_IDS = frozenset(published_schema_ids())
+REQUEST_HEADERS: dict[str, str] = {}
+
+
+def build_auth_headers(
+    *,
+    bearer_token: str | None,
+    auth_dev_secret: str | None,
+    auth_role: str = "operator",
+) -> dict[str, str]:
+    if bearer_token:
+        return {"authorization": f"Bearer {bearer_token}"}
+    if auth_dev_secret:
+        token = jwt.encode(
+            {
+                "sub": f"release-readiness-{auth_role}",
+                "roles": [auth_role],
+                "iat": int(time.time()),
+                "exp": int(time.time()) + 3600,
+            },
+            auth_dev_secret,
+            algorithm="HS256",
+        )
+        return {"authorization": f"Bearer {token}"}
+    return {}
+
+
+def _decode_body(body: bytes) -> object:
+    text = body.decode()
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        return text
+
+
+def http_request(
+    url: str,
+    *,
+    payload: dict | None = None,
+    timeout: int = 60,
+    headers: dict[str, str] | None = None,
+) -> dict[str, object]:
+    data = None
+    request_headers: dict[str, str] = dict(headers or {})
+    if payload is not None:
+        data = json.dumps(payload).encode()
+        request_headers.setdefault("content-type", "application/json")
+
+    req = urllib.request.Request(url, data=data, headers=request_headers)
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as response:
+            return {
+                "status": response.status,
+                "headers": {key.lower(): value for key, value in response.headers.items()},
+                "body": _decode_body(response.read()),
+            }
+    except urllib.error.HTTPError as exc:
+        return {
+            "status": exc.code,
+            "headers": {key.lower(): value for key, value in (exc.headers or {}).items()},
+            "body": _decode_body(exc.read()),
+        }
 
 
 def http_json(url: str, payload: dict | None = None, timeout: int = 60) -> dict:
-    data = None
-    headers: dict[str, str] = {}
-    if payload is not None:
-        data = json.dumps(payload).encode()
-        headers["content-type"] = "application/json"
+    response = http_request(url, payload=payload, timeout=timeout, headers=REQUEST_HEADERS)
+    if int(response["status"]) >= 400:
+        raise RuntimeError(f"{url} returned HTTP {response['status']}: {json.dumps(response['body'])}")
+    body = response["body"]
+    if not isinstance(body, dict):
+        raise RuntimeError(f"{url} returned a non-JSON payload: {body!r}")
+    return body
 
-    req = urllib.request.Request(url, data=data, headers=headers)
-    try:
-        with urllib.request.urlopen(req, timeout=timeout) as response:
-            return json.loads(response.read().decode())
-    except urllib.error.HTTPError as exc:
-        body = exc.read().decode()
-        try:
-            parsed = json.loads(body)
-        except Exception:
-            parsed = {"raw": body}
-        raise RuntimeError(f"{url} returned HTTP {exc.code}: {json.dumps(parsed)}") from exc
+
+def jsonrpc_request(
+    base_url: str,
+    method: str,
+    *,
+    params: dict | None = None,
+    headers: dict[str, str] | None = None,
+    request_id: int | str = 1,
+    timeout: int = 60,
+) -> dict[str, object]:
+    return http_request(
+        f"{base_url}/mcp",
+        payload={
+            "jsonrpc": "2.0",
+            "method": method,
+            "params": params,
+            "id": request_id,
+        },
+        timeout=timeout,
+        headers=headers,
+    )
+
+
+def _tool_names(payload: dict) -> set[str]:
+    return {
+        str(tool.get("name"))
+        for tool in (payload.get("tools") or [])
+        if isinstance(tool, dict) and tool.get("name")
+    }
+
+
+def _error_message(payload: object) -> str:
+    if isinstance(payload, dict):
+        if isinstance(payload.get("error"), dict):
+            return str((payload.get("error") or {}).get("message") or payload["error"])
+        if "detail" in payload:
+            return str(payload["detail"])
+    return str(payload)
 
 
 def call_tool(base_url: str, tool: str, arguments: dict, *, critical: bool = False, timeout: int = 60) -> dict:
@@ -128,6 +211,39 @@ def run_bridge_tests() -> None:
     )
 
 
+def run_curated_manifest_gate() -> dict:
+    command = [
+        sys.executable,
+        str(VALIDATE_MANIFESTS_SCRIPT),
+        "--strict",
+        "--require-explicit-ngra",
+        "--curated-publication-set",
+    ]
+
+    completed = subprocess.run(
+        command,
+        cwd=WORKSPACE_ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    try:
+        payload = json.loads(completed.stdout)
+    except json.JSONDecodeError as exc:
+        raise RuntimeError(
+            "Curated manifest gate returned non-JSON output: "
+            f"stdout={completed.stdout!r} stderr={completed.stderr!r}"
+        ) from exc
+
+    if completed.returncode != 0:
+        raise RuntimeError(
+            "Curated manifest gate failed: "
+            f"{json.dumps(payload)}"
+        )
+    return payload
+
+
 def assert_true(condition: bool, message: str) -> None:
     if not condition:
         raise RuntimeError(message)
@@ -137,11 +253,506 @@ def file_sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def run_release_check(base_url: str, *, skip_unit_tests: bool = False) -> dict:
+def run_security_posture_check(
+    base_url: str,
+    *,
+    bearer_token: str | None = None,
+    auth_dev_secret: str | None = None,
+) -> dict[str, object]:
+    summary: dict[str, object] = {}
+
+    anonymous_catalog = http_request(f"{base_url}/mcp/list_tools", timeout=30)
+    anonymous_mode = anonymous_catalog["headers"].get("x-pbpk-security-mode") == "anonymous-development"
+    summary["anonymousMode"] = anonymous_mode
+    summary["restAnonymousStatus"] = anonymous_catalog["status"]
+
+    public_schemas = http_request(f"{base_url}/mcp/resources/schemas?limit=5", timeout=30)
+    assert_true(
+        int(public_schemas["status"]) == 200,
+        f"Published schema resources should remain publicly readable: {public_schemas}",
+    )
+
+    expected_protected_statuses = {403} if anonymous_mode else {401, 403}
+
+    if anonymous_mode:
+        assert_true(
+            int(anonymous_catalog["status"]) == 200,
+            f"Anonymous-development mode should expose the viewer tool catalog: {anonymous_catalog}",
+        )
+        anonymous_tools = _tool_names(anonymous_catalog["body"]) if isinstance(anonymous_catalog["body"], dict) else set()
+        assert_true(
+            "discover_models" in anonymous_tools,
+            "Anonymous-development tool catalog should retain viewer discovery tools",
+        )
+        assert_true(
+            "load_simulation" not in anonymous_tools,
+            f"Anonymous-development tool catalog must not expose operator tools: {sorted(anonymous_tools)}",
+        )
+        anonymous_models = http_request(
+            f"{base_url}/mcp/resources/models?search=reference_compound&limit=5",
+            timeout=30,
+        )
+        assert_true(
+            int(anonymous_models["status"]) == 200,
+            f"Anonymous-development mode should keep viewer model resources readable: {anonymous_models}",
+        )
+        summary["restAnonymousViewerTools"] = sorted(anonymous_tools)
+        summary["restAnonymousModelsStatus"] = anonymous_models["status"]
+    else:
+        assert_true(
+            int(anonymous_catalog["status"]) in {401, 403},
+            f"Non-anonymous deployments should not expose the tool catalog without auth: {anonymous_catalog}",
+        )
+        anonymous_models = http_request(
+            f"{base_url}/mcp/resources/models?search=reference_compound&limit=5",
+            timeout=30,
+        )
+        assert_true(
+            int(anonymous_models["status"]) in {401, 403},
+            f"Protected model resources should not be readable anonymously outside dev-viewer mode: {anonymous_models}",
+        )
+        summary["restAnonymousModelsStatus"] = anonymous_models["status"]
+
+    metrics_anonymous = http_request(f"{base_url}/metrics", timeout=15)
+    assert_true(
+        int(metrics_anonymous["status"]) in expected_protected_statuses,
+        f"Anonymous metrics access should be denied: {metrics_anonymous}",
+    )
+    console_shell = http_request(f"{base_url}/console", timeout=15)
+    assert_true(
+        int(console_shell["status"]) == 404,
+        f"Retired /console shell should remain absent from the runtime surface: {console_shell}",
+    )
+    console_asset = http_request(f"{base_url}/console/assets/app.js", timeout=15)
+    assert_true(
+        int(console_asset["status"]) == 404,
+        f"Retired /console assets should remain absent from the runtime surface: {console_asset}",
+    )
+    stale_console_static = http_request(f"{base_url}/console/static/app.js", timeout=15)
+    assert_true(
+        int(stale_console_static["status"]) == 404,
+        f"The retired unauthenticated /console/static mount should remain absent: {stale_console_static}",
+    )
+    console_anonymous = http_request(f"{base_url}/console/api/samples", timeout=15)
+    assert_true(
+        int(console_anonymous["status"]) == 404,
+        f"Retired /console/api surface should remain absent: {console_anonymous}",
+    )
+
+    operator_headers = build_auth_headers(
+        bearer_token=bearer_token,
+        auth_dev_secret=auth_dev_secret,
+        auth_role="operator",
+    )
+    assert_true(bool(operator_headers), "Release readiness requires operator credentials for live checks")
+    operator_catalog = http_request(
+        f"{base_url}/mcp/list_tools",
+        timeout=30,
+        headers=operator_headers,
+    )
+    assert_true(
+        int(operator_catalog["status"]) == 200,
+        f"Operator token could not access the MCP tool catalog: {operator_catalog}",
+    )
+    operator_tools = _tool_names(operator_catalog["body"]) if isinstance(operator_catalog["body"], dict) else set()
+    assert_true(
+        {"discover_models", "load_simulation", "run_simulation"}.issubset(operator_tools),
+        f"Operator token should expose critical execution tools: {sorted(operator_tools)}",
+    )
+
+    operator_no_confirm = http_request(
+        f"{base_url}/mcp/call_tool",
+        payload={
+            "tool": "load_simulation",
+            "arguments": {
+                "filePath": REFERENCE_MODEL,
+                "simulationId": f"release-auth-no-critical-{uuid4().hex[:8]}",
+            },
+        },
+        timeout=60,
+        headers=operator_headers,
+    )
+    assert_true(
+        int(operator_no_confirm["status"]) == 428,
+        f"Critical REST tools should still require confirmation for operator tokens: {operator_no_confirm}",
+    )
+    assert_true(
+        "critical=true" in _error_message(operator_no_confirm["body"]).lower(),
+        f"REST confirmation error should tell operators how to confirm critical tools: {operator_no_confirm}",
+    )
+
+    anonymous_call = http_request(
+        f"{base_url}/mcp/call_tool",
+        payload={
+            "tool": "load_simulation",
+            "critical": True,
+            "arguments": {
+                "filePath": REFERENCE_MODEL,
+                "simulationId": f"release-auth-anon-{uuid4().hex[:8]}",
+            },
+        },
+        timeout=60,
+    )
+    assert_true(
+        int(anonymous_call["status"]) in expected_protected_statuses,
+        f"Anonymous critical REST calls should be blocked: {anonymous_call}",
+    )
+
+    operator_console = http_request(
+        f"{base_url}/console/api/samples",
+        timeout=30,
+        headers=operator_headers,
+    )
+    assert_true(
+        int(operator_console["status"]) == 404,
+        f"Retired /console/api surface should stay absent even with operator auth: {operator_console}",
+    )
+
+    viewer_headers: dict[str, str] | None = None
+    viewer_tool_count: int | None = None
+    if auth_dev_secret and not bearer_token:
+        viewer_headers = build_auth_headers(
+            bearer_token=None,
+            auth_dev_secret=auth_dev_secret,
+            auth_role="viewer",
+        )
+        viewer_catalog = http_request(
+            f"{base_url}/mcp/list_tools",
+            timeout=30,
+            headers=viewer_headers,
+        )
+        assert_true(
+            int(viewer_catalog["status"]) == 200,
+            f"Viewer token could not access viewer-scoped tools: {viewer_catalog}",
+        )
+        viewer_tools = _tool_names(viewer_catalog["body"]) if isinstance(viewer_catalog["body"], dict) else set()
+        assert_true(
+            "load_simulation" not in viewer_tools,
+            f"Viewer token must not expose operator-only tools: {sorted(viewer_tools)}",
+        )
+        viewer_tool_count = len(viewer_tools)
+        if anonymous_mode:
+            assert_true(
+                viewer_tools == (_tool_names(anonymous_catalog["body"]) if isinstance(anonymous_catalog["body"], dict) else set()),
+                "Anonymous-development tool catalog should match explicit viewer-role visibility",
+            )
+
+    signoff_simulation_id = f"release-signoff-{uuid4().hex[:8]}"
+    signoff_load = http_request(
+        f"{base_url}/load_simulation",
+        payload={
+            "filePath": REFERENCE_MODEL,
+            "simulationId": signoff_simulation_id,
+            "confirm": True,
+        },
+        timeout=120,
+        headers=operator_headers,
+    )
+    assert_true(
+        int(signoff_load["status"]) == 201,
+        f"Operator token could not prepare a simulation for review-signoff security checks: {signoff_load}",
+    )
+    signoff_anonymous = http_request(
+        f"{base_url}/review_signoff",
+        payload={
+            "simulationId": signoff_simulation_id,
+            "scope": "export_oecd_report",
+            "disposition": "approved-for-bounded-use",
+            "rationale": "Release readiness sign-off probe for bounded report use.",
+            "confirm": True,
+        },
+        timeout=30,
+    )
+    assert_true(
+        int(signoff_anonymous["status"]) in expected_protected_statuses,
+        f"Anonymous review-signoff recording should be denied: {signoff_anonymous}",
+    )
+    signoff_operator_no_confirm = http_request(
+        f"{base_url}/review_signoff",
+        payload={
+            "simulationId": signoff_simulation_id,
+            "scope": "export_oecd_report",
+            "disposition": "approved-for-bounded-use",
+            "rationale": "Release readiness sign-off probe for bounded report use.",
+        },
+        timeout=30,
+        headers=operator_headers,
+    )
+    assert_true(
+        int(signoff_operator_no_confirm["status"]) == 428,
+        f"Operator review-signoff recording should still require confirmation: {signoff_operator_no_confirm}",
+    )
+    signoff_recorded = http_request(
+        f"{base_url}/review_signoff",
+        payload={
+            "simulationId": signoff_simulation_id,
+            "scope": "export_oecd_report",
+            "disposition": "approved-for-bounded-use",
+            "rationale": "Release readiness sign-off probe for bounded report use.",
+            "confirm": True,
+        },
+        timeout=30,
+        headers=operator_headers,
+    )
+    assert_true(
+        int(signoff_recorded["status"]) == 200,
+        f"Operator review-signoff recording failed: {signoff_recorded}",
+    )
+    signoff_recorded_body = signoff_recorded["body"]
+    assert_true(
+        isinstance(signoff_recorded_body, dict)
+        and isinstance(signoff_recorded_body.get("operatorReviewSignoff"), dict)
+        and (signoff_recorded_body.get("operatorReviewSignoff") or {}).get("status") == "recorded",
+        f"Recorded review-signoff summary was not returned after recording: {signoff_recorded}",
+    )
+    assert_true(
+        isinstance(signoff_recorded_body, dict)
+        and isinstance(signoff_recorded_body.get("operatorReviewGovernance"), dict)
+        and (signoff_recorded_body.get("operatorReviewGovernance") or {}).get("supportsOverride") is False
+        and (signoff_recorded_body.get("operatorReviewGovernance") or {}).get("supportsAdjudication") is False,
+        f"Recorded review-signoff response should describe non-override, non-adjudicative governance explicitly: {signoff_recorded}",
+    )
+    signoff_history: dict[str, object] | None = None
+    if viewer_headers:
+        signoff_viewer = http_request(
+            f"{base_url}/review_signoff?simulationId={signoff_simulation_id}&scope=export_oecd_report",
+            timeout=30,
+            headers=viewer_headers,
+        )
+        assert_true(
+            int(signoff_viewer["status"]) == 200,
+            f"Viewer token should be able to read the additive review-signoff summary: {signoff_viewer}",
+        )
+        signoff_viewer_body = signoff_viewer["body"]
+        assert_true(
+            isinstance(signoff_viewer_body, dict)
+            and isinstance(signoff_viewer_body.get("operatorReviewGovernance"), dict)
+            and (signoff_viewer_body.get("operatorReviewGovernance") or {}).get("signoffConfersDecisionAuthority")
+            is False,
+            f"Viewer-readable review-signoff summary should keep governance limits explicit: {signoff_viewer}",
+        )
+        signoff_history = http_request(
+            f"{base_url}/review_signoff/history?simulationId={signoff_simulation_id}&scope=export_oecd_report&limit=10",
+            timeout=30,
+            headers=viewer_headers,
+        )
+        assert_true(
+            int(signoff_history["status"]) == 200,
+            f"Viewer token should be able to read the additive review-signoff history: {signoff_history}",
+        )
+        signoff_history_body = signoff_history["body"]
+        assert_true(
+            isinstance(signoff_history_body, dict)
+            and isinstance(signoff_history_body.get("operatorReviewSignoffHistory"), dict)
+            and ((signoff_history_body.get("operatorReviewSignoffHistory") or {}).get("returnedEntryCount") or 0) >= 1,
+            f"Readable review-signoff history should include at least one recorded event: {signoff_history}",
+        )
+        latest_history_entry = (
+            (signoff_history_body.get("operatorReviewSignoffHistory") or {}).get("entries") or [{}]
+        )[0]
+        assert_true(
+            latest_history_entry.get("action") == "recorded",
+            f"Latest review-signoff history entry should reflect the recorded event: {signoff_history}",
+        )
+        assert_true(
+            isinstance(signoff_history_body.get("operatorReviewGovernance"), dict)
+            and (signoff_history_body.get("operatorReviewGovernance") or {}).get("supportsOverride") is False,
+            f"Viewer-readable review-signoff history should keep non-override governance explicit: {signoff_history}",
+        )
+
+    metrics_admin_status: int | None = None
+    if auth_dev_secret and not bearer_token:
+        admin_headers = build_auth_headers(
+            bearer_token=None,
+            auth_dev_secret=auth_dev_secret,
+            auth_role="admin",
+        )
+        metrics_admin = http_request(
+            f"{base_url}/metrics",
+            timeout=15,
+            headers=admin_headers,
+        )
+        assert_true(
+            int(metrics_admin["status"]) == 200,
+            f"Admin token should access Prometheus metrics: {metrics_admin}",
+        )
+        assert_true(
+            "mcp_http_requests_total" in str(metrics_admin["body"]),
+            "Prometheus metrics endpoint did not expose MCP HTTP metrics under admin auth",
+        )
+        metrics_admin_status = int(metrics_admin["status"])
+
+    jsonrpc_initialize = jsonrpc_request(
+        base_url,
+        "initialize",
+        headers={"content-type": "application/json"},
+        timeout=30,
+    )
+    assert_true(
+        int(jsonrpc_initialize["status"]) == 200,
+        f"JSON-RPC initialize should remain public and transport-stable: {jsonrpc_initialize}",
+    )
+    initialize_body = jsonrpc_initialize["body"]
+    assert_true(
+        isinstance(initialize_body, dict)
+        and isinstance(initialize_body.get("result"), dict)
+        and (initialize_body.get("result") or {}).get("protocolVersion") == "2025-03-26",
+        f"JSON-RPC initialize returned an unexpected protocol payload: {jsonrpc_initialize}",
+    )
+
+    jsonrpc_anonymous_list = jsonrpc_request(
+        base_url,
+        "tools/list",
+        headers={"content-type": "application/json"},
+        timeout=30,
+    )
+    if anonymous_mode:
+        assert_true(
+            int(jsonrpc_anonymous_list["status"]) == 200,
+            f"Anonymous-development JSON-RPC tools/list should succeed with viewer visibility: {jsonrpc_anonymous_list}",
+        )
+        rpc_anon_body = jsonrpc_anonymous_list["body"]
+        rpc_anon_tools = _tool_names((rpc_anon_body.get("result") or {})) if isinstance(rpc_anon_body, dict) else set()
+        assert_true(
+            "load_simulation" not in rpc_anon_tools,
+            f"Anonymous-development JSON-RPC tool list must stay viewer-only: {sorted(rpc_anon_tools)}",
+        )
+    else:
+        rpc_anon_body = jsonrpc_anonymous_list["body"]
+        assert_true(
+            isinstance(rpc_anon_body, dict) and isinstance(rpc_anon_body.get("error"), dict),
+            f"Non-anonymous JSON-RPC tools/list should reject unauthenticated access: {jsonrpc_anonymous_list}",
+        )
+
+    jsonrpc_operator_list = jsonrpc_request(
+        base_url,
+        "tools/list",
+        headers={**operator_headers, "content-type": "application/json"},
+        timeout=30,
+    )
+    assert_true(
+        int(jsonrpc_operator_list["status"]) == 200,
+        f"Operator JSON-RPC tools/list failed: {jsonrpc_operator_list}",
+    )
+    rpc_operator_body = jsonrpc_operator_list["body"]
+    rpc_operator_tools = _tool_names((rpc_operator_body.get("result") or {})) if isinstance(rpc_operator_body, dict) else set()
+    assert_true(
+        "load_simulation" in rpc_operator_tools,
+        f"Operator JSON-RPC tool list should expose critical execution tools: {sorted(rpc_operator_tools)}",
+    )
+
+    jsonrpc_anonymous_call = jsonrpc_request(
+        base_url,
+        "tools/call",
+        params={
+            "name": "load_simulation",
+            "critical": True,
+            "arguments": {
+                "filePath": REFERENCE_MODEL,
+                "simulationId": f"release-rpc-anon-{uuid4().hex[:8]}",
+            },
+        },
+        headers={"content-type": "application/json"},
+        timeout=60,
+    )
+    rpc_anon_call_body = jsonrpc_anonymous_call["body"]
+    assert_true(
+        isinstance(rpc_anon_call_body, dict)
+        and isinstance(rpc_anon_call_body.get("error"), dict)
+        and int((rpc_anon_call_body.get("error") or {}).get("code")) in {-32000, -32001},
+        f"Anonymous JSON-RPC critical call should be rejected with auth/role error semantics: {jsonrpc_anonymous_call}",
+    )
+
+    jsonrpc_operator_no_confirm = jsonrpc_request(
+        base_url,
+        "tools/call",
+        params={
+            "name": "load_simulation",
+            "arguments": {
+                "filePath": REFERENCE_MODEL,
+                "simulationId": f"release-rpc-no-critical-{uuid4().hex[:8]}",
+            },
+        },
+        headers={**operator_headers, "content-type": "application/json"},
+        timeout=60,
+    )
+    rpc_operator_no_confirm_body = jsonrpc_operator_no_confirm["body"]
+    assert_true(
+        isinstance(rpc_operator_no_confirm_body, dict)
+        and isinstance(rpc_operator_no_confirm_body.get("error"), dict)
+        and int((rpc_operator_no_confirm_body.get("error") or {}).get("code")) == -32002,
+        f"JSON-RPC operator critical calls should still require confirmation: {jsonrpc_operator_no_confirm}",
+    )
+    assert_true(
+        "critical" in str((rpc_operator_no_confirm_body.get("error") or {}).get("message", "")).lower(),
+        f"JSON-RPC confirmation error should remain explicit: {jsonrpc_operator_no_confirm}",
+    )
+
+    summary.update(
+        {
+            "restOperatorToolCount": len(operator_tools),
+            "restViewerToolCount": viewer_tool_count,
+            "metricsAnonymousStatus": metrics_anonymous["status"],
+            "metricsAdminStatus": metrics_admin_status,
+            "retiredConsoleShellStatus": console_shell["status"],
+            "retiredConsoleAssetStatus": console_asset["status"],
+            "retiredConsoleStaticStatus": stale_console_static["status"],
+            "retiredConsoleAnonymousApiStatus": console_anonymous["status"],
+            "retiredConsoleOperatorApiStatus": operator_console["status"],
+            "reviewSignoffAnonymousStatus": signoff_anonymous["status"],
+            "reviewSignoffOperatorConfirmationStatus": signoff_operator_no_confirm["status"],
+            "reviewSignoffRecordedStatus": signoff_recorded["status"],
+            "reviewSignoffHistoryViewerStatus": (
+                signoff_history["status"] if isinstance(signoff_history, dict) else None
+            ),
+            "jsonrpcInitializeStatus": jsonrpc_initialize["status"],
+            "jsonrpcOperatorToolCount": len(rpc_operator_tools),
+            "jsonrpcAnonymousCallErrorCode": (
+                (rpc_anon_call_body.get("error") or {}).get("code")
+                if isinstance(rpc_anon_call_body, dict)
+                else None
+            ),
+            "jsonrpcOperatorConfirmationErrorCode": (
+                (rpc_operator_no_confirm_body.get("error") or {}).get("code")
+                if isinstance(rpc_operator_no_confirm_body, dict)
+                else None
+            ),
+        }
+    )
+    return summary
+
+
+def run_release_check(
+    base_url: str,
+    *,
+    skip_unit_tests: bool = False,
+    bearer_token: str | None = None,
+    auth_dev_secret: str | None = None,
+) -> dict:
     if not skip_unit_tests:
         run_bridge_tests()
 
     summary: dict[str, object] = {}
+    curated_manifest_gate = run_curated_manifest_gate()
+    assert_true(
+        not bool((curated_manifest_gate.get("gating") or {}).get("failed")),
+        f"Curated manifest publication gate failed: {curated_manifest_gate}",
+    )
+    assert_true(
+        int((curated_manifest_gate.get("summary") or {}).get("explicitNgraDeclarations") or 0)
+        == len(CURATED_WORKSPACE_MODELS),
+        f"Curated manifest publication gate did not confirm explicit NGRA boundaries for all bundled models: {curated_manifest_gate}",
+    )
+    summary["curatedManifestGate"] = {
+        "checkedPaths": list(CURATED_RELATIVE_PATHS),
+        "gating": curated_manifest_gate.get("gating"),
+        "summary": curated_manifest_gate.get("summary"),
+    }
+    summary["securityPosture"] = run_security_posture_check(
+        base_url,
+        bearer_token=bearer_token,
+        auth_dev_secret=auth_dev_secret,
+    )
 
     health = http_json(f"{base_url}/health", timeout=15)
     assert_true(health.get("status") == "ok", f"Health check failed: {health}")
@@ -154,27 +765,40 @@ def run_release_check(base_url: str, *, skip_unit_tests: bool = False) -> dict:
         f"Live tool catalog is missing required workflow tools: {sorted(REQUIRED_TOOLS - tool_names)}",
     )
 
-    discovery = call_tool(base_url, "discover_models", {"search": "cisplatin", "limit": 20}, timeout=30)
+    discovery = call_tool(base_url, "discover_models", {"search": "reference_compound", "limit": 20}, timeout=30)
     items = discovery["items"]
-    cisplatin_matches = [item for item in items if "cisplatin" in item["filePath"].lower()]
-    assert_true(bool(cisplatin_matches), "Cisplatin model not discoverable through discover_models")
-    resource_models = http_json(f"{base_url}/mcp/resources/models?search=cisplatin&limit=20", timeout=30)
+    reference_matches = [item for item in items if "reference_compound" in item["filePath"].lower()]
+    assert_true(bool(reference_matches), "Reference compound model not discoverable through discover_models")
+    resource_models = http_json(f"{base_url}/mcp/resources/models?search=reference_compound&limit=20", timeout=30)
     resource_matches = [
-        item for item in resource_models["items"] if "cisplatin" in item["filePath"].lower()
+        item for item in resource_models["items"] if "reference_compound" in item["filePath"].lower()
     ]
-    assert_true(bool(resource_matches), "Cisplatin model not discoverable through /mcp/resources/models")
+    assert_true(bool(resource_matches), "Reference compound model not discoverable through /mcp/resources/models")
     assert_true(
-        cisplatin_matches[0]["backend"] == resource_matches[0]["backend"],
-        "discover_models and /mcp/resources/models disagree on the cisplatin backend",
+        reference_matches[0]["backend"] == resource_matches[0]["backend"],
+        "discover_models and /mcp/resources/models disagree on the reference model backend",
     )
     assert_true(
-        cisplatin_matches[0]["runtimeFormat"] == resource_matches[0]["runtimeFormat"],
-        "discover_models and /mcp/resources/models disagree on the cisplatin runtime format",
+        reference_matches[0]["runtimeFormat"] == resource_matches[0]["runtimeFormat"],
+        "discover_models and /mcp/resources/models disagree on the reference model runtime format",
+    )
+    discovery_contract = discovery.get("trustSurfaceContract") or {}
+    assert_true(
+        discovery_contract.get("tool") == "discover_models",
+        f"discover_models should expose a top-level trust-surface contract for thin clients: {discovery}",
+    )
+    assert_true(
+        any(
+            surface.get("surfacePath") == "items[*].curationSummary"
+            for surface in (discovery_contract.get("surfaces") or [])
+            if isinstance(surface, dict)
+        ),
+        f"discover_models trust-surface contract should point clients at item-level curation summaries: {discovery}",
     )
     summary["discovery"] = {
         "total": discovery["total"],
-        "cisplatinMatches": len(cisplatin_matches),
-        "firstBackend": cisplatin_matches[0]["backend"],
+        "referenceMatches": len(reference_matches),
+        "firstBackend": reference_matches[0]["backend"],
     }
     summary["toolCatalog"] = {
         "requiredTools": sorted(REQUIRED_TOOLS),
@@ -215,6 +839,14 @@ def run_release_check(base_url: str, *, skip_unit_tests: bool = False) -> dict:
     )
     contract_manifest_resource = http_json(f"{base_url}/mcp/resources/contract-manifest", timeout=30)
     manifest = contract_manifest_resource["manifest"]
+    published_release_bundle_manifest = json.loads(
+        PUBLISHED_RELEASE_BUNDLE_MANIFEST.read_text(encoding="utf-8")
+    )
+    release_bundle_manifest_resource = http_json(
+        f"{base_url}/mcp/resources/release-bundle-manifest",
+        timeout=30,
+    )
+    release_bundle_manifest = release_bundle_manifest_resource["manifest"]
     assert_true(
         manifest.get("contractVersion") == CONTRACT_VERSION,
         f"Contract manifest resource should advertise {CONTRACT_VERSION}: {manifest}",
@@ -268,6 +900,32 @@ def run_release_check(base_url: str, *, skip_unit_tests: bool = False) -> dict:
         any(entry.get("relativePath") == "schemas/README.md" for entry in supporting_artifacts),
         "Contract manifest should inventory supporting schema documentation",
     )
+    assert_true(
+        any(entry.get("relativePath") == "docs/hardening_migration_notes.md" for entry in supporting_artifacts),
+        "Contract manifest should hash the hardening migration notes as a supporting artifact",
+    )
+    assert_true(
+        any(entry.get("relativePath") == "docs/pbk_reviewer_signoff_checklist.md" for entry in supporting_artifacts),
+        "Contract manifest should hash the reviewer sign-off checklist as a supporting artifact",
+    )
+    assert_true(
+        any(entry.get("relativePath") == "docs/post_release_audit_plan.md" for entry in supporting_artifacts),
+        "Contract manifest should hash the post-release audit plan as a supporting artifact",
+    )
+    assert_true(
+        any(
+            entry.get("relativePath") == "scripts/release_readiness_check.py"
+            for entry in supporting_artifacts
+        ),
+        "Contract manifest should hash the live release-readiness script as a supporting artifact",
+    )
+    assert_true(
+        any(
+            entry.get("relativePath") == "tests/test_runtime_security_live_stack.py"
+            for entry in supporting_artifacts
+        ),
+        "Contract manifest should hash the live runtime security suite as a supporting artifact",
+    )
     legacy_policy = manifest.get("legacyArtifactPolicy") or []
     assert_true(
         any(
@@ -277,12 +935,46 @@ def run_release_check(base_url: str, *, skip_unit_tests: bool = False) -> dict:
         ),
         "Contract manifest should publish the legacy-excluded extraction-record policy entry",
     )
+    assert_true(
+        release_bundle_manifest_resource.get("sha256") == file_sha256(PUBLISHED_RELEASE_BUNDLE_MANIFEST),
+        "Release bundle manifest resource should expose the SHA-256 of the published release bundle manifest artifact",
+    )
+    assert_true(
+        release_bundle_manifest_resource.get("bundleSha256")
+        == published_release_bundle_manifest.get("bundleSha256"),
+        "Release bundle manifest resource should preserve the published whole-release bundle digest",
+    )
+    assert_true(
+        int(release_bundle_manifest_resource.get("fileCount") or 0)
+        == int(published_release_bundle_manifest.get("fileCount") or 0),
+        "Release bundle manifest resource should preserve the published whole-release file count",
+    )
+    release_bundle_paths = {
+        str(entry.get("relativePath"))
+        for entry in release_bundle_manifest.get("files") or []
+        if entry.get("relativePath")
+    }
+    assert_true(
+        "scripts/release_readiness_check.py" in release_bundle_paths,
+        "Release bundle manifest should include the live release-readiness script",
+    )
+    assert_true(
+        "tests/test_runtime_security_live_stack.py" in release_bundle_paths,
+        "Release bundle manifest should include the live runtime security suite",
+    )
+    assert_true(
+        (manifest.get("resourceEndpoints") or {}).get("releaseBundleManifest")
+        == "/mcp/resources/release-bundle-manifest",
+        "Contract manifest should publish the release-bundle resource endpoint",
+    )
     summary["resourceCatalog"] = {
         "schemaCount": schema_catalog["total"],
         "assessmentContextSchemaPublished": "assessmentContext.v1" in schema_ids,
         "capabilityMatrixEntries": capability_resource["entryCount"],
         "contractManifestSchemas": int((manifest.get("artifactCounts") or {}).get("schemas") or 0),
         "contractManifestSupportingArtifacts": int((manifest.get("artifactCounts") or {}).get("supporting") or 0),
+        "releaseBundleFiles": int(release_bundle_manifest_resource.get("fileCount") or 0),
+        "releaseBundleSha256": release_bundle_manifest_resource.get("bundleSha256"),
     }
 
     full_catalog = call_tool(base_url, "discover_models", {"limit": 200}, timeout=30)
@@ -307,14 +999,14 @@ def run_release_check(base_url: str, *, skip_unit_tests: bool = False) -> dict:
         f"OSPSuite .pkml entry should not advertise generic population support: {pkml_matches[0]}",
     )
     assert_true(
-        bool(cisplatin_matches[0]["populationSimulation"]),
-        f"Reference rxode2 model should advertise declared population support: {cisplatin_matches[0]}",
+        bool(reference_matches[0]["populationSimulation"]),
+        f"Reference rxode2 model should advertise declared population support: {reference_matches[0]}",
     )
     summary["capabilityMatrix"] = {
         "discoverableRuntimeFormats": catalog_formats,
         "conversionOnlyFormatsExcludedFromCatalog": True,
         "ospsuitePkmlPopulationSimulation": bool(pkml_matches[0]["populationSimulation"]),
-        "rxode2ReferencePopulationSimulation": bool(cisplatin_matches[0]["populationSimulation"]),
+        "rxode2ReferencePopulationSimulation": bool(reference_matches[0]["populationSimulation"]),
     }
 
     external_bundle = call_tool(
@@ -406,53 +1098,153 @@ def run_release_check(base_url: str, *, skip_unit_tests: bool = False) -> dict:
     manifest_check = call_tool(
         base_url,
         "validate_model_manifest",
-        {"filePath": CISPLATIN_MODEL},
+        {"filePath": REFERENCE_MODEL},
         timeout=60,
     )
     assert_true(
         manifest_check["manifest"]["qualificationState"]["state"] == "research-use",
-        f"Unexpected cisplatin manifest qualification state: {manifest_check}",
+        f"Unexpected reference_compound manifest qualification state: {manifest_check}",
     )
     assert_true(
         manifest_check["manifest"]["manifestStatus"] in {"valid", "partial"},
-        f"Cisplatin manifest should be statically inspectable: {manifest_check}",
+        f"Reference compound manifest should be statically inspectable: {manifest_check}",
+    )
+    assert_true(
+        bool((manifest_check.get("curationSummary") or {}).get("ngraDeclarationsExplicit")),
+        f"Live reference_compound manifest should preserve explicit NGRA boundary declarations: {manifest_check}",
+    )
+    assert_true(
+        bool((manifest_check.get("curationSummary") or {}).get("exportBlockPolicy")),
+        f"Live reference_compound manifest should expose curation export-block semantics: {manifest_check}",
+    )
+    assert_true(
+        ((manifest_check.get("curationSummary") or {}).get("renderingGuardrails") or {}).get(
+            "actionIfRequiredFieldsMissing"
+        )
+        == "refuse-rendering",
+        f"Live reference_compound manifest should expose refusal semantics for lossy rendering: {manifest_check}",
+    )
+    benchmark_readiness = (manifest_check.get("curationSummary") or {}).get("regulatoryBenchmarkReadiness") or {}
+    assert_true(
+        bool(benchmark_readiness.get("advisoryOnly")),
+        f"Live reference_compound manifest should expose benchmark readiness as an advisory-only surface: {manifest_check}",
+    )
+    benchmark_bar_source = benchmark_readiness.get("benchmarkBarSource") or {}
+    assert_true(
+        bool(benchmark_bar_source.get("sourceManifestSha256")),
+        f"Live reference_compound manifest should preserve the benchmark source-manifest hash for traceability: {manifest_check}",
+    )
+    assert_true(
+        bool(benchmark_bar_source.get("fetchedLockSha256")),
+        f"Live reference_compound manifest should preserve the benchmark fetched-lock hash for traceability: {manifest_check}",
+    )
+    assert_true(
+        benchmark_bar_source.get("sourceResolution") in {
+            "direct-lock-files",
+            "audit-manifest-fallback",
+            "packaged-contract-fallback",
+        },
+        f"Live reference_compound manifest should describe how benchmark source hashes were resolved: {manifest_check}",
+    )
+    assert_true(
+        bool(benchmark_readiness.get("recommendedNextArtifacts")),
+        f"Live reference_compound manifest should expose benchmark-derived next-artifact guidance: {manifest_check}",
+    )
+    manifest_contract = manifest_check.get("trustSurfaceContract") or {}
+    assert_true(
+        manifest_contract.get("tool") == "validate_model_manifest",
+        f"validate_model_manifest should expose a top-level trust-surface contract: {manifest_check}",
+    )
+    assert_true(
+        any(
+            surface.get("surfacePath") == "curationSummary"
+            for surface in (manifest_contract.get("surfaces") or [])
+            if isinstance(surface, dict)
+        ),
+        f"validate_model_manifest trust-surface contract should point clients at curationSummary: {manifest_check}",
     )
 
-    cis_id = f"release-cis-{uuid4().hex[:8]}"
-    cis_load = call_tool(
+    reference_id = f"release-ref-{uuid4().hex[:8]}"
+    reference_load = call_tool(
         base_url,
         "load_simulation",
-        {"filePath": CISPLATIN_MODEL, "simulationId": cis_id},
+        {"filePath": REFERENCE_MODEL, "simulationId": reference_id},
         critical=True,
         timeout=120,
     )
-    assert_true(cis_load["backend"] == "rxode2", f"Unexpected cisplatin backend: {cis_load}")
+    assert_true(reference_load["backend"] == "rxode2", f"Unexpected reference model backend: {reference_load}")
 
-    cis_validation = call_tool(
+    reference_validation = call_tool(
         base_url,
         "validate_simulation_request",
-        {"simulationId": cis_id, "request": {"route": "iv-infusion", "contextOfUse": "research-only"}},
+        {"simulationId": reference_id, "request": {"route": "iv-infusion", "contextOfUse": "research-only"}},
         timeout=60,
     )
-    assert_true(cis_validation["validation"]["ok"] is True, "Cisplatin validation did not pass in-domain")
+    assert_true(reference_validation["validation"]["ok"] is True, "Reference compound validation did not pass in-domain")
     assert_true(
-        cis_validation["ngraObjects"]["assessmentContext"]["objectType"] == "assessmentContext.v1",
+        reference_validation["ngraObjects"]["assessmentContext"]["objectType"] == "assessmentContext.v1",
         "validate_simulation_request should expose an assessmentContext NGRA object",
     )
     assert_true(
-        cis_validation["ngraObjects"]["pbpkQualificationSummary"]["state"] == "research-use",
+        reference_validation["ngraObjects"]["pbpkQualificationSummary"]["state"] == "research-use",
         "validate_simulation_request should expose the derived PBPK qualification summary",
     )
     assert_true(
-        cis_validation["ngraObjects"]["internalExposureEstimate"]["status"] == "not-available",
+        bool((reference_validation["ngraObjects"]["pbpkQualificationSummary"] or {}).get("exportBlockPolicy")),
+        "validate_simulation_request should expose qualification-level export-block semantics",
+    )
+    validation_contract = reference_validation.get("trustSurfaceContract") or {}
+    assert_true(
+        validation_contract.get("tool") == "validate_simulation_request",
+        f"validate_simulation_request should expose a top-level trust-surface contract: {reference_validation}",
+    )
+    assert_true(
+        any(
+            surface.get("surfacePath") == "ngraObjects.pbpkQualificationSummary"
+            for surface in (validation_contract.get("surfaces") or [])
+            if isinstance(surface, dict)
+        ),
+        f"validate_simulation_request trust-surface contract should point clients at pbpkQualificationSummary: {reference_validation}",
+    )
+    assert_true(
+        reference_validation["ngraObjects"]["internalExposureEstimate"]["status"] == "not-available",
         "validate_simulation_request should not fabricate an internal exposure estimate before a deterministic run exists",
     )
+    cis_validation_signoff = http_json(
+        f"{base_url}/review_signoff",
+        payload={
+            "simulationId": reference_id,
+            "scope": "validate_simulation_request",
+            "disposition": "acknowledged",
+            "rationale": "Release readiness recorded bounded validation review with the research-only claim boundary kept intact.",
+            "confirm": True,
+        },
+        timeout=30,
+    )
+    assert_true(
+        (cis_validation_signoff.get("operatorReviewSignoff") or {}).get("status") == "recorded",
+        f"Validation sign-off route did not return a recorded summary: {cis_validation_signoff}",
+    )
+    reference_validation = call_tool(
+        base_url,
+        "validate_simulation_request",
+        {"simulationId": reference_id, "request": {"route": "iv-infusion", "contextOfUse": "research-only"}},
+        timeout=60,
+    )
+    assert_true(
+        (reference_validation.get("operatorReviewSignoff") or {}).get("status") == "recorded",
+        f"Validation output should surface the additive operator review sign-off summary: {reference_validation}",
+    )
+    assert_true(
+        (reference_validation.get("operatorReviewSignoff") or {}).get("scope") == "validate_simulation_request",
+        f"Validation output surfaced the wrong sign-off scope: {reference_validation}",
+    )
 
-    cis_verification = call_tool(
+    reference_verification = call_tool(
         base_url,
         "run_verification_checks",
         {
-            "simulationId": cis_id,
+            "simulationId": reference_id,
             "request": {"route": "iv-infusion", "contextOfUse": "research-only"},
             "includePopulationSmoke": True,
             "populationCohort": {"size": 10, "seed": 42},
@@ -461,75 +1253,103 @@ def run_release_check(base_url: str, *, skip_unit_tests: bool = False) -> dict:
         timeout=180,
     )
     assert_true(
-        cis_verification["verification"]["status"] == "passed",
-        f"Cisplatin verification checks did not pass: {cis_verification}",
+        reference_verification["verification"]["status"] == "passed",
+        f"Reference compound verification checks did not pass: {reference_verification}",
     )
     assert_true(
-        any(check["id"] == "deterministic-smoke" for check in cis_verification["verification"]["checks"]),
+        any(check["id"] == "deterministic-smoke" for check in reference_verification["verification"]["checks"]),
         "Verification output is missing the deterministic smoke check",
     )
     assert_true(
-        any(check["id"] == "population-smoke" for check in cis_verification["verification"]["checks"]),
+        any(check["id"] == "population-smoke" for check in reference_verification["verification"]["checks"]),
         "Verification output is missing the population smoke check",
     )
     assert_true(
         any(
             check["id"] == "deterministic-integrity" and check["status"] == "passed"
-            for check in cis_verification["verification"]["checks"]
+            for check in reference_verification["verification"]["checks"]
         ),
         "Verification output is missing the deterministic integrity check",
     )
     assert_true(
         any(
             check["id"] == "deterministic-reproducibility" and check["status"] == "passed"
-            for check in cis_verification["verification"]["checks"]
+            for check in reference_verification["verification"]["checks"]
         ),
         "Verification output is missing the deterministic reproducibility check",
     )
     assert_true(
         any(
             check["id"] == "parameter-unit-consistency" and check["status"] == "passed"
-            for check in cis_verification["verification"]["checks"]
+            for check in reference_verification["verification"]["checks"]
         ),
         "Verification output is missing the parameter-unit-consistency check",
     )
     assert_true(
         any(
             check["id"] == "systemic-flow-consistency" and check["status"] == "passed"
-            for check in cis_verification["verification"]["checks"]
+            for check in reference_verification["verification"]["checks"]
         ),
         "Verification output is missing the systemic-flow-consistency check",
     )
     assert_true(
         any(
             check["id"] == "renal-volume-consistency" and check["status"] == "passed"
-            for check in cis_verification["verification"]["checks"]
+            for check in reference_verification["verification"]["checks"]
         ),
         "Verification output is missing the renal-volume-consistency check",
     )
     assert_true(
         any(
             check["id"] == "mass-balance" and check["status"] == "passed"
-            for check in cis_verification["verification"]["checks"]
+            for check in reference_verification["verification"]["checks"]
         ),
         "Verification output is missing the mass-balance check",
     )
     assert_true(
         any(
             check["id"] == "solver-stability" and check["status"] == "passed"
-            for check in cis_verification["verification"]["checks"]
+            for check in reference_verification["verification"]["checks"]
         ),
         "Verification output is missing the solver-stability check",
     )
+    verification_contract = reference_verification.get("trustSurfaceContract") or {}
+    assert_true(
+        verification_contract.get("tool") == "run_verification_checks",
+        f"run_verification_checks should expose a top-level trust-surface contract: {reference_verification}",
+    )
+    assert_true(
+        any(
+            surface.get("surfacePath") == "qualificationState"
+            for surface in (verification_contract.get("surfaces") or [])
+            if isinstance(surface, dict)
+        ),
+        f"run_verification_checks trust-surface contract should point clients at qualificationState: {reference_verification}",
+    )
+    cis_report_signoff = http_json(
+        f"{base_url}/review_signoff",
+        payload={
+            "simulationId": reference_id,
+            "scope": "export_oecd_report",
+            "disposition": "approved-for-bounded-use",
+            "rationale": "Release readiness recorded bounded report review with detached-summary risk still requiring nearby caveats.",
+            "confirm": True,
+        },
+        timeout=30,
+    )
+    assert_true(
+        (cis_report_signoff.get("operatorReviewSignoff") or {}).get("status") == "recorded",
+        f"Report sign-off route did not return a recorded summary: {cis_report_signoff}",
+    )
 
-    cis_report = call_tool(
+    reference_report = call_tool(
         base_url,
         "export_oecd_report",
-        {"simulationId": cis_id, "request": {"route": "iv-infusion", "contextOfUse": "research-only"}, "parameterLimit": 5},
+        {"simulationId": reference_id, "request": {"route": "iv-infusion", "contextOfUse": "research-only"}, "parameterLimit": 5},
         timeout=120,
     )
-    cis_report_payload = cis_report["report"]
-    assert_true(cis_report["tool"] == "export_oecd_report", "export_oecd_report tool response missing")
+    cis_report_payload = reference_report["report"]
+    assert_true(reference_report["tool"] == "export_oecd_report", "export_oecd_report tool response missing")
     assert_true(cis_report_payload["reportVersion"] == "pbpk-oecd-report.v1", "Unexpected OECD report version")
     assert_true(
         cis_report_payload["oecdCoverage"]["coverageVersion"] == "pbpk-oecd-coverage.v1",
@@ -540,7 +1360,7 @@ def run_release_check(base_url: str, *, skip_unit_tests: bool = False) -> dict:
         "OECD coverage mapping must remain descriptive and must not affect the checklist score",
     )
     assert_true(
-        cis_report["ngraObjects"]["assessmentContext"]["objectType"] == "assessmentContext.v1",
+        reference_report["ngraObjects"]["assessmentContext"]["objectType"] == "assessmentContext.v1",
         "export_oecd_report should expose top-level NGRA objects for downstream workflows",
     )
     assert_true(
@@ -560,36 +1380,76 @@ def run_release_check(base_url: str, *, skip_unit_tests: bool = False) -> dict:
         "The exported OECD report should expose a ready PBPK-side uncertainty handoff object",
     )
     assert_true(
+        (reference_report.get("operatorReviewSignoff") or {}).get("status") == "recorded",
+        f"Report export should surface the additive operator review sign-off summary: {reference_report}",
+    )
+    report_contract = reference_report.get("trustSurfaceContract") or {}
+    assert_true(
+        report_contract.get("tool") == "export_oecd_report",
+        f"export_oecd_report should expose a top-level trust-surface contract: {reference_report}",
+    )
+    report_surface_paths = {
+        surface.get("surfacePath")
+        for surface in (report_contract.get("surfaces") or [])
+        if isinstance(surface, dict)
+    }
+    assert_true(
+        {"report.humanReviewSummary", "report.ngraObjects.pbpkQualificationSummary"}.issubset(report_surface_paths),
+        f"export_oecd_report trust-surface contract should point clients at the report review and qualification surfaces: {reference_report}",
+    )
+    assert_true(
+        ((cis_report_payload.get("humanReviewSummary") or {}).get("operatorReviewSignoff") or {}).get("status")
+        == "recorded",
+        f"report.humanReviewSummary should surface the additive operator review sign-off summary: {reference_report}",
+    )
+    assert_true(
+        bool((cis_report_payload.get("exportBlockPolicy") or {}).get("blockReasons")),
+        f"report.exportBlockPolicy should expose machine-readable block reasons: {reference_report}",
+    )
+    assert_true(
+        bool(
+            ((cis_report_payload.get("humanReviewSummary") or {}).get("exportBlockPolicy") or {}).get("blockReasons")
+        ),
+        f"report.humanReviewSummary should surface export-block semantics: {reference_report}",
+    )
+    assert_true(
+        ((cis_report_payload.get("humanReviewSummary") or {}).get("renderingGuardrails") or {}).get(
+            "actionIfRequiredFieldsMissing"
+        )
+        == "refuse-rendering",
+        f"report.humanReviewSummary should expose refusal semantics for lossy rendering: {reference_report}",
+    )
+    assert_true(
         cis_report_payload["oecdChecklist"]["modelPerformanceAndPredictivity"]["status"] == "partial",
-        "Cisplatin performance checklist should remain partial until real fit evidence is attached",
+        "Reference compound performance checklist should remain partial until real fit evidence is attached",
     )
     assert_true(
         cis_report_payload["performanceEvidence"]["returnedRows"] >= 1,
-        "Cisplatin report should include exported performance evidence rows",
+        "Reference compound report should include exported performance evidence rows",
     )
     assert_true(
         cis_report_payload["performanceEvidence"]["strongestEvidenceClass"] == "runtime-smoke",
-        "Cisplatin report should classify bundled performance evidence as runtime smoke only",
+        "Reference compound report should classify bundled performance evidence as runtime smoke only",
     )
     assert_true(
         cis_report_payload["performanceEvidence"]["qualificationBoundary"] == "runtime-or-internal-evidence-only",
-        "Cisplatin report should keep a runtime/internal-only qualification boundary until predictive datasets are attached",
+        "Reference compound report should keep a runtime/internal-only qualification boundary until predictive datasets are attached",
     )
     assert_true(
         cis_report_payload["performanceEvidence"]["limitedToRuntimeOrInternalEvidence"] is True,
-        "Cisplatin report should explicitly mark its current performance evidence as runtime/internal only",
+        "Reference compound report should explicitly mark its current performance evidence as runtime/internal only",
     )
     assert_true(
         cis_report_payload["performanceEvidence"]["supportsObservedVsPredictedEvidence"] is False,
-        "Cisplatin report must not claim observed-versus-predicted evidence when none is bundled",
+        "Reference compound report must not claim observed-versus-predicted evidence when none is bundled",
     )
     assert_true(
         cis_report_payload["performanceEvidence"]["supportsPredictiveDatasetEvidence"] is False,
-        "Cisplatin report must not claim predictive-dataset evidence when none is bundled",
+        "Reference compound report must not claim predictive-dataset evidence when none is bundled",
     )
     assert_true(
         cis_report_payload["performanceEvidence"]["supportsExternalQualificationEvidence"] is False,
-        "Cisplatin report must not claim external qualification evidence when none is bundled",
+        "Reference compound report must not claim external qualification evidence when none is bundled",
     )
     assert_true(
         cis_report_payload["parameterTable"]["coverage"]["rowCount"] == cis_report_payload["parameterTable"]["matchedRows"],
@@ -602,62 +1462,62 @@ def run_release_check(base_url: str, *, skip_unit_tests: bool = False) -> dict:
     uncertainty_row_ids = {entry["id"] for entry in cis_report_payload["uncertaintyEvidence"]["rows"]}
     assert_true(
         "bounded-variability-propagation-summary" in uncertainty_row_ids,
-        f"Cisplatin report uncertainty evidence is missing the variability propagation summary row: {sorted(uncertainty_row_ids)}",
+        f"Reference compound report uncertainty evidence is missing the variability propagation summary row: {sorted(uncertainty_row_ids)}",
     )
     assert_true(
         any(row_id.startswith("bounded-variability-propagation-") and row_id != "bounded-variability-propagation-summary" for row_id in uncertainty_row_ids),
-        f"Cisplatin report uncertainty evidence is missing quantitative variability propagation rows: {sorted(uncertainty_row_ids)}",
+        f"Reference compound report uncertainty evidence is missing quantitative variability propagation rows: {sorted(uncertainty_row_ids)}",
     )
     assert_true(
         "local-sensitivity-screen-summary" in uncertainty_row_ids,
-        f"Cisplatin report uncertainty evidence is missing the local sensitivity summary row: {sorted(uncertainty_row_ids)}",
+        f"Reference compound report uncertainty evidence is missing the local sensitivity summary row: {sorted(uncertainty_row_ids)}",
     )
     assert_true(
         any(row_id.startswith("local-sensitivity-") and row_id != "local-sensitivity-screen-summary" for row_id in uncertainty_row_ids),
-        f"Cisplatin report uncertainty evidence is missing quantitative local sensitivity rows: {sorted(uncertainty_row_ids)}",
+        f"Reference compound report uncertainty evidence is missing quantitative local sensitivity rows: {sorted(uncertainty_row_ids)}",
     )
     assert_true(
         cis_report_payload["executableVerification"]["included"] is True,
-        "Cisplatin report should include the stored executable verification snapshot after run_verification_checks",
+        "Reference compound report should include the stored executable verification snapshot after run_verification_checks",
     )
     assert_true(
         cis_report_payload["executableVerification"]["status"] == "passed",
-        f"Cisplatin report carried an unexpected executable verification status: {cis_report_payload['executableVerification']}",
+        f"Reference compound report carried an unexpected executable verification status: {cis_report_payload['executableVerification']}",
     )
     report_check_ids = {entry["id"] for entry in cis_report_payload["executableVerification"]["checks"]}
     assert_true(
         "mass-balance" in report_check_ids,
-        f"Cisplatin report executable verification is missing the mass-balance check: {sorted(report_check_ids)}",
+        f"Reference compound report executable verification is missing the mass-balance check: {sorted(report_check_ids)}",
     )
     assert_true(
         "parameter-unit-consistency" in report_check_ids,
-        f"Cisplatin report executable verification is missing the parameter-unit-consistency check: {sorted(report_check_ids)}",
+        f"Reference compound report executable verification is missing the parameter-unit-consistency check: {sorted(report_check_ids)}",
     )
     assert_true(
         "systemic-flow-consistency" in report_check_ids,
-        f"Cisplatin report executable verification is missing the systemic-flow-consistency check: {sorted(report_check_ids)}",
+        f"Reference compound report executable verification is missing the systemic-flow-consistency check: {sorted(report_check_ids)}",
     )
     assert_true(
         "renal-volume-consistency" in report_check_ids,
-        f"Cisplatin report executable verification is missing the renal-volume-consistency check: {sorted(report_check_ids)}",
+        f"Reference compound report executable verification is missing the renal-volume-consistency check: {sorted(report_check_ids)}",
     )
     assert_true(
         "solver-stability" in report_check_ids,
-        f"Cisplatin report executable verification is missing the solver-stability check: {sorted(report_check_ids)}",
+        f"Reference compound report executable verification is missing the solver-stability check: {sorted(report_check_ids)}",
     )
 
-    run_id = f"{cis_id}-smoke"
-    cis_submit = call_tool(
+    run_id = f"{reference_id}-smoke"
+    reference_submit = call_tool(
         base_url,
         "run_simulation",
-        {"simulationId": cis_id, "runId": run_id},
+        {"simulationId": reference_id, "runId": run_id},
         critical=True,
         timeout=60,
     )
-    cis_job = poll_job(base_url, cis_submit["jobId"])
-    assert_true(cis_job["status"] == "succeeded", f"Cisplatin simulation failed: {cis_job}")
-    cis_results = call_tool(base_url, "get_results", {"resultsId": cis_job["resultId"]}, timeout=60)
-    assert_true(len(cis_results["series"]) > 0, "Cisplatin deterministic result returned no series")
+    reference_job = poll_job(base_url, reference_submit["jobId"])
+    assert_true(reference_job["status"] == "succeeded", f"Reference compound simulation failed: {reference_job}")
+    reference_results = call_tool(base_url, "get_results", {"resultsId": reference_job["resultId"]}, timeout=60)
+    assert_true(len(reference_results["series"]) > 0, "Reference compound deterministic result returned no series")
 
     population_tool_schema = next(
         tool for tool in tool_catalog["tools"] if tool["name"] == "run_population_simulation"
@@ -668,31 +1528,31 @@ def run_release_check(base_url: str, *, skip_unit_tests: bool = False) -> dict:
         f"run_population_simulation should not require modelPath in the converged contract: {required_population_fields}",
     )
 
-    cis_population = call_tool(
+    reference_population = call_tool(
         base_url,
         "run_population_simulation",
         {
-            "simulationId": cis_id,
+            "simulationId": reference_id,
             "cohort": {"size": 10, "seed": 42},
             "outputs": {"aggregates": ["meanCmax", "sdCmax", "meanAUC"]},
         },
         critical=True,
         timeout=60,
     )
-    cis_population_job = poll_job(base_url, cis_population["jobId"], timeout_seconds=240)
+    reference_population_job = poll_job(base_url, reference_population["jobId"], timeout_seconds=240)
     assert_true(
-        cis_population_job["status"] == "succeeded",
-        f"Cisplatin population simulation failed: {cis_population_job}",
+        reference_population_job["status"] == "succeeded",
+        f"Reference compound population simulation failed: {reference_population_job}",
     )
-    cis_population_results = call_tool(
+    reference_population_results = call_tool(
         base_url,
         "get_population_results",
-        {"resultsId": cis_population_job["resultId"]},
+        {"resultsId": reference_population_job["resultId"]},
         timeout=60,
     )
     assert_true(
-        len(cis_population_results.get("aggregates") or {}) > 0,
-        "Cisplatin population result returned no aggregates",
+        len(reference_population_results.get("aggregates") or {}) > 0,
+        "Reference compound population result returned no aggregates",
     )
 
     pkml_id = f"release-pkml-{uuid4().hex[:8]}"
@@ -715,19 +1575,27 @@ def run_release_check(base_url: str, *, skip_unit_tests: bool = False) -> dict:
     assert_true(pkml_report_payload["profile"]["profileSource"]["type"] == "sidecar", "OSPSuite sidecar provenance was not preserved")
     assert_true(pkml_report_payload["parameterTable"]["returnedRows"] > 0, "OSPSuite OECD report should include runtime parameter rows")
 
-    summary["cisplatin"] = {
-        "simulationId": cis_id,
+    summary["reference_compound"] = {
+        "simulationId": reference_id,
         "manifestState": manifest_check["manifest"]["qualificationState"]["state"],
-        "validationDecision": cis_validation["validation"]["assessment"]["decision"],
-        "verificationStatus": cis_verification["verification"]["status"],
+        "benchmarkReadinessStatus": benchmark_readiness.get("overallStatus"),
+        "benchmarkResemblance": benchmark_readiness.get("modelResemblance"),
+        "benchmarkTopGapIds": [
+            item.get("dimensionId")
+            for item in (benchmark_readiness.get("prioritizedGaps") or [])[:3]
+            if isinstance(item, dict) and item.get("dimensionId")
+        ],
+        "benchmarkRecommendedArtifacts": list(benchmark_readiness.get("recommendedNextArtifacts") or [])[:3],
+        "validationDecision": reference_validation["validation"]["assessment"]["decision"],
+        "verificationStatus": reference_verification["verification"]["status"],
         "executableVerificationStatus": cis_report_payload["executableVerification"]["status"],
         "reportChecklistScore": cis_report_payload["oecdChecklistScore"],
         "performanceChecklistStatus": cis_report_payload["oecdChecklist"]["modelPerformanceAndPredictivity"]["status"],
         "performanceEvidenceRows": cis_report_payload["performanceEvidence"]["returnedRows"],
         "performanceEvidenceBoundary": cis_report_payload["performanceEvidence"]["qualificationBoundary"],
         "uncertaintyHandoffStatus": cis_report_payload["ngraObjects"]["uncertaintyHandoff"]["status"],
-        "resultSeries": len(cis_results["series"]),
-        "populationAggregates": sorted((cis_population_results.get("aggregates") or {}).keys()),
+        "resultSeries": len(reference_results["series"]),
+        "populationAggregates": sorted((reference_population_results.get("aggregates") or {}).keys()),
     }
     summary["ospsuite"] = {
         "simulationId": pkml_id,
@@ -743,6 +1611,16 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run release-readiness checks against the local PBPK MCP stack.")
     parser.add_argument("--base-url", default=DEFAULT_BASE_URL, help="PBPK MCP base URL.")
     parser.add_argument(
+        "--bearer-token",
+        default=None,
+        help="Bearer token to use for authenticated MCP requests. Overrides dev-token generation when set.",
+    )
+    parser.add_argument(
+        "--auth-dev-secret",
+        default="pbpk-local-dev-secret",
+        help="HS256 dev secret used to mint an operator token for local development stacks.",
+    )
+    parser.add_argument(
         "--skip-unit-tests",
         action="store_true",
         help="Skip the local OECD bridge unit tests and only run live stack checks.",
@@ -752,7 +1630,19 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> int:
     args = parse_args()
-    summary = run_release_check(args.base_url, skip_unit_tests=args.skip_unit_tests)
+    REQUEST_HEADERS.clear()
+    REQUEST_HEADERS.update(
+        build_auth_headers(
+            bearer_token=args.bearer_token,
+            auth_dev_secret=args.auth_dev_secret,
+        )
+    )
+    summary = run_release_check(
+        args.base_url,
+        skip_unit_tests=args.skip_unit_tests,
+        bearer_token=args.bearer_token,
+        auth_dev_secret=args.auth_dev_secret,
+    )
     print(json.dumps(summary, indent=2))
     return 0
 

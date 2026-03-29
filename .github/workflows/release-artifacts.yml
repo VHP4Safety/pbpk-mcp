@@ -31,8 +31,10 @@ jobs:
       - name: Verify contract artifacts are current
         run: |
           python scripts/check_runtime_contract_env.py
+          make misuse-prevention-test PY=python
           python scripts/generate_contract_artifacts.py --check
           python scripts/check_release_metadata.py
+          python scripts/validate_model_manifests.py --strict --require-explicit-ngra --curated-publication-set
 
       - name: Build and validate release artifacts
         run: |

@@ -661,7 +661,7 @@ async def _async_main(args: argparse.Namespace) -> int:
     output_dir = Path(args.output_dir).expanduser()
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    os.environ.setdefault("MCP_MODEL_SEARCH_PATHS", str(dataset.parent))
+    os.environ.setdefault("ADAPTER_MODEL_PATHS", str(dataset.parent))
 
     token = args.token
     transport: httpx.AsyncBaseTransport | None = None

@@ -3,7 +3,7 @@
 PY ?= python3
 IMAGE_NAME ?= mcp-bridge
 
-.PHONY: help install lint format type test test-e2e test-hpc compliance benchmark benchmark-celery fetch-bench-data parity docs-export sbom check clean build-image run-image celery-worker runtime-patch-check runtime-contract-test workspace-smoke
+.PHONY: help install lint format type test test-e2e test-hpc compliance benchmark benchmark-celery fetch-bench-data parity docs-export sbom check clean build-image run-image celery-worker runtime-patch-check runtime-contract-test misuse-prevention-test misuse-prevention-live-test workspace-smoke
 
 help:
 	@awk 'BEGIN {FS = ":.*##"} /^[a-zA-Z_-]+:.*?##/ {printf "\033[36m%s\033[0m\t%s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -98,10 +98,28 @@ runtime-patch-check: ## Compile the local runtime/deploy helper files used by th
 		src/mcp_bridge/tools/registry_base.py
 	bash -n scripts/deploy_rxode2_stack.sh scripts/deploy_source_overlay_stack.sh scripts/deploy_hardened_stack.sh
 
+misuse-prevention-test: ## Run the named non-live misuse-prevention regression suite
+	$(PY) -m pytest \
+		tests/test_review_signoff.py \
+		tests/test_trust_surface.py \
+		tests/test_model_manifest.py \
+		tests/test_external_pbpk_bundle.py \
+		tests/test_oecd_bridge.py \
+		tests/test_ngra_object_schemas.py \
+		tests/test_release_readiness_script.py
+
+misuse-prevention-live-test: ## Run the named live misuse-prevention regression suite against a running local stack
+	$(PY) -m pytest -q \
+		tests/test_model_discovery_live_stack.py \
+		tests/test_oecd_live_stack.py \
+		tests/test_runtime_security_live_stack.py
+
 runtime-contract-test: ## Run the local runtime contract tests that do not require the live stack
 	$(PY) scripts/check_runtime_contract_env.py
+	$(MAKE) misuse-prevention-test PY=$(PY)
 	$(PY) scripts/generate_contract_artifacts.py --check
 	$(PY) scripts/check_release_metadata.py
+	$(PY) scripts/validate_model_manifests.py --strict --require-explicit-ngra --curated-publication-set
 	$(PY) scripts/check_distribution_artifacts.py
 	$(PY) scripts/check_installed_package_contract.py
 	$(PY) -m unittest -v \
@@ -115,15 +133,17 @@ runtime-contract-test: ## Run the local runtime contract tests that do not requi
 		tests/test_packaged_mcp_namespace.py \
 		tests/test_packaged_tool_registry.py \
 		tests/test_release_metadata.py \
+		tests/test_release_readiness_script.py \
 		tests/test_packaged_contract_artifacts.py \
 		tests/test_load_simulation_contract.py \
 		tests/test_model_manifest.py \
 		tests/test_oecd_bridge.py \
-		tests/test_external_pbpk_bundle.py
+		tests/test_external_pbpk_bundle.py \
+		tests/test_workspace_model_smoke_script.py
 	$(PY) -m pytest tests/unit/test_adapter_interface.py tests/unit/test_subprocess_adapter.py
 
 workspace-smoke: ## Run the live workspace model smoke with rxode2 population enabled
-	$(PY) scripts/workspace_model_smoke.py --include-population
+	$(PY) scripts/workspace_model_smoke.py --include-population --auth-dev-secret pbpk-local-dev-secret
 
 clean: ## Remove build artifacts
 	rm -rf .pytest_cache .mypy_cache .ruff_cache dist build

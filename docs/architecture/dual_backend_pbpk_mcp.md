@@ -126,9 +126,24 @@ The typed PBPK-side NGRA objects now carry explicit handoff semantics as well:
 - `assessmentBoundary` identifies what PBPK MCP is actually claiming for a given object
 - `decisionBoundary` makes it explicit that BER calculation and NGRA decision policy remain external
 - `supports` flags tell downstream orchestrators which PBPK-side capabilities are actually present versus absent
+- `assessmentContext.workflowRole` makes the exposure-led NGRA role and non-goals explicit
+- `assessmentContext.populationSupport` makes supported populations and extrapolation boundaries explicit
+- `pbpkQualificationSummary.evidenceBasis` makes no-direct-in-vivo support, IVIVE linkage status, and parameterization basis explicit when declared
+- `pbpkQualificationSummary.workflowClaimBoundaries` makes forward-dosimetry support, reverse-dosimetry limits, and no-direct-dose-derivation boundaries explicit
 - `pointOfDepartureReference` makes external PoD provenance explicit without turning PBPK MCP into the owner of PoD interpretation or BER policy
 - `uncertaintyHandoff` makes PBPK-to-cross-domain uncertainty transfer explicit without turning PBPK MCP into the owner of uncertainty synthesis
 - `uncertaintyRegisterReference` makes an external cross-domain uncertainty register reference explicit without turning PBPK MCP into the owner of that register
+
+## Role in Exposure-led NGRA
+
+PBPK MCP should be treated as a PBPK-side execution and handoff layer inside an exposure-led NGRA workflow.
+
+- It owns PBPK execution, PBPK-side qualification, PBPK-side internal exposure estimates, and typed handoff objects.
+- It depends on upstream exposure, IVIVE, PoD, and broader WoE interpretation that remain outside PBPK MCP.
+- It can support forward-dosimetry-style external-dose to internal-exposure translation.
+- It does not directly own reverse dosimetry, exposure-led prioritization policy, or direct regulatory dose derivation.
+
+See [exposure_led_ngra_role.md](exposure_led_ngra_role.md) for the repo-grounded boundary statement.
 
 ## Runtime Deployment
 
@@ -262,11 +277,11 @@ Illustrative example:
 
 ```json
 {
-  "simulationId": "cisplatin-rxode2",
+  "simulationId": "reference-compound-rxode2",
   "backend": "rxode2",
   "contractVersion": "pbpk-mcp.v1",
   "metadata": {
-    "name": "cisplatin_population_rxode2_model.R",
+    "name": "reference_compound_population_rxode2_model.R",
     "engine": "rxode2"
   },
   "capabilities": {

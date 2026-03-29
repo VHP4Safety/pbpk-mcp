@@ -13,7 +13,7 @@
   "artifactCounts": {
     "examples": 8,
     "schemas": 8,
-    "supporting": 9
+    "supporting": 33
   },
   "capabilityMatrix": {
     "classification": "normative",
@@ -39,16 +39,17 @@
   "resourceEndpoints": {
     "capabilityMatrix": "/mcp/resources/capability-matrix",
     "contractManifest": "/mcp/resources/contract-manifest",
+    "releaseBundleManifest": "/mcp/resources/release-bundle-manifest",
     "schemaCatalog": "/mcp/resources/schemas"
   },
   "schemas": [
     {
       "classification": "normative",
       "exampleRelativePath": "schemas/examples/assessmentContext.v1.example.json",
-      "exampleSha256": "316fe3e7b69b1f27ade102c10444540e50fca61725c95b369c4bd48dd52b4fa6",
+      "exampleSha256": "774828884b6705892187768b505b1c3f5e36ebe83d2a2f570847145297bf3d0c",
       "relativePath": "schemas/assessmentContext.v1.json",
       "schemaId": "assessmentContext.v1",
-      "sha256": "e8b4ba287879f7fddc7139c666e057256efa0190e7263721e8685c9331bb5940"
+      "sha256": "2849beb31892bce04753f732e5bf538595a2a060b9c2c25d291f317640eda20c"
     },
     {
       "classification": "normative",
@@ -69,10 +70,10 @@
     {
       "classification": "normative",
       "exampleRelativePath": "schemas/examples/pbpkQualificationSummary.v1.example.json",
-      "exampleSha256": "2305d9887725aac70de57e2893599aa4446ea0e81013da1f80ecf344a50c04da",
+      "exampleSha256": "66bd8b255e52c125e72b18eaf36ea49ed95d0af5c6f4a050d483b5bb0e3697eb",
       "relativePath": "schemas/pbpkQualificationSummary.v1.json",
       "schemaId": "pbpkQualificationSummary.v1",
-      "sha256": "515b371dad39d241a97384a4627eca529636ea5e6378da1f01be8688d08da08d"
+      "sha256": "20eb7f265c12d406d453614e8c3a704d19fb8ae6527390d9a9ed6f401cdec2d3"
     },
     {
       "classification": "normative",
@@ -110,45 +111,117 @@
   "supportingArtifacts": [
     {
       "classification": "supporting",
+      "relativePath": "benchmarks/regulatory_goldset/README.md",
+      "role": "regulatory benchmark corpus guide",
+      "sha256": "3da4d18c8a96049148b26bcd17f37e14e853481b3974e21b4ab8a8dcd9baef14"
+    },
+    {
+      "classification": "supporting",
+      "relativePath": "benchmarks/regulatory_goldset/sources.lock.json",
+      "role": "regulatory gold-set source lock",
+      "sha256": "ba24143cfe7ddd976779d7c60d24754b35f8ecf0d361e15c8ad247e488af337b"
+    },
+    {
+      "classification": "supporting",
+      "relativePath": "benchmarks/regulatory_goldset/fetched.lock.json",
+      "role": "regulatory gold-set fetch lock",
+      "sha256": "949db5491f40406ab4a0fc185952795bb88f1243ac5c4a3ead1b4fda7661ddca"
+    },
+    {
+      "classification": "supporting",
+      "relativePath": "benchmarks/regulatory_goldset/regulatory_goldset_scorecard.json",
+      "role": "regulatory gold-set scorecard",
+      "sha256": "212987469243e7b32a06f41cdab74c21b931f4540b12ab6a492baeff6dcd967a"
+    },
+    {
+      "classification": "supporting",
+      "relativePath": "benchmarks/regulatory_goldset/regulatory_goldset_summary.md",
+      "role": "regulatory gold-set benchmark summary",
+      "sha256": "9bb0eb45eb571d57a30622665b8caeeaaca0e31114edf83554facbe11083d944"
+    },
+    {
+      "classification": "supporting",
+      "relativePath": "benchmarks/regulatory_goldset/regulatory_goldset_audit_manifest.json",
+      "role": "regulatory gold-set audit manifest",
+      "sha256": "21af57a4b41416ab79cfa86bd58c4582f5834218adad033b8c4b3bb65967931e"
+    },
+    {
+      "classification": "supporting",
       "relativePath": "docs/architecture/capability_matrix.md",
       "role": "human-readable capability guide",
-      "sha256": "668e616af45a6a1ff89cbda523264ffbc087a79dadfb64c7e3d0e2e56c72f14c"
+      "sha256": "ed587abf32181ca8cd530c73b6deb64655cb34473eee9b1cc450becc8a237589"
     },
     {
       "classification": "supporting",
       "relativePath": "docs/architecture/mcp_payload_conventions.md",
       "role": "payload contract reference",
-      "sha256": "051b8800193809b7a012a0ec57fd4f5a310c52758c671b377895b12f96d00f8e"
+      "sha256": "2bd79754995a99b2f7c679b336a5b9e4e91373714d3e64ddc933da4edcd0ee02"
+    },
+    {
+      "classification": "supporting",
+      "relativePath": "docs/architecture/exposure_led_ngra_role.md",
+      "role": "exposure-led NGRA boundary guide",
+      "sha256": "25a56d32680e62e8bd99d995c00606fa31e815f0655a31c7bc227122bf298e5a"
+    },
+    {
+      "classification": "supporting",
+      "relativePath": "docs/architecture/release_bundle_manifest.json",
+      "role": "whole release bundle hash inventory",
+      "sha256": "d33375c071496f2e42e7d8dc6818ef5598a4a65df718da426df9b5c8da5b2012"
+    },
+    {
+      "classification": "supporting",
+      "relativePath": "docs/hardening_migration_notes.md",
+      "role": "hardening migration notes",
+      "sha256": "a6b09925902b20e45f15c7e0a703468162cef5bbf1a966eee90aff397130fa88"
+    },
+    {
+      "classification": "supporting",
+      "relativePath": "docs/pbpk_model_onboarding_checklist.md",
+      "role": "PBPK model onboarding checklist",
+      "sha256": "c3ac775a33d357fceac2d74ecd65d1e7d9f3dafa2166fa71f969217b02d56185"
     },
     {
       "classification": "supporting",
       "relativePath": "docs/github_publication_checklist.md",
       "role": "publication checklist",
-      "sha256": "b00bf8aea5469aeb0dc9cc3ccc4e26bbcfe3c3019eb539fbb836bd6f0d8690b6"
+      "sha256": "7e54a09ce8d5055dc940d85aebae60074681ad01d41bcee7c16c8a3e7e6af75b"
+    },
+    {
+      "classification": "supporting",
+      "relativePath": "docs/pbk_reviewer_signoff_checklist.md",
+      "role": "PBK reviewer sign-off checklist",
+      "sha256": "12c8ff065ae36a0ae1f3a94b635d6635ad2b237ecf4755eb2ab2a457dccb336c"
+    },
+    {
+      "classification": "supporting",
+      "relativePath": "docs/post_release_audit_plan.md",
+      "role": "post-release audit plan",
+      "sha256": "cfedfabd7a0943f94b8afba4d2d0f9b85c8b9225f955bea7e3c331bd316583f5"
     },
     {
       "classification": "supporting",
       "relativePath": "schemas/README.md",
       "role": "schema usage guide",
-      "sha256": "0eb43956df6b769bbf3028e0b8b1f2997db397e7618eb1be0d98b7a48847c80a"
+      "sha256": "2f58bea343ec1a49d9c25dbaadc3d36bfa87cebb483f280e776034d0927f4339"
     },
     {
       "classification": "supporting",
       "relativePath": "scripts/check_distribution_artifacts.py",
       "role": "distribution artifact validation script",
-      "sha256": "f71f779112302dc1b0bc6d0aa83fed81bf9ca11fefdfba5782eabc736198e6da"
+      "sha256": "12934c81c14241f6fb28705c97e9eb443e29c75b5c71005cc0dbb394c57f6084"
     },
     {
       "classification": "supporting",
       "relativePath": "scripts/check_release_metadata.py",
       "role": "release metadata consistency check",
-      "sha256": "a5c81528c34952d7a51fb32970ac18bc6bc2703a40b4e16db9f669e9b92eecac"
+      "sha256": "971bf6472a31e184ac1e55fc17886a69154dd83ac9adb7e1cfef0579ebaf896b"
     },
     {
       "classification": "supporting",
       "relativePath": "scripts/check_installed_package_contract.py",
       "role": "installed package contract validation script",
-      "sha256": "e961342d40a42ea074f5735671da5f030066db4bd28b4763d6661f6c371a365a"
+      "sha256": "e63b48f3f0b7d0f5093f31f157e1b656c62a207b23021f3dd127801094a177ea"
     },
     {
       "classification": "supporting",
@@ -158,9 +231,81 @@
     },
     {
       "classification": "supporting",
+      "relativePath": "scripts/release_readiness_check.py",
+      "role": "live release readiness gate",
+      "sha256": "0b91d767dc00cfa0df83773d4082f2918278dd3b27783b4485863754df42f225"
+    },
+    {
+      "classification": "supporting",
+      "relativePath": "scripts/wait_for_runtime_ready.py",
+      "role": "runtime readiness probe",
+      "sha256": "fa18ce884ba790f7d208fde156709b2735e4678e68dc75461a4cbe04569364be"
+    },
+    {
+      "classification": "supporting",
+      "relativePath": "scripts/workspace_model_smoke.py",
+      "role": "workspace live smoke script",
+      "sha256": "c9f201b0958028473a5434a8704130492021f7fffc8cb42e28b3b9d357257684"
+    },
+    {
+      "classification": "supporting",
       "relativePath": "scripts/generate_contract_artifacts.py",
       "role": "contract artifact generator",
-      "sha256": "02429aee7d348e7b63a99ad1f707ebc1d43fbcd2511283ab5f97e97737d95123"
+      "sha256": "1dcde156ef5105247cfd7b08a0c36c42c624720a3c2d8c847696397fd402d880"
+    },
+    {
+      "classification": "supporting",
+      "relativePath": "scripts/generate_regulatory_goldset_audit.py",
+      "role": "regulatory gold-set audit generator",
+      "sha256": "ef244652dad5862ad46c25e1dd6b844a148389dcf7697c242577b3b268e6a0e2"
+    },
+    {
+      "classification": "supporting",
+      "relativePath": "src/mcp_bridge/trust_surface.py",
+      "role": "thin-client trust-surface contract helper",
+      "sha256": "bd41076e5234f4f584deefaf8174162e0e482fba53a8f3c63ea7c0efa01d42d1"
+    },
+    {
+      "classification": "supporting",
+      "relativePath": "src/mcp_bridge/benchmarking/regulatory_goldset.py",
+      "role": "regulatory gold-set benchmark helper",
+      "sha256": "6760efa0d01df3e79250c095d6d07d59e2bff3dd3868f8f0740728dc1eaa6420"
+    },
+    {
+      "classification": "supporting",
+      "relativePath": "tests/test_release_readiness_script.py",
+      "role": "release readiness regression test",
+      "sha256": "a4f7451b444a4383784f7dbda2382f54b66350c5e968fdc2321b906deada9670"
+    },
+    {
+      "classification": "supporting",
+      "relativePath": "tests/test_regulatory_goldset_analysis.py",
+      "role": "regulatory gold-set analysis regression test",
+      "sha256": "54e6d77912b949efdd2c5f029cb37e7322f3852b5390e6a5349c4bf3d0b790f2"
+    },
+    {
+      "classification": "supporting",
+      "relativePath": "tests/test_trust_surface.py",
+      "role": "trust-surface contract regression test",
+      "sha256": "ead682cb9cc72deacc0719d8e6c620323146f3e06b5b3ddea4e4d64855ada709"
+    },
+    {
+      "classification": "supporting",
+      "relativePath": "tests/test_runtime_security_live_stack.py",
+      "role": "live runtime security regression test",
+      "sha256": "7117ddb351c2bdb913f91691da82c7bafeb1b57884243ae302bbf17fabf289ad"
+    },
+    {
+      "classification": "supporting",
+      "relativePath": "tests/test_model_discovery_live_stack.py",
+      "role": "live model discovery regression test",
+      "sha256": "afc5b11232387daf63fe0829a99c05d26a6c3e204d593941f8cbba7d7411f8cc"
+    },
+    {
+      "classification": "supporting",
+      "relativePath": "tests/test_oecd_live_stack.py",
+      "role": "live OECD workflow regression test",
+      "sha256": "4ce7e7e6f38caffd4761b52422e9bcbb2d9925ae86a349fa0c87647bcf39540f"
     }
   ]
 }

@@ -40,6 +40,17 @@ _TOKEN_CACHE_LOCK = threading.Lock()
 _RATE_LIMIT_CACHE: dict[str, tuple[float, int]] = {}
 _RATE_LIMIT_LOCK = threading.Lock()
 
+
+def _anonymous_context() -> AuthContext:
+    """Return the least-privilege anonymous principal used for local development."""
+
+    return AuthContext(
+        subject="anonymous",
+        roles=["viewer", "anonymous"],
+        is_service_account=False,
+    )
+
+
 class JWTValidator:
     def __init__(self, config: AppConfig) -> None:
         self._config = config
@@ -169,29 +180,21 @@ def _rate_limit_identity(request: Request) -> str:
 async def auth_dependency(request: Request) -> AuthContext:
     config: AppConfig = request.app.state.config
     _enforce_rate_limit(_rate_limit_identity(request), config)
-    
+
     # Case 1: No auth backend configured at all
     if not config.auth_dev_secret and not config.auth_jwks_url:
         if config.auth_allow_anonymous:
-            context = AuthContext(
-                subject="anonymous",
-                roles=["admin", "operator", "viewer"],
-                is_service_account=True,
-            )
+            context = _anonymous_context()
             request.state.auth = context
             return context
         raise AuthError(status.HTTP_401_UNAUTHORIZED, "Authentication configuration is missing")
 
     authorization = request.headers.get("Authorization")
-    
+
     # Case 2: Auth backend exists, but no token provided
     if not authorization or not authorization.startswith("Bearer "):
         if config.auth_allow_anonymous:
-            context = AuthContext(
-                subject="anonymous",
-                roles=["admin", "operator", "viewer"],
-                is_service_account=True,
-            )
+            context = _anonymous_context()
             request.state.auth = context
             return context
         raise AuthError(status.HTTP_401_UNAUTHORIZED, "Missing bearer token")

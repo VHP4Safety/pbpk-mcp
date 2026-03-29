@@ -20,6 +20,7 @@ sys.modules.setdefault("pbpk_check_distribution_artifacts_test", module)
 spec.loader.exec_module(module)
 
 build_release_artifact_report = module._build_release_artifact_report
+missing_manifest_in_declarations = module._missing_manifest_in_declarations
 required_sdist_paths = module._required_sdist_paths
 stage_source_tree = module._stage_source_tree
 
@@ -36,6 +37,61 @@ class DistributionArtifactTests(unittest.TestCase):
     def test_required_sdist_paths_include_release_metadata_script(self) -> None:
         required = required_sdist_paths(WORKSPACE_ROOT)
         self.assertIn("scripts/check_release_metadata.py", required)
+        self.assertIn("docs/architecture/exposure_led_ngra_role.md", required)
+        self.assertIn("docs/architecture/release_bundle_manifest.json", required)
+        self.assertIn("docs/hardening_migration_notes.md", required)
+        self.assertIn("docs/pbpk_model_onboarding_checklist.md", required)
+        self.assertIn("docs/pbk_reviewer_signoff_checklist.md", required)
+        self.assertIn("docs/post_release_audit_plan.md", required)
+        self.assertIn("scripts/release_readiness_check.py", required)
+        self.assertIn("benchmarks/regulatory_goldset/regulatory_goldset_scorecard.json", required)
+        self.assertIn("benchmarks/regulatory_goldset/regulatory_goldset_summary.md", required)
+        self.assertIn("benchmarks/regulatory_goldset/regulatory_goldset_audit_manifest.json", required)
+        self.assertIn("scripts/generate_regulatory_goldset_audit.py", required)
+
+    def test_manifest_in_covers_required_distribution_supporting_files(self) -> None:
+        missing = missing_manifest_in_declarations(WORKSPACE_ROOT)
+        self.assertEqual(missing, [])
+
+    def test_manifest_in_checker_reports_missing_required_supporting_file(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="pbpk_manifest_in_") as temp_dir:
+            root = Path(temp_dir)
+            (root / "docs" / "architecture").mkdir(parents=True)
+            (root / "schemas" / "examples").mkdir(parents=True)
+            (root / "scripts").mkdir(parents=True)
+            (root / "src" / "mcp_bridge" / "contract").mkdir(parents=True)
+
+            manifest = {
+                "contractManifest": {"relativePath": "docs/architecture/contract_manifest.json"},
+                "capabilityMatrix": {"relativePath": "docs/architecture/capability_matrix.json"},
+                "schemas": [],
+                "supportingArtifacts": [
+                    {"relativePath": "docs/architecture/exposure_led_ngra_role.md"},
+                    {"relativePath": "scripts/check_distribution_artifacts.py"},
+                ],
+            }
+            (root / "docs" / "architecture" / "contract_manifest.json").write_text(
+                json.dumps(manifest),
+                encoding="utf-8",
+            )
+            (root / "MANIFEST.in").write_text(
+                "\n".join(
+                    [
+                        "include README.md",
+                        "include pyproject.toml",
+                        "include MANIFEST.in",
+                        "include docs/architecture/contract_manifest.json",
+                        "include docs/architecture/capability_matrix.json",
+                        "include scripts/check_distribution_artifacts.py",
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            missing = missing_manifest_in_declarations(root)
+
+        self.assertEqual(missing, ["docs/architecture/exposure_led_ngra_role.md"])
 
     def test_release_artifact_report_links_contract_manifest_and_hashes(self) -> None:
         version = _workspace_version()
@@ -60,6 +116,16 @@ class DistributionArtifactTests(unittest.TestCase):
         self.assertEqual(
             report["capabilityMatrix"]["relativePath"],
             manifest["capabilityMatrix"]["relativePath"],
+        )
+        self.assertEqual(
+            report["releaseBundleManifest"]["relativePath"],
+            "docs/architecture/release_bundle_manifest.json",
+        )
+        self.assertEqual(
+            report["releaseBundleManifest"]["bundleSha256"],
+            json.loads(
+                (WORKSPACE_ROOT / "docs" / "architecture" / "release_bundle_manifest.json").read_text(encoding="utf-8")
+            )["bundleSha256"],
         )
         self.assertEqual(report["artifactCounts"]["schemas"], manifest["artifactCounts"]["schemas"])
         self.assertEqual(report["artifactCounts"]["supporting"], manifest["artifactCounts"]["supporting"])
@@ -106,20 +172,36 @@ class DistributionArtifactTests(unittest.TestCase):
             (source_root / "README.md").write_text("example\n", encoding="utf-8")
             (source_root / "var" / "models").mkdir(parents=True)
             (source_root / "var" / "models" / "example.pkml").write_text("pkml\n", encoding="utf-8")
-            (source_root / "cisplatin_models").mkdir()
-            (source_root / "cisplatin_models" / "local_model.R").write_text("model\n", encoding="utf-8")
+            (source_root / "private_models").mkdir()
+            (source_root / "private_models" / "local_model.R").write_text("model\n", encoding="utf-8")
             (source_root / "docs" / "figures").mkdir(parents=True)
             (source_root / "docs" / "figures" / "figure.png").write_bytes(b"png")
             (source_root / "reports").mkdir()
             (source_root / "reports" / "note.txt").write_text("report\n", encoding="utf-8")
+            (source_root / "benchmarks" / "regulatory_goldset" / "downloads").mkdir(parents=True)
+            (source_root / "benchmarks" / "regulatory_goldset" / "downloads" / "huge.zip").write_bytes(b"zip")
+            (source_root / "benchmarks" / "regulatory_goldset" / "extracted").mkdir(parents=True)
+            (source_root / "benchmarks" / "regulatory_goldset" / "extracted" / "file.txt").write_text(
+                "evidence\n",
+                encoding="utf-8",
+            )
+            (source_root / "benchmarks" / "regulatory_goldset" / "regulatory_goldset_summary.md").write_text(
+                "tracked summary\n",
+                encoding="utf-8",
+            )
 
             staged_root = stage_source_tree(source_root, destination_root)
 
             self.assertTrue((staged_root / "README.md").exists())
             self.assertFalse((staged_root / "var").exists())
-            self.assertFalse((staged_root / "cisplatin_models").exists())
+            self.assertFalse((staged_root / "private_models").exists())
             self.assertFalse((staged_root / "docs" / "figures").exists())
             self.assertFalse((staged_root / "reports").exists())
+            self.assertFalse((staged_root / "benchmarks" / "regulatory_goldset" / "downloads").exists())
+            self.assertFalse((staged_root / "benchmarks" / "regulatory_goldset" / "extracted").exists())
+            self.assertTrue(
+                (staged_root / "benchmarks" / "regulatory_goldset" / "regulatory_goldset_summary.md").exists()
+            )
 
 
 if __name__ == "__main__":

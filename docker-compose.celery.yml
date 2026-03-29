@@ -12,31 +12,32 @@ services:
     command: ["uvicorn", "mcp_bridge.app:create_app", "--factory", "--host", "0.0.0.0", "--port", "8000"]
     restart: unless-stopped
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     depends_on:
       redis:
         condition: service_started
     environment: &pbpk-common-env
-      MCP_MODEL_SEARCH_PATHS: /app/var
-      R_PATH: /usr/bin/R
-      R_HOME: /usr/lib/R
+      ADAPTER_MODEL_PATHS: /app/var
+      ADAPTER_R_PATH: /usr/bin/R
+      ADAPTER_R_HOME: /usr/lib/R
       OSPSUITE_VERSION: "12.3.2"
       OSPSUITE_LIBS: /usr/local/lib/R/site-library
       DOTNET_GCHeapLimitPercent: "60"
       DOTNET_GCServer: "1"
       MALLOC_ARENA_MAX: "2"
       AUTH_ALLOW_ANONYMOUS: "true"
+      AUTH_DEV_SECRET: "pbpk-local-dev-secret"
       ENVIRONMENT: development
       ADAPTER_BACKEND: subprocess
       ADAPTER_TO_THREAD: "true"
-      AUDIT_TRAIL_ENABLED: "true"
+      AUDIT_ENABLED: "true"
       JOB_BACKEND: celery
       CELERY_BROKER_URL: redis://redis:6379/0
       CELERY_RESULT_BACKEND: redis://redis:6379/1
-      ADAPTER_TIMEOUT_SECONDS: "10"
+      ADAPTER_TIMEOUT_MS: "10000"
       R_MAX_VSIZE: 2G
       PBPK_ENABLE_SRC_OVERLAY: "false"
-      SERVICE_VERSION: "0.4.2"
+      SERVICE_VERSION: "0.4.3"
     volumes:
       - ./var:/app/var
     healthcheck:

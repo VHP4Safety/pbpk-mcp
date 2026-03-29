@@ -75,6 +75,12 @@ class RuntimeNgraObjectSchemaTests(unittest.TestCase):
                     "decisionContext": "BER handoff",
                     "domain": {"species": "human", "route": "oral", "population": "adult"},
                     "targetOutput": "Plasma|Parent|Concentration",
+                    "populationSupport": {
+                        "supportedSpecies": ["human"],
+                        "supportedLifeStages": ["adult"],
+                        "variabilityRepresentation": "declared-or-characterized",
+                        "extrapolationPolicy": "outside-declared-population-context-requires-human-review",
+                    },
                 },
                 internalExposure={
                     "targetOutput": "Plasma|Parent|Concentration",
@@ -92,6 +98,13 @@ class RuntimeNgraObjectSchemaTests(unittest.TestCase):
                     "verificationStatus": "checked",
                     "platformClass": "commercial",
                     "performanceEvidenceBoundary": "runtime-or-internal-evidence-only",
+                    "evidenceBasis": {
+                        "basisType": "external-imported",
+                        "inVivoSupportStatus": "no-direct-in-vivo-support",
+                        "iviveLinkageStatus": "external-ivive-linkage-declared",
+                        "parameterizationBasis": "in-vitro-adme-and-literature",
+                        "populationVariabilityStatus": "declared-or-characterized",
+                    },
                 },
                 uncertainty={
                     "status": "declared",

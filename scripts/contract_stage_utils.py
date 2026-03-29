@@ -7,6 +7,10 @@ from pathlib import Path
 
 COPY_IGNORE_GLOBS = (
     ".git",
+    ".DS_Store",
+    "._*",
+    "Thumbs.db",
+    "OECD_PBPK_guidelines.pdf",
     ".mypy_cache",
     ".pytest_cache",
     ".ruff_cache",
@@ -22,8 +26,12 @@ COPY_IGNORE_GLOBS = (
     "*.egg-info",
     "var",
     "reports",
-    "cisplatin_models",
+    "output",
+    "tmp",
+    "private_models",
     "figures",
+    "downloads",
+    "extracted",
     "~",
 )
 

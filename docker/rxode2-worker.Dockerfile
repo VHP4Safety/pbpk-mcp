@@ -9,7 +9,7 @@ RUN mkdir -p \
     /app/src/mcp \
     /app/src/mcp_bridge \
     /app/var/jobs \
-    /app/var/models/rxode2/cisplatin \
+    /app/var/models/rxode2/reference_compound \
     /usr/local/lib/python3.11/site-packages/mcp_bridge/adapter \
     /usr/local/lib/python3.11/site-packages/mcp_bridge/routes \
     /usr/local/lib/python3.11/site-packages/mcp_bridge/tools \
@@ -43,12 +43,12 @@ COPY pyproject.toml README.md /app/
 COPY src /app/src
 COPY scripts/runtime_src_overlay.pth /usr/local/lib/python3.11/site-packages/pbpk_mcp_runtime_src.pth
 COPY scripts/ospsuite_bridge.R /app/scripts/ospsuite_bridge.R
-COPY cisplatin_models/cisplatin_population_rxode2_model.R /app/var/models/rxode2/cisplatin/cisplatin_population_rxode2_model.R
+COPY reference_models/reference_compound_population_rxode2_model.R /app/var/models/rxode2/reference_compound/reference_compound_population_rxode2_model.R
 
 RUN python -m pip install --no-deps /app \
     && python -c "import importlib.metadata as metadata, tomllib; from pathlib import Path; expected = tomllib.loads(Path('/app/pyproject.toml').read_text(encoding='utf-8'))['project']['version']; assert metadata.version('mcp-bridge') == expected" \
     && python -c "import os, sys; from pathlib import Path; statement = Path('/usr/local/lib/python3.11/site-packages/pbpk_mcp_runtime_src.pth').read_text(encoding='utf-8').strip(); original = list(sys.path); sys.path[:] = ['keep-a', '/app/src', 'keep-b']; os.environ.pop('PBPK_ENABLE_SRC_OVERLAY', None); exec(statement, {}); assert '/app/src' not in sys.path; sys.path[:] = ['keep-a', '/app/src', 'keep-b']; os.environ['PBPK_ENABLE_SRC_OVERLAY'] = 'true'; exec(statement, {}); assert sys.path[0] == '/app/src'; assert sys.path.count('/app/src') == 1; sys.path[:] = original" \
-    && Rscript -e "invisible(parse(file='/app/scripts/ospsuite_bridge.R')); invisible(parse(file='/app/var/models/rxode2/cisplatin/cisplatin_population_rxode2_model.R')); stopifnot(requireNamespace('rxode2', quietly=TRUE)); cat('rxode2 worker image ready\n')"
+    && Rscript -e "invisible(parse(file='/app/scripts/ospsuite_bridge.R')); invisible(parse(file='/app/var/models/rxode2/reference_compound/reference_compound_population_rxode2_model.R')); stopifnot(requireNamespace('rxode2', quietly=TRUE)); cat('rxode2 worker image ready\n')"
 
 RUN chown -R mcp:mcp /app/scripts /app/var
 

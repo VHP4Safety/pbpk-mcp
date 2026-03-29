@@ -2,6 +2,18 @@
   "$defs": {
     "SimulationMetadataModel": {
       "properties": {
+        "backend": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Backend"
+        },
         "createdAt": {
           "anyOf": [
             {
@@ -56,18 +68,77 @@
     }
   },
   "properties": {
+    "backend": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Backend"
+    },
+    "capabilities": {
+      "additionalProperties": true,
+      "title": "Capabilities",
+      "type": "object"
+    },
+    "contractVersion": {
+      "default": "pbpk-mcp.v1",
+      "title": "Contractversion",
+      "type": "string"
+    },
     "metadata": {
       "$ref": "#/$defs/SimulationMetadataModel",
       "default": {
+        "backend": null,
         "createdAt": null,
         "createdBy": null,
         "modelVersion": null,
         "name": null
       }
     },
+    "profile": {
+      "additionalProperties": true,
+      "title": "Profile",
+      "type": "object"
+    },
+    "qualificationState": {
+      "anyOf": [
+        {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Qualificationstate"
+    },
     "simulationId": {
       "title": "Simulationid",
       "type": "string"
+    },
+    "tool": {
+      "default": "load_simulation",
+      "title": "Tool",
+      "type": "string"
+    },
+    "validation": {
+      "anyOf": [
+        {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Validation"
     },
     "warnings": {
       "items": {

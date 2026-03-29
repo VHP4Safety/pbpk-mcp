@@ -49,6 +49,7 @@ class InitializeResult(BaseModel):
     protocolVersion: str = Field(..., alias="protocolVersion")
     serverInfo: Dict[str, Optional[str]] = Field(..., alias="serverInfo")
     capabilities: Dict[str, FeatureSupport]
+    companionResources: Dict[str, Any] = Field(..., alias="companionResources")
 
 
 class ListToolsResult(BaseModel):
@@ -201,10 +202,22 @@ def _handle_initialize(request: Request) -> dict[str, Any]:
         "prompts": FeatureSupport(enabled=False),
         "resources": FeatureSupport(enabled=False),
     }
+    companion_resources = {
+        "mode": "rest-companion-resources",
+        "jsonRpcResourcesEnabled": False,
+        "restBasePath": "/mcp/resources",
+        "capabilityMatrixPath": "/mcp/resources/capability-matrix",
+        "contractManifestPath": "/mcp/resources/contract-manifest",
+        "plainLanguageSummary": (
+            "JSON-RPC initialize exposes MCP tool transport only. Published schemas, capability "
+            "artifacts, and model/resource catalogs are served as REST companion resources under /mcp/resources."
+        ),
+    }
     payload = InitializeResult(
         protocolVersion=MCP_PROTOCOL_VERSION,
         serverInfo=server_info,
         capabilities=capabilities,
+        companionResources=companion_resources,
     )
     return payload.model_dump(by_alias=True)
 

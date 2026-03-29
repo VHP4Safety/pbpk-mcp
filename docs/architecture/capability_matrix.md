@@ -8,6 +8,11 @@ Machine-readable source of truth:
 - `/mcp/resources/capability-matrix`
 - `docs/architecture/contract_manifest.json`
 
+Protocol note:
+
+- JSON-RPC `initialize` advertises MCP tools directly and intentionally keeps `capabilities.resources = false`.
+- The same `initialize` response now declares `companionResources.mode = rest-companion-resources`, pointing clients at `/mcp/resources` for the published schema, capability, contract, and model/resource catalogs.
+
 Status meaning:
 
 - `Yes` means the published workflow supports the operation directly.

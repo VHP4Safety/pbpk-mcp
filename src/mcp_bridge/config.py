@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import os
+from collections.abc import Mapping
 from typing import Any, Optional, Tuple
 
 from dotenv import load_dotenv
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, ValidationInfo, field_validator
 
 from . import __version__
 from .constants import SERVICE_NAME
@@ -15,6 +16,27 @@ from .logging import DEFAULT_LOG_LEVEL
 
 class ConfigError(RuntimeError):
     """Raised when application configuration is invalid."""
+
+
+_ENV_ALIASES: dict[str, tuple[str, ...]] = {
+    "ADAPTER_REQUIRE_R_ENV": ("ADAPTER_REQUIRE_R",),
+    "ADAPTER_TIMEOUT_MS": ("ADAPTER_TIMEOUT_SECONDS",),
+    "ADAPTER_R_PATH": ("R_PATH",),
+    "ADAPTER_R_HOME": ("R_HOME",),
+    "ADAPTER_R_LIBS": ("R_LIBS",),
+    "ADAPTER_MODEL_PATHS": ("MCP_MODEL_SEARCH_PATHS",),
+    "AUDIT_ENABLED": ("AUDIT_TRAIL_ENABLED",),
+}
+
+_ENV_ALIAS_REMOVAL_RELEASE: dict[str, str] = {
+    "ADAPTER_REQUIRE_R": "0.5.0",
+    "ADAPTER_TIMEOUT_SECONDS": "0.5.0",
+    "R_PATH": "0.5.0",
+    "R_HOME": "0.5.0",
+    "R_LIBS": "0.5.0",
+    "MCP_MODEL_SEARCH_PATHS": "0.5.0",
+    "AUDIT_TRAIL_ENABLED": "0.5.0",
+}
 
 
 class AppConfig(BaseModel):
@@ -197,6 +219,19 @@ class AppConfig(BaseModel):
             return candidate
         raise ValueError(f"Unsupported log level '{value}'")
 
+    @field_validator("service_name", "service_version", mode="before")
+    @classmethod
+    def _normalise_service_metadata(cls, value: Any, info: ValidationInfo) -> str:
+        default = cls.model_fields[info.field_name].default
+        if info.field_name == "service_version" and not default:
+            default = __version__ or "0.4.3"
+        if value is None:
+            return str(default)
+        text = str(value).strip()
+        if text:
+            return text
+        return str(default)
+
     @field_validator("adapter_backend")
     @classmethod
     def _normalise_backend(cls, value: str) -> str:
@@ -276,6 +311,12 @@ class AppConfig(BaseModel):
         """Load configuration from environment variables (respecting .env)."""
         load_dotenv()
         try:
+            timeout_name, timeout_raw = cls._env_lookup("ADAPTER_TIMEOUT_MS", "ADAPTER_TIMEOUT_SECONDS")
+            timeout_ms = cls.model_fields["adapter_timeout_ms"].default
+            if timeout_name and timeout_raw is not None:
+                parsed_timeout = cls._parse_int(timeout_name, timeout_raw)
+                timeout_ms = parsed_timeout * 1000 if timeout_name == "ADAPTER_TIMEOUT_SECONDS" else parsed_timeout
+
             raw: dict[str, Any] = {
                 "host": os.getenv("HOST", cls.model_fields["host"].default),
                 "port": os.getenv("PORT", cls.model_fields["port"].default),
@@ -288,18 +329,17 @@ class AppConfig(BaseModel):
                 "adapter_backend": os.getenv(
                     "ADAPTER_BACKEND", cls.model_fields["adapter_backend"].default
                 ),
-                "adapter_require_r": cls._env_to_bool(
-                    "ADAPTER_REQUIRE_R_ENV", cls.model_fields["adapter_require_r"].default
+                "adapter_require_r": cls._env_to_bool_names(
+                    ("ADAPTER_REQUIRE_R_ENV", "ADAPTER_REQUIRE_R"),
+                    cls.model_fields["adapter_require_r"].default,
                 ),
-                "adapter_timeout_ms": cls._env_to_int(
-                    "ADAPTER_TIMEOUT_MS", cls.model_fields["adapter_timeout_ms"].default
-                ),
-                "adapter_r_path": os.getenv("ADAPTER_R_PATH"),
-                "adapter_r_home": os.getenv("ADAPTER_R_HOME"),
-                "adapter_r_libs": os.getenv("ADAPTER_R_LIBS"),
+                "adapter_timeout_ms": timeout_ms,
+                "adapter_r_path": cls._env_value("ADAPTER_R_PATH", "R_PATH"),
+                "adapter_r_home": cls._env_value("ADAPTER_R_HOME", "R_HOME"),
+                "adapter_r_libs": cls._env_value("ADAPTER_R_LIBS", "R_LIBS"),
                 "adapter_ospsuite_libs": os.getenv("OSPSUITE_LIBS"),
                 "adapter_model_paths": cls._env_to_paths(
-                    os.getenv("ADAPTER_MODEL_PATHS"),
+                    cls._env_value("ADAPTER_MODEL_PATHS", "MCP_MODEL_SEARCH_PATHS"),
                     cls.model_fields["adapter_model_paths"].default,
                 ),
                 "job_worker_threads": cls._env_to_int(
@@ -362,8 +402,8 @@ class AppConfig(BaseModel):
                     "AGENT_CHECKPOINTER_PATH",
                     cls.model_fields["agent_checkpointer_path"].default,
                 ),
-                "audit_enabled": cls._env_to_bool(
-                    "AUDIT_ENABLED",
+                "audit_enabled": cls._env_to_bool_names(
+                    ("AUDIT_ENABLED", "AUDIT_TRAIL_ENABLED"),
                     cls.model_fields["audit_enabled"].default,
                 ),
                 "audit_storage_path": os.getenv(
@@ -439,16 +479,63 @@ class AppConfig(BaseModel):
         raw = os.getenv(name)
         if raw is None:
             return default
+        return AppConfig._parse_int(name, raw)
+
+    @staticmethod
+    def _parse_int(name: str, raw: str) -> int:
         try:
             return int(raw)
         except ValueError as exc:
             raise ValueError(f"Environment variable {name} must be an integer") from exc
 
     @staticmethod
+    def _env_lookup(*names: str) -> tuple[str | None, str | None]:
+        for name in names:
+            raw = os.getenv(name)
+            if raw is not None:
+                return name, raw
+        return None, None
+
+    @classmethod
+    def _env_value(cls, *names: str) -> str | None:
+        _, raw = cls._env_lookup(*names)
+        return raw
+
+    @classmethod
+    def _env_to_bool_names(cls, names: tuple[str, ...], default: bool) -> bool:
+        source, raw = cls._env_lookup(*names)
+        if source is None or raw is None:
+            return default
+        lowered = raw.strip().lower()
+        if lowered in {"1", "true", "yes", "on"}:
+            return True
+        if lowered in {"0", "false", "no", "off"}:
+            return False
+        raise ValueError(f"Environment variable {source} must be a boolean expression")
+
+    @staticmethod
     def _env_to_paths(value: str | None, default: Tuple[str, ...]) -> Tuple[str, ...]:
         if value is None:
             return default
         return tuple(path.strip() for path in value.split(os.pathsep) if path.strip())
+
+
+def config_env_warnings(environ: Mapping[str, str] | None = None) -> tuple[str, ...]:
+    """Return warnings for deprecated but still supported environment-variable aliases."""
+
+    env = environ or os.environ
+    warnings: list[str] = []
+    for canonical, aliases in _ENV_ALIASES.items():
+        if env.get(canonical):
+            continue
+        for alias in aliases:
+            if env.get(alias):
+                removal_release = _ENV_ALIAS_REMOVAL_RELEASE.get(alias, "a future release")
+                warnings.append(
+                    f"Using deprecated env var {alias}; prefer {canonical}. "
+                    f"Support will be removed in v{removal_release}."
+                )
+    return tuple(warnings)
 
 
 def load_config() -> AppConfig:

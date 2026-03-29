@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import fnmatch
 import hashlib
 import importlib
 import json
@@ -106,6 +107,42 @@ def _required_sdist_paths(source_root: Path) -> set[str]:
     return paths
 
 
+def _manifest_in_lines(source_root: Path) -> list[str]:
+    manifest_in = (source_root / "MANIFEST.in").read_text(encoding="utf-8")
+    return [line.strip() for line in manifest_in.splitlines() if line.strip() and not line.strip().startswith("#")]
+
+
+def _path_declared_in_manifest(path: str, manifest_lines: list[str]) -> bool:
+    posix_path = Path(path).as_posix()
+    for line in manifest_lines:
+        parts = line.split()
+        if not parts:
+            continue
+        if parts[0] == "include" and len(parts) >= 2 and parts[1] == posix_path:
+            return True
+        if parts[0] == "recursive-include" and len(parts) >= 3:
+            root = Path(parts[1]).as_posix().rstrip("/")
+            if posix_path == root or posix_path.startswith(f"{root}/"):
+                relative = posix_path[len(root):].lstrip("/")
+                if any(fnmatch.fnmatch(relative, pattern) for pattern in parts[2:]):
+                    return True
+    return False
+
+
+def _required_manifest_in_paths(source_root: Path) -> set[str]:
+    return {
+        path
+        for path in _required_sdist_paths(source_root)
+        if not path.startswith("src/")
+    }
+
+
+def _missing_manifest_in_declarations(source_root: Path) -> list[str]:
+    manifest_lines = _manifest_in_lines(source_root)
+    required_paths = _required_manifest_in_paths(source_root)
+    return sorted(path for path in required_paths if not _path_declared_in_manifest(path, manifest_lines))
+
+
 def _sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
@@ -143,6 +180,15 @@ def _assert_paths_present(label: str, members: set[str], required: set[str]) -> 
         raise SystemExit(1)
 
 
+def _assert_manifest_in_covers_required_paths(source_root: Path) -> None:
+    missing = _missing_manifest_in_declarations(source_root)
+    if missing:
+        print("MANIFEST.in does not declare required source-distribution files:", file=sys.stderr)
+        for path in missing:
+            print(f"- {path}", file=sys.stderr)
+        raise SystemExit(1)
+
+
 def _build_release_artifact_report(source_root: Path, sdist_path: Path, wheel_path: Path) -> dict[str, object]:
     manifest = json.loads(
         (source_root / "docs" / "architecture" / "contract_manifest.json").read_text(encoding="utf-8")
@@ -151,6 +197,8 @@ def _build_release_artifact_report(source_root: Path, sdist_path: Path, wheel_pa
     release_metadata = release_metadata_module.collect_release_metadata(source_root)
     capability_matrix = manifest.get("capabilityMatrix") or {}
     contract_manifest = manifest.get("contractManifest") or {}
+    release_bundle_manifest_path = source_root / "docs" / "architecture" / "release_bundle_manifest.json"
+    release_bundle_manifest = json.loads(release_bundle_manifest_path.read_text(encoding="utf-8"))
     artifact_counts = manifest.get("artifactCounts") or {}
     return {
         "packageVersion": release_metadata["version"],
@@ -163,6 +211,12 @@ def _build_release_artifact_report(source_root: Path, sdist_path: Path, wheel_pa
         "capabilityMatrix": {
             "relativePath": capability_matrix.get("relativePath"),
             "sha256": capability_matrix.get("sha256"),
+        },
+        "releaseBundleManifest": {
+            "relativePath": "docs/architecture/release_bundle_manifest.json",
+            "sha256": _sha256(release_bundle_manifest_path),
+            "bundleSha256": release_bundle_manifest.get("bundleSha256"),
+            "fileCount": release_bundle_manifest.get("fileCount"),
         },
         "artifactCounts": {
             "schemas": artifact_counts.get("schemas", 0),
@@ -208,6 +262,7 @@ def main() -> int:
 
     source_root = args.source_root.resolve()
     _ensure_build_available()
+    _assert_manifest_in_covers_required_paths(source_root)
 
     with tempfile.TemporaryDirectory(prefix="pbpk_distribution_artifacts_") as temp_dir:
         temp_root = Path(temp_dir)

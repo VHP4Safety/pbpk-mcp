@@ -58,6 +58,36 @@
       "Plasma|Parent|Concentration"
     ]
   },
+  "workflowRole": {
+    "role": "pbpk-exposure-translation-and-internal-dose-support",
+    "workflow": "exposure-led-ngra",
+    "upstreamDependencies": [
+      "dose scenario or exposure estimate defined outside PBPK MCP",
+      "in vitro ADME or IVIVE parameterization evidence defined outside PBPK MCP",
+      "bioactivity, point-of-departure, or NAM interpretation defined outside PBPK MCP"
+    ],
+    "downstreamOutputs": [
+      "internal exposure estimates",
+      "PBPK qualification and uncertainty handoff objects",
+      "BER-ready input bundle when compatible external PoD metadata are attached"
+    ],
+    "nonGoals": [
+      "standalone weight-of-evidence integration",
+      "standalone exposure assessment ownership",
+      "direct regulatory decision authority",
+      "standalone hazard or AOP interpretation"
+    ]
+  },
+  "populationSupport": {
+    "supportedSpecies": [
+      "human"
+    ],
+    "supportedPhysiologyContexts": [],
+    "supportedLifeStages": [],
+    "supportedGenotypesOrPhenotypes": [],
+    "variabilityRepresentation": "not-declared",
+    "extrapolationPolicy": "outside-declared-population-context-requires-human-review"
+  },
   "supports": {
     "declaredProfileComparison": true,
     "requestContextAlignment": true,

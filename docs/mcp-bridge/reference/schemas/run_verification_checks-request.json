@@ -1,0 +1,35 @@
+{
+  "properties": {
+    "includePopulationSmoke": {
+      "default": false,
+      "title": "Includepopulationsmoke",
+      "type": "boolean"
+    },
+    "populationCohort": {
+      "additionalProperties": true,
+      "title": "Populationcohort",
+      "type": "object"
+    },
+    "populationOutputs": {
+      "additionalProperties": true,
+      "title": "Populationoutputs",
+      "type": "object"
+    },
+    "request": {
+      "additionalProperties": true,
+      "title": "Request",
+      "type": "object"
+    },
+    "simulationId": {
+      "maxLength": 64,
+      "minLength": 1,
+      "title": "Simulationid",
+      "type": "string"
+    }
+  },
+  "required": [
+    "simulationId"
+  ],
+  "title": "RunVerificationChecksRequest",
+  "type": "object"
+}

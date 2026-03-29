@@ -1,0 +1,43 @@
+{
+  "properties": {
+    "backend": {
+      "title": "Backend",
+      "type": "string"
+    },
+    "contractVersion": {
+      "default": "pbpk-mcp.v1",
+      "title": "Contractversion",
+      "type": "string"
+    },
+    "curationSummary": {
+      "additionalProperties": true,
+      "title": "Curationsummary",
+      "type": "object"
+    },
+    "filePath": {
+      "title": "Filepath",
+      "type": "string"
+    },
+    "manifest": {
+      "additionalProperties": true,
+      "title": "Manifest",
+      "type": "object"
+    },
+    "runtimeFormat": {
+      "title": "Runtimeformat",
+      "type": "string"
+    },
+    "tool": {
+      "default": "validate_model_manifest",
+      "title": "Tool",
+      "type": "string"
+    }
+  },
+  "required": [
+    "filePath",
+    "backend",
+    "runtimeFormat"
+  ],
+  "title": "ValidateModelManifestResponse",
+  "type": "object"
+}

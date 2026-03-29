@@ -18,11 +18,15 @@ try:  # pragma: no cover - fallback depends on installed package contents
         capability_matrix_document as packaged_capability_matrix_document,
     )
     from mcp_bridge.contract import contract_manifest_document as packaged_contract_manifest_document
+    from mcp_bridge.contract import (
+        release_bundle_manifest_document as packaged_release_bundle_manifest_document,
+    )
     from mcp_bridge.contract import schema_documents as packaged_schema_documents
     from mcp_bridge.contract import schema_examples as packaged_schema_examples
 except Exception:  # pragma: no cover - runtime fallback when packaged artifacts are unavailable
     packaged_capability_matrix_document = None
     packaged_contract_manifest_document = None
+    packaged_release_bundle_manifest_document = None
     packaged_schema_documents = None
     packaged_schema_examples = None
 
@@ -32,6 +36,7 @@ from ..dependencies import get_adapter, get_session_registry
 from ..errors import DetailedHTTPException, ErrorCode, adapter_error_to_http, error_detail
 from ..model_catalog import discover_models as discover_model_entries
 from ..model_catalog import model_catalog_fingerprint
+from ..security.auth import AuthContext, require_roles
 from ..util.concurrency import maybe_to_thread
 
 router = APIRouter(prefix="/mcp/resources", tags=["mcp-resources"])
@@ -108,6 +113,9 @@ class ModelResource(CamelModel):
     model_version: Optional[str] = Field(default=None, alias="modelVersion")
     scientific_profile: Optional[bool] = Field(default=None, alias="scientificProfile")
     profile_source: Optional[str] = Field(default=None, alias="profileSource")
+    manifest_status: Optional[str] = Field(default=None, alias="manifestStatus")
+    qualification_state: dict[str, Any] = Field(default_factory=dict, alias="qualificationState")
+    curation_summary: dict[str, Any] = Field(default_factory=dict, alias="curationSummary")
     population_simulation: Optional[bool] = Field(default=None, alias="populationSimulation")
     validation_hook: Optional[bool] = Field(default=None, alias="validationHook")
     discovery_state: str = Field(alias="discoveryState")
@@ -175,6 +183,18 @@ class ContractManifestResource(CamelModel):
     manifest: dict[str, Any]
 
 
+class ReleaseBundleManifestResource(CamelModel):
+    id: str
+    contract_version: Optional[str] = Field(default=None, alias="contractVersion")
+    package_version: Optional[str] = Field(default=None, alias="packageVersion")
+    bundle_sha256: Optional[str] = Field(default=None, alias="bundleSha256")
+    sha256: Optional[str] = None
+    relative_path: str = Field(alias="relativePath")
+    file_count: int = Field(alias="fileCount")
+    total_bytes: int = Field(alias="totalBytes")
+    manifest: dict[str, Any]
+
+
 def _isoformat(timestamp: float) -> str:
     return datetime.fromtimestamp(timestamp, tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
@@ -206,6 +226,13 @@ CONTRACT_MANIFEST_PATH = _resolve_existing_path(
         Path("/app/var/contract/contract_manifest.json"),
         Path("/app/docs/architecture/contract_manifest.json"),
         Path(__file__).resolve().parents[3] / "docs" / "architecture" / "contract_manifest.json",
+    )
+)
+RELEASE_BUNDLE_MANIFEST_PATH = _resolve_existing_path(
+    (
+        Path("/app/var/contract/release_bundle_manifest.json"),
+        Path("/app/docs/architecture/release_bundle_manifest.json"),
+        Path(__file__).resolve().parents[3] / "docs" / "architecture" / "release_bundle_manifest.json",
     )
 )
 
@@ -253,6 +280,21 @@ def _contract_manifest_document() -> tuple[dict[str, Any], str, float]:
         )
 
     raise FileNotFoundError(CONTRACT_MANIFEST_PATH)
+
+
+def _release_bundle_manifest_document() -> tuple[dict[str, Any], str, float]:
+    if packaged_release_bundle_manifest_document is not None:
+        manifest = packaged_release_bundle_manifest_document()
+        return (manifest, _sha256_document(manifest), 0.0)
+
+    if RELEASE_BUNDLE_MANIFEST_PATH.exists():
+        return (
+            _load_json_file(RELEASE_BUNDLE_MANIFEST_PATH),
+            _sha256_path(RELEASE_BUNDLE_MANIFEST_PATH),
+            RELEASE_BUNDLE_MANIFEST_PATH.stat().st_mtime,
+        )
+
+    raise FileNotFoundError(RELEASE_BUNDLE_MANIFEST_PATH)
 
 
 def _capability_matrix_document() -> tuple[dict[str, Any], str, float]:
@@ -393,6 +435,7 @@ async def list_simulation_resources(
     request: Request,
     response: Response,
     session_store: SessionRegistry = Depends(get_session_registry),
+    _auth: AuthContext = Depends(require_roles("viewer", "operator", "admin")),
     page: int = Query(1, ge=1),
     limit: int = Query(50, ge=1, le=500),
     search: Optional[str] = Query(default=None),
@@ -459,6 +502,7 @@ async def list_parameter_resources(
     response: Response,
     adapter: OspsuiteAdapter = Depends(get_adapter),
     session_store: SessionRegistry = Depends(get_session_registry),
+    _auth: AuthContext = Depends(require_roles("viewer", "operator", "admin")),
     simulation_id: str = Query(..., alias="simulationId", min_length=1, max_length=64),
     filter_pattern: Optional[str] = Query(default=None, alias="filter"),
     page: int = Query(1, ge=1),
@@ -533,6 +577,7 @@ async def list_model_resources(
     request: Request,
     response: Response,
     session_store: SessionRegistry = Depends(get_session_registry),
+    _auth: AuthContext = Depends(require_roles("viewer", "operator", "admin")),
     page: int = Query(1, ge=1),
     limit: int = Query(100, ge=1, le=1000),
     search: Optional[str] = Query(default=None),
@@ -778,9 +823,63 @@ async def get_contract_manifest_resource(
     )
 
 
+@router.get("/release-bundle-manifest", response_model=ReleaseBundleManifestResource)
+async def get_release_bundle_manifest_resource(
+    request: Request,
+    response: Response,
+) -> ReleaseBundleManifestResource:
+    try:
+        manifest, manifest_sha256, manifest_last_modified = _release_bundle_manifest_document()
+    except json.JSONDecodeError as exc:
+        raise _http_error(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            message="Release bundle manifest resource is malformed",
+            code=ErrorCode.INTERNAL_ERROR,
+        ) from exc
+    except FileNotFoundError:
+        raise _http_error(
+            status_code=status.HTTP_404_NOT_FOUND,
+            message="Release bundle manifest resource is not available in the current runtime",
+            code=ErrorCode.NOT_FOUND,
+            hint=_contract_runtime_hint(),
+        )
+
+    file_count = int(manifest.get("fileCount") or len(manifest.get("files") or []))
+    total_bytes = int(
+        manifest.get("totalBytes")
+        or sum(int(entry.get("sizeBytes") or 0) for entry in (manifest.get("files") or []))
+    )
+    etag = _weak_etag(
+        [
+            manifest_sha256,
+            str(manifest.get("bundleSha256") or ""),
+            str(file_count),
+        ]
+    )
+    headers = {"ETag": etag}
+    if manifest_last_modified > 0:
+        headers["Last-Modified"] = _isoformat(manifest_last_modified)
+    if request.headers.get("if-none-match") == etag:
+        return Response(status_code=status.HTTP_304_NOT_MODIFIED, headers=headers)
+
+    response.headers.update(headers)
+    return ReleaseBundleManifestResource(
+        id="release-bundle-manifest",
+        contractVersion=manifest.get("contractVersion"),
+        packageVersion=manifest.get("packageVersion"),
+        bundleSha256=manifest.get("bundleSha256"),
+        sha256=manifest_sha256,
+        relativePath="docs/architecture/release_bundle_manifest.json",
+        fileCount=file_count,
+        totalBytes=total_bytes,
+        manifest=manifest,
+    )
+
+
 __all__ = [
     "CAPABILITY_MATRIX_PATH",
     "CONTRACT_MANIFEST_PATH",
+    "RELEASE_BUNDLE_MANIFEST_PATH",
     "CamelModel",
     "CapabilityMatrixResource",
     "ContractManifestResource",
@@ -789,6 +888,7 @@ __all__ = [
     "ParameterResource",
     "ParameterResourcePage",
     "PaginationModel",
+    "ReleaseBundleManifestResource",
     "SCHEMA_EXAMPLES_ROOT",
     "SCHEMA_ROOT",
     "SchemaDocumentResource",
@@ -803,6 +903,7 @@ __all__ = [
     "_isoformat",
     "_load_json_file",
     "_paginate",
+    "_release_bundle_manifest_document",
     "_schema_index",
     "_sha256_document",
     "_sha256_path",
@@ -811,6 +912,7 @@ __all__ = [
     "_weak_etag",
     "get_capability_matrix_resource",
     "get_contract_manifest_resource",
+    "get_release_bundle_manifest_resource",
     "get_schema_resource",
     "list_model_resources",
     "list_parameter_resources",

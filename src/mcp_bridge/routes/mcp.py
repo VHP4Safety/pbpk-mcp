@@ -33,11 +33,13 @@ from ..errors import (
     http_error,
     validation_exception,
 )
+from ..review_signoff import attach_operator_review_signoff
 from ..security import is_confirmed
 from ..security.auth import AuthContext, auth_dependency
 from ..services.job_service import BaseJobService, IdempotencyConflictError
 from ..storage.population_store import PopulationResultStore
 from ..tools.registry import ToolDescriptor, get_tool_registry
+from ..trust_surface import attach_trust_surface_contract
 from ..util.concurrency import maybe_to_thread
 
 router = APIRouter(prefix="/mcp", tags=["mcp"])
@@ -250,7 +252,7 @@ def _handle_tool_specific_errors(tool: str, exc: Exception) -> DetailedHTTPExcep
             hint = (
                 "Ensure the simulation is not already loaded and the identifier is unique."
                 if field == "simulationId"
-                else "Provide an absolute .pkml or .pksim5 path within MCP_MODEL_SEARCH_PATHS."
+                else "Provide an absolute .pkml or .pksim5 path within ADAPTER_MODEL_PATHS."
             )
             return http_error(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -322,7 +324,7 @@ def _handle_tool_specific_errors(tool: str, exc: Exception) -> DetailedHTTPExcep
             message=message,
             code=ErrorCode.INVALID_INPUT,
             field=field,
-            hint="Confirm the model path is within MCP_MODEL_SEARCH_PATHS and each parameter includes at least one delta.",
+            hint="Confirm the model path is within ADAPTER_MODEL_PATHS and each parameter includes at least one delta.",
         )
 
     if isinstance(exc, IdempotencyConflictError):
@@ -406,10 +408,12 @@ def _handle_tool_specific_errors(tool: str, exc: Exception) -> DetailedHTTPExcep
 
 
 @router.get("/list_tools", response_model=ListToolsResponse)
-def list_tools(_auth: AuthContext = Depends(auth_dependency)) -> ListToolsResponse:
+def list_tools(auth: AuthContext = Depends(auth_dependency)) -> ListToolsResponse:
     registry = get_tool_registry()
     items = []
     for descriptor in registry.values():
+        if descriptor.roles and not set(auth.roles).intersection(descriptor.roles):
+            continue
         items.append(
             ToolDescription(
                 name=descriptor.name,
@@ -445,9 +449,7 @@ async def call_tool(
     _ensure_tool_roles(descriptor, auth)
 
     if descriptor.requires_confirmation:
-        config = getattr(http_request.app.state, "config", None)
-        allow_anonymous = getattr(config, "auth_allow_anonymous", False) if config else False
-        confirmed = bool(request.critical) or is_confirmed(http_request) or allow_anonymous
+        confirmed = bool(request.critical) or is_confirmed(http_request)
         if not confirmed:
             raise http_error(
                 status_code=status.HTTP_428_PRECONDITION_REQUIRED,
@@ -486,6 +488,7 @@ async def call_tool(
     arguments_fingerprint = _fingerprint_payload(tool_request)
     handler = descriptor.handler
     result_content: Dict[str, Any] = {}
+    trust_surface_contract: Dict[str, Any] | None = None
     is_error = False
     try:
         if inspect.iscoroutinefunction(handler):
@@ -494,6 +497,15 @@ async def call_tool(
             offload = bool(getattr(http_request.app.state, "adapter_offload", True))
             result = await maybe_to_thread(offload, handler, **call_kwargs)
         result_content = _normalize_result(result)
+        attach_operator_review_signoff(
+            result_content,
+            audit=audit_trail,
+            tool_name=descriptor.name,
+        )
+        trust_surface_contract = attach_trust_surface_contract(
+            result_content,
+            tool_name=descriptor.name,
+        )
     except Exception as exc:  # noqa: BLE001 - mapped below
         status_label = "error"
         is_error = True
@@ -522,6 +534,13 @@ async def call_tool(
     annotations = _tool_annotations(descriptor)
     if request.idempotency_key:
         annotations["idempotencyKey"] = request.idempotency_key
+    if trust_surface_contract:
+        annotations["trustBearing"] = True
+        annotations["trustSurfaceContractVersion"] = trust_surface_contract["summaryVersion"]
+        annotations["trustSurfaceCount"] = trust_surface_contract["surfaceCount"]
+        annotations["requiresContextualRendering"] = bool(
+            trust_surface_contract.get("requiresContextualRendering")
+        )
 
     if audit_trail is not None:
         _record_tool_audit(

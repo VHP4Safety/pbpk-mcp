@@ -1,0 +1,184 @@
+{
+  "$defs": {
+    "ExternalArtifactModel": {
+      "properties": {
+        "checksum": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Checksum"
+        },
+        "path": {
+          "minLength": 1,
+          "title": "Path",
+          "type": "string"
+        },
+        "title": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Title"
+        },
+        "type": {
+          "minLength": 1,
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "path"
+      ],
+      "title": "ExternalArtifactModel",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "assessmentContext": {
+      "additionalProperties": true,
+      "title": "Assessmentcontext",
+      "type": "object"
+    },
+    "comparisonMetric": {
+      "default": "cmax",
+      "title": "Comparisonmetric",
+      "type": "string"
+    },
+    "executionDate": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Executiondate"
+    },
+    "internalExposure": {
+      "additionalProperties": true,
+      "title": "Internalexposure",
+      "type": "object"
+    },
+    "modelName": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Modelname"
+    },
+    "modelType": {
+      "default": "pbpk",
+      "title": "Modeltype",
+      "type": "string"
+    },
+    "operator": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Operator"
+    },
+    "pod": {
+      "additionalProperties": true,
+      "title": "Pod",
+      "type": "object"
+    },
+    "qualification": {
+      "additionalProperties": true,
+      "title": "Qualification",
+      "type": "object"
+    },
+    "rawArtifacts": {
+      "items": {
+        "$ref": "#/$defs/ExternalArtifactModel"
+      },
+      "title": "Rawartifacts",
+      "type": "array"
+    },
+    "runId": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Runid"
+    },
+    "sourcePlatform": {
+      "minLength": 1,
+      "title": "Sourceplatform",
+      "type": "string"
+    },
+    "sourceVersion": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Sourceversion"
+    },
+    "sponsor": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Sponsor"
+    },
+    "trueDoseAdjustment": {
+      "additionalProperties": true,
+      "title": "Truedoseadjustment",
+      "type": "object"
+    },
+    "uncertainty": {
+      "additionalProperties": true,
+      "title": "Uncertainty",
+      "type": "object"
+    },
+    "uncertaintyRegister": {
+      "additionalProperties": true,
+      "title": "Uncertaintyregister",
+      "type": "object"
+    }
+  },
+  "required": [
+    "sourcePlatform"
+  ],
+  "title": "IngestExternalPbpkBundleRequest",
+  "type": "object"
+}

@@ -1,0 +1,1520 @@
+{
+  "benchmarkBar": {
+    "adjunctSourceIds": [
+      "epa_pfas_template",
+      "pfos_ges_lac"
+    ],
+    "barVersion": "pbpk-regulatory-goldset-bar.v1",
+    "dimensionCoverage": {
+      "calibrationVsEvaluationSeparation": {
+        "classification": "variable-or-weaker",
+        "label": "Calibration vs evaluation separation",
+        "strictCoreMissingCount": 1,
+        "strictCorePartialCount": 0,
+        "strictCorePresentCount": 1,
+        "strictCoreSourceCount": 2
+      },
+      "contextOfUseClarity": {
+        "classification": "strong-but-variable",
+        "label": "Context/use clarity",
+        "strictCoreMissingCount": 0,
+        "strictCorePartialCount": 1,
+        "strictCorePresentCount": 1,
+        "strictCoreSourceCount": 2
+      },
+      "parameterProvenanceDepth": {
+        "classification": "strong-but-variable",
+        "label": "Parameter provenance depth",
+        "strictCoreMissingCount": 0,
+        "strictCorePartialCount": 1,
+        "strictCorePresentCount": 1,
+        "strictCoreSourceCount": 2
+      },
+      "publicTraceabilityHashability": {
+        "classification": "consistent-core-expectation",
+        "label": "Public traceability and hashability",
+        "strictCoreMissingCount": 0,
+        "strictCorePartialCount": 0,
+        "strictCorePresentCount": 2,
+        "strictCoreSourceCount": 2
+      },
+      "reproducibilityPackCompleteness": {
+        "classification": "variable-or-weaker",
+        "label": "Reproducibility-pack completeness",
+        "strictCoreMissingCount": 1,
+        "strictCorePartialCount": 0,
+        "strictCorePresentCount": 1,
+        "strictCoreSourceCount": 2
+      },
+      "runnableCodeModelAvailability": {
+        "classification": "strong-but-variable",
+        "label": "Runnable code/model availability",
+        "strictCoreMissingCount": 0,
+        "strictCorePartialCount": 1,
+        "strictCorePresentCount": 1,
+        "strictCoreSourceCount": 2
+      },
+      "softwarePlatformSpecificity": {
+        "classification": "strong-but-variable",
+        "label": "Software/platform specificity",
+        "strictCoreMissingCount": 0,
+        "strictCorePartialCount": 1,
+        "strictCorePresentCount": 1,
+        "strictCoreSourceCount": 2
+      },
+      "uncertaintySensitivityVariability": {
+        "classification": "variable-or-weaker",
+        "label": "Uncertainty, sensitivity, and variability",
+        "strictCoreMissingCount": 1,
+        "strictCorePartialCount": 0,
+        "strictCorePresentCount": 1,
+        "strictCoreSourceCount": 2
+      }
+    },
+    "documentationReferenceIds": [
+      "two_butoxyethanol_reference"
+    ],
+    "prioritizedMcpImprovementTargets": [
+      {
+        "barClassification": "strong-but-variable",
+        "dimensionId": "parameterProvenanceDepth",
+        "label": "Stronger parameter provenance expectations",
+        "priority": 1,
+        "why": "This dimension is part of the documentation/reproducibility bar implied by the fetched regulatory benchmark corpus and should be clearer in MCP trust/reporting surfaces."
+      },
+      {
+        "barClassification": "variable-or-weaker",
+        "dimensionId": "calibrationVsEvaluationSeparation",
+        "label": "Clearer calibration-vs-evaluation reporting",
+        "priority": 2,
+        "why": "This dimension is part of the documentation/reproducibility bar implied by the fetched regulatory benchmark corpus and should be clearer in MCP trust/reporting surfaces."
+      },
+      {
+        "barClassification": "variable-or-weaker",
+        "dimensionId": "uncertaintySensitivityVariability",
+        "label": "More structured uncertainty and variability evidence",
+        "priority": 3,
+        "why": "This dimension is part of the documentation/reproducibility bar implied by the fetched regulatory benchmark corpus and should be clearer in MCP trust/reporting surfaces."
+      },
+      {
+        "barClassification": "variable-or-weaker",
+        "dimensionId": "reproducibilityPackCompleteness",
+        "label": "Clearer reproducibility-pack signals",
+        "priority": 4,
+        "why": "This dimension is part of the documentation/reproducibility bar implied by the fetched regulatory benchmark corpus and should be clearer in MCP trust/reporting surfaces."
+      },
+      {
+        "barClassification": "strong-but-variable",
+        "dimensionId": "softwarePlatformSpecificity",
+        "label": "Better software/platform and run-instruction declaration",
+        "priority": 5,
+        "why": "This dimension is part of the documentation/reproducibility bar implied by the fetched regulatory benchmark corpus and should be clearer in MCP trust/reporting surfaces."
+      },
+      {
+        "barClassification": "consistent-core-expectation",
+        "dimensionId": "publicTraceabilityHashability",
+        "label": "Better traceability and hash-linked evidence packaging",
+        "priority": 6,
+        "why": "This dimension is part of the documentation/reproducibility bar implied by the fetched regulatory benchmark corpus and should be clearer in MCP trust/reporting surfaces."
+      },
+      {
+        "barClassification": "strong-but-variable",
+        "dimensionId": "contextOfUseClarity",
+        "label": "Clearer context-of-use declaration",
+        "priority": 7,
+        "why": "This dimension is part of the documentation/reproducibility bar implied by the fetched regulatory benchmark corpus and should be clearer in MCP trust/reporting surfaces."
+      },
+      {
+        "barClassification": "strong-but-variable",
+        "dimensionId": "runnableCodeModelAvailability",
+        "label": "Sharper runnable-vs-reference model declaration",
+        "priority": 8,
+        "why": "This dimension is part of the documentation/reproducibility bar implied by the fetched regulatory benchmark corpus and should be clearer in MCP trust/reporting surfaces."
+      }
+    ],
+    "requiredDimensions": [
+      "publicTraceabilityHashability"
+    ],
+    "strictCoreSourceIds": [
+      "tce_tsca_package",
+      "epa_voc_template"
+    ],
+    "strongButVariableDimensions": [
+      "contextOfUseClarity",
+      "runnableCodeModelAvailability",
+      "softwarePlatformSpecificity",
+      "parameterProvenanceDepth"
+    ],
+    "summary": "The strict-core regulatory packages consistently emphasize context of use, runnable artifacts, software specificity, provenance depth, uncertainty treatment, reproducibility packaging, and hash-linked traceability. Challenge sets add stress-testing value, while documentation-only references mainly calibrate the confidence language.",
+    "weakerOrVariableDimensions": [
+      "calibrationVsEvaluationSeparation",
+      "uncertaintySensitivityVariability",
+      "reproducibilityPackCompleteness"
+    ]
+  },
+  "dimensionDefinitions": [
+    {
+      "id": "contextOfUseClarity",
+      "label": "Context/use clarity",
+      "target": "Explicit context-of-use statement, README, or run guide."
+    },
+    {
+      "id": "runnableCodeModelAvailability",
+      "label": "Runnable code/model availability",
+      "target": "Public model/code files with enough structure to reproduce simulations."
+    },
+    {
+      "id": "softwarePlatformSpecificity",
+      "label": "Software/platform specificity",
+      "target": "Named runtime artifacts or instructions that identify the software stack."
+    },
+    {
+      "id": "parameterProvenanceDepth",
+      "label": "Parameter provenance depth",
+      "target": "Parameter labels, codebooks, source tables, or other provenance-oriented tables."
+    },
+    {
+      "id": "calibrationVsEvaluationSeparation",
+      "label": "Calibration vs evaluation separation",
+      "target": "Distinct fit/check/evaluation artifacts rather than one undifferentiated bundle."
+    },
+    {
+      "id": "uncertaintySensitivityVariability",
+      "label": "Uncertainty, sensitivity, and variability",
+      "target": "Explicit uncertainty or population-variability treatment."
+    },
+    {
+      "id": "reproducibilityPackCompleteness",
+      "label": "Reproducibility-pack completeness",
+      "target": "Model files, code, data, outputs, and instructions together."
+    },
+    {
+      "id": "publicTraceabilityHashability",
+      "label": "Public traceability and hashability",
+      "target": "Public download paths plus reproducible hashes and stable local evidence paths."
+    }
+  ],
+  "fetchedLockPath": "benchmarks/regulatory_goldset/fetched.lock.json",
+  "fetchedLockSha256": "949db5491f40406ab4a0fc185952795bb88f1243ac5c4a3ead1b4fda7661ddca",
+  "referenceModelComparisons": [
+    {
+      "id": "reference_workspace_model",
+      "modelPath": "var/models/rxode2/reference_compound/reference_compound_population_rxode2_model.R",
+      "qualificationState": "research-use",
+      "regulatoryBenchmarkReadiness": {
+        "advisoryOnly": true,
+        "benchmarkBarSource": {
+          "dimensionIds": [
+            "contextOfUseClarity",
+            "runnableCodeModelAvailability",
+            "softwarePlatformSpecificity",
+            "parameterProvenanceDepth",
+            "calibrationVsEvaluationSeparation",
+            "uncertaintySensitivityVariability",
+            "reproducibilityPackCompleteness",
+            "publicTraceabilityHashability"
+          ],
+          "fetchedLockPath": "benchmarks/regulatory_goldset/fetched.lock.json",
+          "fetchedLockSha256": "949db5491f40406ab4a0fc185952795bb88f1243ac5c4a3ead1b4fda7661ddca",
+          "sourceManifestPath": "benchmarks/regulatory_goldset/sources.lock.json",
+          "sourceManifestSha256": "ba24143cfe7ddd976779d7c60d24754b35f8ecf0d361e15c8ad247e488af337b",
+          "sourceResolution": "direct-lock-files"
+        },
+        "dimensionStatuses": [
+          {
+            "benchmarkExampleIds": [
+              "tce_tsca_package",
+              "epa_voc_template"
+            ],
+            "evaluatedFrom": [
+              "contextOfUse",
+              "qualificationState.state",
+              "workflowRole"
+            ],
+            "id": "contextOfUseClarity",
+            "label": "Context/use clarity",
+            "observedManifestFields": [
+              "qualificationState.state"
+            ],
+            "reason": "The manifest declares a structured contextOfUse section.",
+            "recommendedNextArtifacts": [
+              "Add a model-specific context-of-use note that names the intended regulatory or research question.",
+              "Bind the declared workflow role to a bounded use case rather than a generic research label."
+            ],
+            "status": "present"
+          },
+          {
+            "benchmarkExampleIds": [
+              "tce_tsca_package",
+              "epa_voc_template"
+            ],
+            "evaluatedFrom": [
+              "manifestStatus",
+              "runtimeFormat",
+              "profileSource"
+            ],
+            "id": "runnableCodeModelAvailability",
+            "label": "Runnable code/model availability",
+            "observedManifestFields": [
+              "manifestStatus",
+              "profileSource"
+            ],
+            "reason": "The model file is in a supported runtime format and passes static manifest validation.",
+            "recommendedNextArtifacts": [
+              "Keep runnable model/code artifacts packaged with a minimal run path that reproduces the declared workflow.",
+              "State explicitly whether the runtime artifact is a benchmark-style packaged model, a research example, or an external reference only."
+            ],
+            "status": "present"
+          },
+          {
+            "benchmarkExampleIds": [
+              "tce_tsca_package",
+              "epa_voc_template"
+            ],
+            "evaluatedFrom": [
+              "profile.platformQualification",
+              "profile.implementationVerification",
+              "hooks.platformQualificationEvidence",
+              "profileSource"
+            ],
+            "id": "softwarePlatformSpecificity",
+            "label": "Software/platform specificity",
+            "observedManifestFields": [
+              "hooks.platformQualificationEvidence",
+              "profileSource"
+            ],
+            "reason": "The model declares some software/runtime details, but not to benchmark-grade depth.",
+            "recommendedNextArtifacts": [
+              "Add explicit software, solver, and runtime-version declarations near the model dossier.",
+              "Record the platform or adapter assumptions needed to reproduce the exported results."
+            ],
+            "status": "partial"
+          },
+          {
+            "benchmarkExampleIds": [
+              "tce_tsca_package",
+              "epa_voc_template"
+            ],
+            "evaluatedFrom": [
+              "profile.parameterProvenance",
+              "profile.parameterTableBundleMetadata",
+              "hooks.parameterTable",
+              "hooks.parameterTableSidecar"
+            ],
+            "id": "parameterProvenanceDepth",
+            "label": "Parameter provenance depth",
+            "observedManifestFields": [
+              "hooks.parameterTable",
+              "hooks.parameterTableSidecar"
+            ],
+            "reason": "Parameter provenance is declared, but without benchmark-grade tabular provenance evidence.",
+            "recommendedNextArtifacts": [
+              "Attach a tabular parameter provenance bundle with names, units, sources, and rationale fields.",
+              "Expose whether parameter values are literature-sourced, optimized, transferred, or runtime-only placeholders."
+            ],
+            "status": "partial"
+          },
+          {
+            "benchmarkExampleIds": [
+              "tce_tsca_package"
+            ],
+            "evaluatedFrom": [
+              "profile.modelPerformance",
+              "profile.performanceEvidenceBundleMetadata",
+              "hooks.performanceEvidence",
+              "hooks.performanceEvidenceSidecar"
+            ],
+            "id": "calibrationVsEvaluationSeparation",
+            "label": "Calibration vs evaluation separation",
+            "observedManifestFields": [
+              "hooks.performanceEvidence",
+              "hooks.performanceEvidenceSidecar"
+            ],
+            "reason": "Model performance is declared, but benchmark-style evaluation structure is still thin.",
+            "recommendedNextArtifacts": [
+              "Separate fit/calibration evidence from evaluation or predictive-check evidence in the manifest-facing dossier.",
+              "Name which datasets or checks were used for optimization versus evaluation."
+            ],
+            "status": "partial"
+          },
+          {
+            "benchmarkExampleIds": [
+              "tce_tsca_package",
+              "epa_pfas_template"
+            ],
+            "evaluatedFrom": [
+              "profile.uncertainty",
+              "profile.uncertaintyEvidenceBundleMetadata",
+              "profile.populationSupport",
+              "hooks.uncertaintyEvidence",
+              "hooks.uncertaintyEvidenceSidecar"
+            ],
+            "id": "uncertaintySensitivityVariability",
+            "label": "Uncertainty, sensitivity, and variability",
+            "observedManifestFields": [
+              "hooks.uncertaintyEvidence",
+              "hooks.uncertaintyEvidenceSidecar"
+            ],
+            "reason": "Uncertainty is declared, but benchmark-style quantified evidence is still thin.",
+            "recommendedNextArtifacts": [
+              "Add structured uncertainty rows that distinguish local sensitivity, variability propagation, and other uncertainty classes.",
+              "State clearly whether variability support is mechanistic, assumed, transferred, or absent."
+            ],
+            "status": "partial"
+          },
+          {
+            "benchmarkExampleIds": [
+              "tce_tsca_package",
+              "epa_voc_template"
+            ],
+            "evaluatedFrom": [
+              "manifestStatus",
+              "profileSource",
+              "profile.modelPerformance",
+              "profile.parameterProvenance",
+              "profile.uncertainty",
+              "hooks.parameterTable",
+              "hooks.performanceEvidence",
+              "hooks.uncertaintyEvidence"
+            ],
+            "id": "reproducibilityPackCompleteness",
+            "label": "Reproducibility-pack completeness",
+            "observedManifestFields": [
+              "manifestStatus",
+              "profileSource",
+              "hooks.parameterTable",
+              "hooks.performanceEvidence",
+              "hooks.uncertaintyEvidence"
+            ],
+            "reason": "The model is inspectable and runnable, but it is not packaged like the strongest public regulatory bundles.",
+            "recommendedNextArtifacts": [
+              "Bundle the runnable model, validation-oriented evidence, parameter provenance, and run instructions as one coherent dossier.",
+              "Avoid leaving key evidence split across ad hoc notes or runtime-only outputs."
+            ],
+            "status": "partial"
+          },
+          {
+            "benchmarkExampleIds": [
+              "tce_tsca_package",
+              "epa_pfas_template",
+              "pfos_ges_lac"
+            ],
+            "evaluatedFrom": [
+              "manifestStatus",
+              "profile.parameterTableBundleMetadata",
+              "profile.performanceEvidenceBundleMetadata",
+              "profile.uncertaintyEvidenceBundleMetadata",
+              "hooks.parameterTable",
+              "hooks.performanceEvidence",
+              "hooks.uncertaintyEvidence"
+            ],
+            "id": "publicTraceabilityHashability",
+            "label": "Public traceability and hashability",
+            "observedManifestFields": [
+              "manifestStatus",
+              "hooks.parameterTable",
+              "hooks.performanceEvidence",
+              "hooks.uncertaintyEvidence"
+            ],
+            "reason": "The manifest is traceable in-repo, but it does not yet resemble a hash-linked public benchmark package.",
+            "recommendedNextArtifacts": [
+              "Attach hash-linked evidence bundle metadata for the parameter, performance, and uncertainty surfaces.",
+              "Keep the model dossier reproducible enough that an external reviewer can trace files back to the exported summary."
+            ],
+            "status": "partial"
+          }
+        ],
+        "missingDimensions": [],
+        "modelResemblance": "research-example",
+        "notes": [
+          "Qualification state remains research-use; benchmark readiness is a separate descriptive surface.",
+          "The strongest public benchmark bar is represented by the fetched TCE and VOC template packages.",
+          "PFAS and PFOS remain useful challenge sets for transparency and reproducibility, not automatic regulatory templates.",
+          "Current profile source: module-hook-detected."
+        ],
+        "overallStatus": "below-benchmark-bar",
+        "partialDimensions": [
+          "softwarePlatformSpecificity",
+          "parameterProvenanceDepth",
+          "calibrationVsEvaluationSeparation",
+          "uncertaintySensitivityVariability",
+          "reproducibilityPackCompleteness",
+          "publicTraceabilityHashability"
+        ],
+        "plainLanguageSummary": "This benchmark-readiness summary is advisory only. It compares the current model dossier to the documentation and reproducibility bar implied by the fetched regulatory gold set; it does not change qualification state or release gating.",
+        "presentDimensions": [
+          "contextOfUseClarity",
+          "runnableCodeModelAvailability"
+        ],
+        "prioritizedGaps": [
+          {
+            "benchmarkExampleIds": [
+              "tce_tsca_package",
+              "epa_voc_template"
+            ],
+            "currentStatus": "partial",
+            "dimensionId": "parameterProvenanceDepth",
+            "evaluatedFrom": [
+              "profile.parameterProvenance",
+              "profile.parameterTableBundleMetadata",
+              "hooks.parameterTable",
+              "hooks.parameterTableSidecar"
+            ],
+            "label": "Stronger parameter provenance expectations",
+            "observedManifestFields": [
+              "hooks.parameterTable",
+              "hooks.parameterTableSidecar"
+            ],
+            "priority": 1,
+            "reason": "Parameter provenance is declared, but without benchmark-grade tabular provenance evidence.",
+            "recommendedNextArtifacts": [
+              "Attach a tabular parameter provenance bundle with names, units, sources, and rationale fields.",
+              "Expose whether parameter values are literature-sourced, optimized, transferred, or runtime-only placeholders."
+            ]
+          },
+          {
+            "benchmarkExampleIds": [
+              "tce_tsca_package"
+            ],
+            "currentStatus": "partial",
+            "dimensionId": "calibrationVsEvaluationSeparation",
+            "evaluatedFrom": [
+              "profile.modelPerformance",
+              "profile.performanceEvidenceBundleMetadata",
+              "hooks.performanceEvidence",
+              "hooks.performanceEvidenceSidecar"
+            ],
+            "label": "Clearer calibration-vs-evaluation reporting",
+            "observedManifestFields": [
+              "hooks.performanceEvidence",
+              "hooks.performanceEvidenceSidecar"
+            ],
+            "priority": 2,
+            "reason": "Model performance is declared, but benchmark-style evaluation structure is still thin.",
+            "recommendedNextArtifacts": [
+              "Separate fit/calibration evidence from evaluation or predictive-check evidence in the manifest-facing dossier.",
+              "Name which datasets or checks were used for optimization versus evaluation."
+            ]
+          },
+          {
+            "benchmarkExampleIds": [
+              "tce_tsca_package",
+              "epa_pfas_template"
+            ],
+            "currentStatus": "partial",
+            "dimensionId": "uncertaintySensitivityVariability",
+            "evaluatedFrom": [
+              "profile.uncertainty",
+              "profile.uncertaintyEvidenceBundleMetadata",
+              "profile.populationSupport",
+              "hooks.uncertaintyEvidence",
+              "hooks.uncertaintyEvidenceSidecar"
+            ],
+            "label": "More structured uncertainty and variability evidence",
+            "observedManifestFields": [
+              "hooks.uncertaintyEvidence",
+              "hooks.uncertaintyEvidenceSidecar"
+            ],
+            "priority": 3,
+            "reason": "Uncertainty is declared, but benchmark-style quantified evidence is still thin.",
+            "recommendedNextArtifacts": [
+              "Add structured uncertainty rows that distinguish local sensitivity, variability propagation, and other uncertainty classes.",
+              "State clearly whether variability support is mechanistic, assumed, transferred, or absent."
+            ]
+          },
+          {
+            "benchmarkExampleIds": [
+              "tce_tsca_package",
+              "epa_voc_template"
+            ],
+            "currentStatus": "partial",
+            "dimensionId": "reproducibilityPackCompleteness",
+            "evaluatedFrom": [
+              "manifestStatus",
+              "profileSource",
+              "profile.modelPerformance",
+              "profile.parameterProvenance",
+              "profile.uncertainty",
+              "hooks.parameterTable",
+              "hooks.performanceEvidence",
+              "hooks.uncertaintyEvidence"
+            ],
+            "label": "Clearer reproducibility-pack signals",
+            "observedManifestFields": [
+              "manifestStatus",
+              "profileSource",
+              "hooks.parameterTable",
+              "hooks.performanceEvidence",
+              "hooks.uncertaintyEvidence"
+            ],
+            "priority": 4,
+            "reason": "The model is inspectable and runnable, but it is not packaged like the strongest public regulatory bundles.",
+            "recommendedNextArtifacts": [
+              "Bundle the runnable model, validation-oriented evidence, parameter provenance, and run instructions as one coherent dossier.",
+              "Avoid leaving key evidence split across ad hoc notes or runtime-only outputs."
+            ]
+          },
+          {
+            "benchmarkExampleIds": [
+              "tce_tsca_package",
+              "epa_voc_template"
+            ],
+            "currentStatus": "partial",
+            "dimensionId": "softwarePlatformSpecificity",
+            "evaluatedFrom": [
+              "profile.platformQualification",
+              "profile.implementationVerification",
+              "hooks.platformQualificationEvidence",
+              "profileSource"
+            ],
+            "label": "Better software/platform and run-instruction declaration",
+            "observedManifestFields": [
+              "hooks.platformQualificationEvidence",
+              "profileSource"
+            ],
+            "priority": 5,
+            "reason": "The model declares some software/runtime details, but not to benchmark-grade depth.",
+            "recommendedNextArtifacts": [
+              "Add explicit software, solver, and runtime-version declarations near the model dossier.",
+              "Record the platform or adapter assumptions needed to reproduce the exported results."
+            ]
+          },
+          {
+            "benchmarkExampleIds": [
+              "tce_tsca_package",
+              "epa_pfas_template",
+              "pfos_ges_lac"
+            ],
+            "currentStatus": "partial",
+            "dimensionId": "publicTraceabilityHashability",
+            "evaluatedFrom": [
+              "manifestStatus",
+              "profile.parameterTableBundleMetadata",
+              "profile.performanceEvidenceBundleMetadata",
+              "profile.uncertaintyEvidenceBundleMetadata",
+              "hooks.parameterTable",
+              "hooks.performanceEvidence",
+              "hooks.uncertaintyEvidence"
+            ],
+            "label": "Better traceability and hash-linked evidence packaging",
+            "observedManifestFields": [
+              "manifestStatus",
+              "hooks.parameterTable",
+              "hooks.performanceEvidence",
+              "hooks.uncertaintyEvidence"
+            ],
+            "priority": 6,
+            "reason": "The manifest is traceable in-repo, but it does not yet resemble a hash-linked public benchmark package.",
+            "recommendedNextArtifacts": [
+              "Attach hash-linked evidence bundle metadata for the parameter, performance, and uncertainty surfaces.",
+              "Keep the model dossier reproducible enough that an external reviewer can trace files back to the exported summary."
+            ]
+          }
+        ],
+        "recommendedNextArtifacts": [
+          "Attach a tabular parameter provenance bundle with names, units, sources, and rationale fields.",
+          "Expose whether parameter values are literature-sourced, optimized, transferred, or runtime-only placeholders.",
+          "Separate fit/calibration evidence from evaluation or predictive-check evidence in the manifest-facing dossier.",
+          "Name which datasets or checks were used for optimization versus evaluation.",
+          "Add structured uncertainty rows that distinguish local sensitivity, variability propagation, and other uncertainty classes.",
+          "State clearly whether variability support is mechanistic, assumed, transferred, or absent.",
+          "Bundle the runnable model, validation-oriented evidence, parameter provenance, and run instructions as one coherent dossier.",
+          "Avoid leaving key evidence split across ad hoc notes or runtime-only outputs.",
+          "Add explicit software, solver, and runtime-version declarations near the model dossier.",
+          "Record the platform or adapter assumptions needed to reproduce the exported results.",
+          "Attach hash-linked evidence bundle metadata for the parameter, performance, and uncertainty surfaces.",
+          "Keep the model dossier reproducible enough that an external reviewer can trace files back to the exported summary."
+        ],
+        "sectionVersion": "pbpk-regulatory-benchmark-readiness.v1"
+      },
+      "title": "Workspace synthetic reference model"
+    }
+  ],
+  "sourceManifestPath": "benchmarks/regulatory_goldset/sources.lock.json",
+  "sourceManifestSha256": "ba24143cfe7ddd976779d7c60d24754b35f8ecf0d361e15c8ad247e488af337b",
+  "sources": [
+    {
+      "artifacts": [
+        {
+          "archiveEntryCount": null,
+          "bytes": 1041517630,
+          "candidateFileCount": 30,
+          "candidateFilesSample": [
+            "benchmarks/regulatory_goldset/extracted/tce_tsca_package/tce_package_zip/TCE.1.2.3.3/ATSDR-comparison/TCE.risk6.1.2.3.3.pop.model",
+            "benchmarks/regulatory_goldset/extracted/tce_tsca_package/tce_package_zip/TCE.1.2.3.3/Human.seqpriors.v1/Human.seqpriors.v1.addldata.datalabs.txt",
+            "benchmarks/regulatory_goldset/extracted/tce_tsca_package/tce_package_zip/TCE.1.2.3.3/Human.seqpriors.v1/Human.seqpriors.v1.check.addldata.23.pdf",
+            "benchmarks/regulatory_goldset/extracted/tce_tsca_package/tce_package_zip/TCE.1.2.3.3/Human.seqpriors.v1/Human.seqpriors.v1.check.x.23b.pdf",
+            "benchmarks/regulatory_goldset/extracted/tce_tsca_package/tce_package_zip/TCE.1.2.3.3/Human.seqpriors.v1/Human.seqpriors.v1.checkone.9.pdf",
+            "benchmarks/regulatory_goldset/extracted/tce_tsca_package/tce_package_zip/TCE.1.2.3.3/Human.seqpriors.v1/Human.seqpriors.v1.checkone.two.23b.pdf",
+            "benchmarks/regulatory_goldset/extracted/tce_tsca_package/tce_package_zip/TCE.1.2.3.3/Human.seqpriors.v1/Human.seqpriors.v1.datalabs.txt",
+            "benchmarks/regulatory_goldset/extracted/tce_tsca_package/tce_package_zip/TCE.1.2.3.3/Human.seqpriors.v1/PopPred/Human.seqpriors.v1.posteriors.x.23.pdf",
+            "benchmarks/regulatory_goldset/extracted/tce_tsca_package/tce_package_zip/TCE.1.2.3.3/ModelResults.R",
+            "benchmarks/regulatory_goldset/extracted/tce_tsca_package/tce_package_zip/TCE.1.2.3.3/Mouse/Mouse.addldata.Kim.datalabs.txt",
+            "benchmarks/regulatory_goldset/extracted/tce_tsca_package/tce_package_zip/TCE.1.2.3.3/Mouse/Mouse.check.addldata.Kim-rev.5.pdf",
+            "benchmarks/regulatory_goldset/extracted/tce_tsca_package/tce_package_zip/TCE.1.2.3.3/Mouse/Mouse.check.x.5.pdf",
+            "benchmarks/regulatory_goldset/extracted/tce_tsca_package/tce_package_zip/TCE.1.2.3.3/Mouse/Mouse.checkone.5.pdf",
+            "benchmarks/regulatory_goldset/extracted/tce_tsca_package/tce_package_zip/TCE.1.2.3.3/Mouse/Mouse.checkone.two.5.pdf",
+            "benchmarks/regulatory_goldset/extracted/tce_tsca_package/tce_package_zip/TCE.1.2.3.3/Mouse/Mouse.datalabs.txt",
+            "benchmarks/regulatory_goldset/extracted/tce_tsca_package/tce_package_zip/TCE.1.2.3.3/Mouse/PopPred/Mouse.posteriors.x.5.pdf",
+            "benchmarks/regulatory_goldset/extracted/tce_tsca_package/tce_package_zip/TCE.1.2.3.3/OutputVar-labels-plot.csv",
+            "benchmarks/regulatory_goldset/extracted/tce_tsca_package/tce_package_zip/TCE.1.2.3.3/README.docx",
+            "benchmarks/regulatory_goldset/extracted/tce_tsca_package/tce_package_zip/TCE.1.2.3.3/Rat.seqpriors.test4/PopPred/Rat.seqpriors.test4.posteriors.x.10.pdf",
+            "benchmarks/regulatory_goldset/extracted/tce_tsca_package/tce_package_zip/TCE.1.2.3.3/Rat.seqpriors.test4/Rat.seqpriors.test4.addldata.Liu.datalabs.txt",
+            "benchmarks/regulatory_goldset/extracted/tce_tsca_package/tce_package_zip/TCE.1.2.3.3/Rat.seqpriors.test4/Rat.seqpriors.test4.addldata.datalabs.txt",
+            "benchmarks/regulatory_goldset/extracted/tce_tsca_package/tce_package_zip/TCE.1.2.3.3/Rat.seqpriors.test4/Rat.seqpriors.test4.check.addldata.10.pdf",
+            "benchmarks/regulatory_goldset/extracted/tce_tsca_package/tce_package_zip/TCE.1.2.3.3/Rat.seqpriors.test4/Rat.seqpriors.test4.check.addldata.Liu.10.pdf",
+            "benchmarks/regulatory_goldset/extracted/tce_tsca_package/tce_package_zip/TCE.1.2.3.3/Rat.seqpriors.test4/Rat.seqpriors.test4.check.x.10.pdf",
+            "benchmarks/regulatory_goldset/extracted/tce_tsca_package/tce_package_zip/TCE.1.2.3.3/Rat.seqpriors.test4/Rat.seqpriors.test4.checkone.10.pdf",
+            "benchmarks/regulatory_goldset/extracted/tce_tsca_package/tce_package_zip/TCE.1.2.3.3/Rat.seqpriors.test4/Rat.seqpriors.test4.checkone.two.10.pdf",
+            "benchmarks/regulatory_goldset/extracted/tce_tsca_package/tce_package_zip/TCE.1.2.3.3/Rat.seqpriors.test4/Rat.seqpriors.test4.datalabs.txt",
+            "benchmarks/regulatory_goldset/extracted/tce_tsca_package/tce_package_zip/TCE.1.2.3.3/TCE.evaluation.1.2.3.3.pop.model",
+            "benchmarks/regulatory_goldset/extracted/tce_tsca_package/tce_package_zip/TCE.1.2.3.3/TCE.risk5.1.2.3.3.pop.model",
+            "benchmarks/regulatory_goldset/extracted/tce_tsca_package/tce_package_zip/TCE.1.2.3.3/funcdefs.R"
+          ],
+          "contentType": null,
+          "downloadPath": "benchmarks/regulatory_goldset/downloads/tce_tsca_package/29._tce_supplemental_information_file_pbpk_model_and_readme_zipped.zip",
+          "extractPath": "benchmarks/regulatory_goldset/extracted/tce_tsca_package/tce_package_zip",
+          "extractedFileCount": 142,
+          "id": "tce_package_zip",
+          "label": "TCE TSCA PBPK package zip",
+          "sha256": "0d8f489eae25a9a6750015ce588b6afee9e85e79f28a2e784bd4265127bc9621",
+          "url": "https://www.epa.gov/sites/default/files/2020-11/29._tce_supplemental_information_file_pbpk_model_and_readme_zipped.zip",
+          "usedCachedDownload": true,
+          "usedCachedExtraction": true
+        }
+      ],
+      "benchmarkRole": "strict-core",
+      "coverageModels": [
+        "trichloroethylene"
+      ],
+      "id": "tce_tsca_package",
+      "notes": [
+        "Large public regulatory PBPK package used as the primary completeness benchmark.",
+        "Archive is large enough that it should stay out of the tracked git tree."
+      ],
+      "result": "fetched",
+      "scanSummary": {
+        "available": true,
+        "dataFileCount": 8,
+        "docFileCount": 24,
+        "evidencePaths": [
+          "benchmarks/regulatory_goldset/extracted/tce_tsca_package/tce_package_zip/TCE.1.2.3.3/README.docx",
+          "benchmarks/regulatory_goldset/extracted/tce_tsca_package/tce_package_zip/TCE.1.2.3.3/Human.seqpriors.v1/Human.seqpriors.v1.addldata.datalabs.txt",
+          "benchmarks/regulatory_goldset/extracted/tce_tsca_package/tce_package_zip/TCE.1.2.3.3/Human.seqpriors.v1/Human.seqpriors.v1.datalabs.txt",
+          "benchmarks/regulatory_goldset/extracted/tce_tsca_package/tce_package_zip/TCE.1.2.3.3/Mouse/Mouse.addldata.Kim.datalabs.txt",
+          "benchmarks/regulatory_goldset/extracted/tce_tsca_package/tce_package_zip/TCE.1.2.3.3/Human.seqpriors.v1/Human.seqpriors.v1.check.addldata.23.pdf",
+          "benchmarks/regulatory_goldset/extracted/tce_tsca_package/tce_package_zip/TCE.1.2.3.3/Human.seqpriors.v1/Human.seqpriors.v1.check.x.23b.pdf",
+          "benchmarks/regulatory_goldset/extracted/tce_tsca_package/tce_package_zip/TCE.1.2.3.3/Human.seqpriors.v1/Human.seqpriors.v1.checkone.9.pdf"
+        ],
+        "extensionCounts": {
+          ".csv": 1,
+          ".docx": 1,
+          ".model": 3,
+          ".pdf": 16,
+          ".r": 2,
+          ".txt": 7
+        },
+        "fileCount": 142,
+        "flags": {
+          "hasCalibrationArtifacts": true,
+          "hasCompiledRuntimeArtifacts": false,
+          "hasEvaluationArtifacts": true,
+          "hasInstructions": false,
+          "hasParameterArtifacts": true,
+          "hasReadme": true,
+          "hasUncertaintyArtifacts": true,
+          "hasVariabilityArtifacts": true
+        },
+        "modelFileCount": 3,
+        "outputFileCount": 16,
+        "rootPath": "benchmarks/regulatory_goldset/extracted/tce_tsca_package/tce_package_zip",
+        "scriptFileCount": 2
+      },
+      "scorecard": {
+        "dimensionCounts": {
+          "missing": 0,
+          "notApplicable": 0,
+          "partial": 0,
+          "present": 8
+        },
+        "dimensions": [
+          {
+            "evidence": [
+              "trichloroethylene",
+              "benchmarks/regulatory_goldset/extracted/tce_tsca_package/tce_package_zip/TCE.1.2.3.3/README.docx",
+              "benchmarks/regulatory_goldset/extracted/tce_tsca_package/tce_package_zip/TCE.1.2.3.3/Human.seqpriors.v1/Human.seqpriors.v1.addldata.datalabs.txt",
+              "benchmarks/regulatory_goldset/extracted/tce_tsca_package/tce_package_zip/TCE.1.2.3.3/Human.seqpriors.v1/Human.seqpriors.v1.datalabs.txt"
+            ],
+            "id": "contextOfUseClarity",
+            "label": "Context/use clarity",
+            "reason": "The package includes explicit model coverage plus a README or run-guide artifact.",
+            "status": "present"
+          },
+          {
+            "evidence": [
+              "benchmarks/regulatory_goldset/extracted/tce_tsca_package/tce_package_zip/TCE.1.2.3.3/README.docx",
+              "benchmarks/regulatory_goldset/extracted/tce_tsca_package/tce_package_zip/TCE.1.2.3.3/Human.seqpriors.v1/Human.seqpriors.v1.addldata.datalabs.txt",
+              "benchmarks/regulatory_goldset/extracted/tce_tsca_package/tce_package_zip/TCE.1.2.3.3/Human.seqpriors.v1/Human.seqpriors.v1.datalabs.txt",
+              "benchmarks/regulatory_goldset/extracted/tce_tsca_package/tce_package_zip/TCE.1.2.3.3/Mouse/Mouse.addldata.Kim.datalabs.txt"
+            ],
+            "id": "runnableCodeModelAvailability",
+            "label": "Runnable code/model availability",
+            "reason": "Model/runtime files and executable scripts are both present.",
+            "status": "present"
+          },
+          {
+            "evidence": [
+              "benchmarks/regulatory_goldset/extracted/tce_tsca_package/tce_package_zip/TCE.1.2.3.3/README.docx",
+              "benchmarks/regulatory_goldset/extracted/tce_tsca_package/tce_package_zip/TCE.1.2.3.3/Human.seqpriors.v1/Human.seqpriors.v1.addldata.datalabs.txt",
+              "benchmarks/regulatory_goldset/extracted/tce_tsca_package/tce_package_zip/TCE.1.2.3.3/Human.seqpriors.v1/Human.seqpriors.v1.datalabs.txt",
+              "benchmarks/regulatory_goldset/extracted/tce_tsca_package/tce_package_zip/TCE.1.2.3.3/Mouse/Mouse.addldata.Kim.datalabs.txt"
+            ],
+            "id": "softwarePlatformSpecificity",
+            "label": "Software/platform specificity",
+            "reason": "The package identifies the runtime through instructions and software-specific artifacts.",
+            "status": "present"
+          },
+          {
+            "evidence": [
+              "benchmarks/regulatory_goldset/extracted/tce_tsca_package/tce_package_zip/TCE.1.2.3.3/README.docx",
+              "benchmarks/regulatory_goldset/extracted/tce_tsca_package/tce_package_zip/TCE.1.2.3.3/Human.seqpriors.v1/Human.seqpriors.v1.addldata.datalabs.txt",
+              "benchmarks/regulatory_goldset/extracted/tce_tsca_package/tce_package_zip/TCE.1.2.3.3/Human.seqpriors.v1/Human.seqpriors.v1.datalabs.txt",
+              "benchmarks/regulatory_goldset/extracted/tce_tsca_package/tce_package_zip/TCE.1.2.3.3/Mouse/Mouse.addldata.Kim.datalabs.txt",
+              "benchmarks/regulatory_goldset/extracted/tce_tsca_package/tce_package_zip/TCE.1.2.3.3/Human.seqpriors.v1/Human.seqpriors.v1.check.addldata.23.pdf"
+            ],
+            "id": "parameterProvenanceDepth",
+            "label": "Parameter provenance depth",
+            "reason": "The package contains parameter-label or codebook style artifacts alongside tabular data.",
+            "status": "present"
+          },
+          {
+            "evidence": [
+              "benchmarks/regulatory_goldset/extracted/tce_tsca_package/tce_package_zip/TCE.1.2.3.3/README.docx",
+              "benchmarks/regulatory_goldset/extracted/tce_tsca_package/tce_package_zip/TCE.1.2.3.3/Human.seqpriors.v1/Human.seqpriors.v1.addldata.datalabs.txt",
+              "benchmarks/regulatory_goldset/extracted/tce_tsca_package/tce_package_zip/TCE.1.2.3.3/Human.seqpriors.v1/Human.seqpriors.v1.datalabs.txt",
+              "benchmarks/regulatory_goldset/extracted/tce_tsca_package/tce_package_zip/TCE.1.2.3.3/Mouse/Mouse.addldata.Kim.datalabs.txt",
+              "benchmarks/regulatory_goldset/extracted/tce_tsca_package/tce_package_zip/TCE.1.2.3.3/Human.seqpriors.v1/Human.seqpriors.v1.check.addldata.23.pdf"
+            ],
+            "id": "calibrationVsEvaluationSeparation",
+            "label": "Calibration vs evaluation separation",
+            "reason": "The package separates fit-oriented artifacts from evaluation/check outputs.",
+            "status": "present"
+          },
+          {
+            "evidence": [
+              "benchmarks/regulatory_goldset/extracted/tce_tsca_package/tce_package_zip/TCE.1.2.3.3/README.docx",
+              "benchmarks/regulatory_goldset/extracted/tce_tsca_package/tce_package_zip/TCE.1.2.3.3/Human.seqpriors.v1/Human.seqpriors.v1.addldata.datalabs.txt",
+              "benchmarks/regulatory_goldset/extracted/tce_tsca_package/tce_package_zip/TCE.1.2.3.3/Human.seqpriors.v1/Human.seqpriors.v1.datalabs.txt",
+              "benchmarks/regulatory_goldset/extracted/tce_tsca_package/tce_package_zip/TCE.1.2.3.3/Mouse/Mouse.addldata.Kim.datalabs.txt",
+              "benchmarks/regulatory_goldset/extracted/tce_tsca_package/tce_package_zip/TCE.1.2.3.3/Human.seqpriors.v1/Human.seqpriors.v1.check.addldata.23.pdf"
+            ],
+            "id": "uncertaintySensitivityVariability",
+            "label": "Uncertainty, sensitivity, and variability",
+            "reason": "The package includes explicit uncertainty and population-variability signals.",
+            "status": "present"
+          },
+          {
+            "evidence": [
+              "benchmarks/regulatory_goldset/extracted/tce_tsca_package/tce_package_zip/TCE.1.2.3.3/README.docx",
+              "benchmarks/regulatory_goldset/extracted/tce_tsca_package/tce_package_zip/TCE.1.2.3.3/Human.seqpriors.v1/Human.seqpriors.v1.addldata.datalabs.txt",
+              "benchmarks/regulatory_goldset/extracted/tce_tsca_package/tce_package_zip/TCE.1.2.3.3/Human.seqpriors.v1/Human.seqpriors.v1.datalabs.txt",
+              "benchmarks/regulatory_goldset/extracted/tce_tsca_package/tce_package_zip/TCE.1.2.3.3/Mouse/Mouse.addldata.Kim.datalabs.txt",
+              "benchmarks/regulatory_goldset/extracted/tce_tsca_package/tce_package_zip/TCE.1.2.3.3/Human.seqpriors.v1/Human.seqpriors.v1.check.addldata.23.pdf",
+              "benchmarks/regulatory_goldset/extracted/tce_tsca_package/tce_package_zip/TCE.1.2.3.3/Human.seqpriors.v1/Human.seqpriors.v1.check.x.23b.pdf"
+            ],
+            "id": "reproducibilityPackCompleteness",
+            "label": "Reproducibility-pack completeness",
+            "reason": "The package includes instructions, model/code artifacts, data, and evaluation outputs together.",
+            "status": "present"
+          },
+          {
+            "evidence": [
+              "benchmarks/regulatory_goldset/downloads/tce_tsca_package/29._tce_supplemental_information_file_pbpk_model_and_readme_zipped.zip"
+            ],
+            "id": "publicTraceabilityHashability",
+            "label": "Public traceability and hashability",
+            "reason": "The package has public download paths, stable local evidence paths, and SHA-256 hashes.",
+            "status": "present"
+          }
+        ],
+        "overallTier": "benchmark-grade",
+        "scorecardVersion": "pbpk-regulatory-goldset-source-scorecard.v1"
+      },
+      "sourceType": "epa-download",
+      "status": "retrievable",
+      "title": "EPA TSCA trichloroethylene PBPK package"
+    },
+    {
+      "artifacts": [
+        {
+          "archiveEntryCount": null,
+          "bytes": 6432225,
+          "candidateFileCount": 139,
+          "candidateFilesSample": [
+            "benchmarks/regulatory_goldset/extracted/epa_voc_template/voc_template_zip/Code_revised/CF_Corley_scripts.R",
+            "benchmarks/regulatory_goldset/extracted/epa_voc_template/voc_template_zip/Code_revised/CF_Take_scripts.R",
+            "benchmarks/regulatory_goldset/extracted/epa_voc_template/voc_template_zip/Code_revised/DCM_IRIS_scripts.R",
+            "benchmarks/regulatory_goldset/extracted/epa_voc_template/voc_template_zip/Code_revised/Data/Data_CF/Take_acslx_output.xlsx",
+            "benchmarks/regulatory_goldset/extracted/epa_voc_template/voc_template_zip/Code_revised/Data/Data_CF/Take_dedicated_model_output.xlsx",
+            "benchmarks/regulatory_goldset/extracted/epa_voc_template/voc_template_zip/Code_revised/Data/Data_CF/corley_1990_chamber_exp.xlsx",
+            "benchmarks/regulatory_goldset/extracted/epa_voc_template/voc_template_zip/Code_revised/Data/Data_CF/corley_current params compare.xlsx",
+            "benchmarks/regulatory_goldset/extracted/epa_voc_template/voc_template_zip/Code_revised/Data/Data_CF/mouse_closed_chamber.xlsx",
+            "benchmarks/regulatory_goldset/extracted/epa_voc_template/voc_template_zip/Code_revised/Data/Data_CF/rat_closed_chamber.xlsx",
+            "benchmarks/regulatory_goldset/extracted/epa_voc_template/voc_template_zip/Code_revised/Data/Data_CF/take_data.xlsx",
+            "benchmarks/regulatory_goldset/extracted/epa_voc_template/voc_template_zip/Code_revised/Data/Data_DCM/gargas-inh-data2_NEW.csv",
+            "benchmarks/regulatory_goldset/extracted/epa_voc_template/voc_template_zip/Code_revised/Data/Data_Methanol/FigB4A.csv",
+            "benchmarks/regulatory_goldset/extracted/epa_voc_template/voc_template_zip/Code_revised/Data/Data_Methanol/FigB4A_0.25.csv",
+            "benchmarks/regulatory_goldset/extracted/epa_voc_template/voc_template_zip/Code_revised/Data/Data_Methanol/FigB4A_0.3.csv",
+            "benchmarks/regulatory_goldset/extracted/epa_voc_template/voc_template_zip/Code_revised/Data/Data_Methanol/FigB4B.csv",
+            "benchmarks/regulatory_goldset/extracted/epa_voc_template/voc_template_zip/Code_revised/Data/Data_Methanol/FigB4B_0.3.csv",
+            "benchmarks/regulatory_goldset/extracted/epa_voc_template/voc_template_zip/Code_revised/Data/Data_Methanol/FigB5A.csv",
+            "benchmarks/regulatory_goldset/extracted/epa_voc_template/voc_template_zip/Code_revised/Data/Data_Methanol/FigB5B.csv",
+            "benchmarks/regulatory_goldset/extracted/epa_voc_template/voc_template_zip/Code_revised/Data/Data_Methanol/FigB7.csv",
+            "benchmarks/regulatory_goldset/extracted/epa_voc_template/voc_template_zip/Code_revised/Data/Data_Methanol/FigB8conc.csv",
+            "benchmarks/regulatory_goldset/extracted/epa_voc_template/voc_template_zip/Code_revised/Data/Data_Methanol/FigB8tot.csv",
+            "benchmarks/regulatory_goldset/extracted/epa_voc_template/voc_template_zip/Code_revised/Data/Data_Methanol/Fig_B11_sim.csv",
+            "benchmarks/regulatory_goldset/extracted/epa_voc_template/voc_template_zip/Code_revised/Data/Data_Methanol/Fig_B13_sim.csv",
+            "benchmarks/regulatory_goldset/extracted/epa_voc_template/voc_template_zip/Code_revised/Data/Data_Methanol/Haffner_92_Fig1.csv",
+            "benchmarks/regulatory_goldset/extracted/epa_voc_template/voc_template_zip/Code_revised/Data/Data_Methanol/IRIS_FigB3_r100.csv",
+            "benchmarks/regulatory_goldset/extracted/epa_voc_template/voc_template_zip/Code_revised/Data/Data_Methanol/IRIS_FigB3_r2500.csv",
+            "benchmarks/regulatory_goldset/extracted/epa_voc_template/voc_template_zip/Code_revised/Data/Data_Methanol/IRIS_FigB3_r500.csv",
+            "benchmarks/regulatory_goldset/extracted/epa_voc_template/voc_template_zip/Code_revised/Data/Data_Methanol/Pollack_500mg_iv.csv",
+            "benchmarks/regulatory_goldset/extracted/epa_voc_template/voc_template_zip/Code_revised/Data/Data_Methanol/RatInh_10k.csv",
+            "benchmarks/regulatory_goldset/extracted/epa_voc_template/voc_template_zip/Code_revised/Data/Data_Methanol/RatInh_15k.csv",
+            "benchmarks/regulatory_goldset/extracted/epa_voc_template/voc_template_zip/Code_revised/Data/Data_Methanol/RatInh_1k.csv",
+            "benchmarks/regulatory_goldset/extracted/epa_voc_template/voc_template_zip/Code_revised/Data/Data_Methanol/RatInh_20k.csv",
+            "benchmarks/regulatory_goldset/extracted/epa_voc_template/voc_template_zip/Code_revised/Data/Data_Methanol/RatInh_5k.csv",
+            "benchmarks/regulatory_goldset/extracted/epa_voc_template/voc_template_zip/Code_revised/Data/Data_Methanol/Schmutte_88_Fig1.csv",
+            "benchmarks/regulatory_goldset/extracted/epa_voc_template/voc_template_zip/Code_revised/Data/Data_Methanol/Sedv157.csv",
+            "benchmarks/regulatory_goldset/extracted/epa_voc_template/voc_template_zip/Code_revised/Data/Data_Methanol/Sedv231.csv",
+            "benchmarks/regulatory_goldset/extracted/epa_voc_template/voc_template_zip/Code_revised/Data/Data_Methanol/Sedv78.csv",
+            "benchmarks/regulatory_goldset/extracted/epa_voc_template/voc_template_zip/Code_revised/Data/Data_Methanol/rat_Ward_iv_1.csv",
+            "benchmarks/regulatory_goldset/extracted/epa_voc_template/voc_template_zip/Code_revised/Data/Data_Methanol/rat_Ward_iv_25.csv",
+            "benchmarks/regulatory_goldset/extracted/epa_voc_template/voc_template_zip/Code_revised/Data/Data_Methanol/ratoral1.csv"
+          ],
+          "contentType": null,
+          "downloadPath": "benchmarks/regulatory_goldset/downloads/epa_voc_template/PBPK_Model_Template_VOC_Extension_Code_revised.zip",
+          "extractPath": "benchmarks/regulatory_goldset/extracted/epa_voc_template/voc_template_zip",
+          "extractedFileCount": 154,
+          "id": "voc_template_zip",
+          "label": "VOC template code zip",
+          "sha256": "fec17b9c7eca9cb4c89635f841527ca145a46cc0a2534ed33f9111f07ececce5",
+          "url": "https://pasteur.epa.gov/uploads/10.23719/1527967/PBPK_Model_Template_VOC_Extension_Code_revised.zip",
+          "usedCachedDownload": true,
+          "usedCachedExtraction": true
+        },
+        {
+          "bytes": 124367,
+          "contentType": null,
+          "downloadPath": "benchmarks/regulatory_goldset/downloads/epa_voc_template/PBPK_Model_Template_VOC_Extension_Instructions.pdf",
+          "id": "voc_template_instructions",
+          "label": "VOC template run guide",
+          "sha256": "d964e85b19671ffaeed0df94f01f084c9ef50965a10304a87a1c6033afb8b088",
+          "url": "https://pasteur.epa.gov/uploads/10.23719/1527967/PBPK_Model_Template_VOC_Extension_Instructions.pdf",
+          "usedCachedDownload": true
+        }
+      ],
+      "benchmarkRole": "strict-core",
+      "coverageModels": [
+        "dichloromethane",
+        "vinyl chloride",
+        "carbon tetrachloride",
+        "methanol"
+      ],
+      "id": "epa_voc_template",
+      "notes": [
+        "Primary public-code package for the solvent/VOC reproducibility benchmark stack.",
+        "Covers the strict core models other than TCE."
+      ],
+      "result": "fetched",
+      "scanSummary": {
+        "available": true,
+        "dataFileCount": 37,
+        "docFileCount": 0,
+        "evidencePaths": [],
+        "extensionCounts": {
+          ".csv": 30,
+          ".r": 3,
+          ".xlsx": 7
+        },
+        "fileCount": 154,
+        "flags": {
+          "hasCalibrationArtifacts": false,
+          "hasCompiledRuntimeArtifacts": false,
+          "hasEvaluationArtifacts": false,
+          "hasInstructions": false,
+          "hasParameterArtifacts": false,
+          "hasReadme": false,
+          "hasUncertaintyArtifacts": false,
+          "hasVariabilityArtifacts": false
+        },
+        "modelFileCount": 0,
+        "outputFileCount": 0,
+        "rootPath": "benchmarks/regulatory_goldset/extracted/epa_voc_template/voc_template_zip",
+        "scriptFileCount": 3
+      },
+      "scorecard": {
+        "dimensionCounts": {
+          "missing": 3,
+          "notApplicable": 0,
+          "partial": 4,
+          "present": 1
+        },
+        "dimensions": [
+          {
+            "evidence": [
+              "dichloromethane",
+              "vinyl chloride",
+              "carbon tetrachloride",
+              "methanol"
+            ],
+            "id": "contextOfUseClarity",
+            "label": "Context/use clarity",
+            "reason": "The package provides some context signals, but not a consistently explicit context-of-use framing.",
+            "status": "partial"
+          },
+          {
+            "evidence": [],
+            "id": "runnableCodeModelAvailability",
+            "label": "Runnable code/model availability",
+            "reason": "Some code or model artifacts are present, but the runnable stack is incomplete.",
+            "status": "partial"
+          },
+          {
+            "evidence": [],
+            "id": "softwarePlatformSpecificity",
+            "label": "Software/platform specificity",
+            "reason": "The package hints at a software stack, but platform/run details are still thin.",
+            "status": "partial"
+          },
+          {
+            "evidence": [],
+            "id": "parameterProvenanceDepth",
+            "label": "Parameter provenance depth",
+            "reason": "Some data or parameter hints are present, but provenance depth is limited.",
+            "status": "partial"
+          },
+          {
+            "evidence": [],
+            "id": "calibrationVsEvaluationSeparation",
+            "label": "Calibration vs evaluation separation",
+            "reason": "No distinct calibration or evaluation artifacts were detected.",
+            "status": "missing"
+          },
+          {
+            "evidence": [],
+            "id": "uncertaintySensitivityVariability",
+            "label": "Uncertainty, sensitivity, and variability",
+            "reason": "No explicit uncertainty, sensitivity, or variability artifacts were detected.",
+            "status": "missing"
+          },
+          {
+            "evidence": [],
+            "id": "reproducibilityPackCompleteness",
+            "label": "Reproducibility-pack completeness",
+            "reason": "The package does not yet look like a coherent reproducibility pack.",
+            "status": "missing"
+          },
+          {
+            "evidence": [
+              "benchmarks/regulatory_goldset/downloads/epa_voc_template/PBPK_Model_Template_VOC_Extension_Code_revised.zip",
+              "benchmarks/regulatory_goldset/downloads/epa_voc_template/PBPK_Model_Template_VOC_Extension_Instructions.pdf"
+            ],
+            "id": "publicTraceabilityHashability",
+            "label": "Public traceability and hashability",
+            "reason": "The package has public download paths, stable local evidence paths, and SHA-256 hashes.",
+            "status": "present"
+          }
+        ],
+        "overallTier": "strong-but-incomplete",
+        "scorecardVersion": "pbpk-regulatory-goldset-source-scorecard.v1"
+      },
+      "sourceType": "epa-download",
+      "status": "retrievable",
+      "title": "EPA VOC PBPK template package"
+    },
+    {
+      "artifacts": [
+        {
+          "archiveEntryCount": null,
+          "bytes": 1353769,
+          "candidateFileCount": 72,
+          "candidateFilesSample": [
+            "benchmarks/regulatory_goldset/extracted/epa_pfas_template/pfas_template_zip/Bernstein_PFAS_pbpk_template_code/Data/Digitized_Data_PFDA/Fig8a.csv",
+            "benchmarks/regulatory_goldset/extracted/epa_pfas_template/pfas_template_zip/Bernstein_PFAS_pbpk_template_code/Data/Digitized_Data_PFDA/Fig8a.xlsx",
+            "benchmarks/regulatory_goldset/extracted/epa_pfas_template/pfas_template_zip/Bernstein_PFAS_pbpk_template_code/Data/Digitized_Data_PFDA/Fig8b.csv",
+            "benchmarks/regulatory_goldset/extracted/epa_pfas_template/pfas_template_zip/Bernstein_PFAS_pbpk_template_code/Data/Digitized_Data_PFDA/Fig8b.xlsx",
+            "benchmarks/regulatory_goldset/extracted/epa_pfas_template/pfas_template_zip/Bernstein_PFAS_pbpk_template_code/Data/Digitized_Data_PFDA/Fig8c.csv",
+            "benchmarks/regulatory_goldset/extracted/epa_pfas_template/pfas_template_zip/Bernstein_PFAS_pbpk_template_code/Data/Digitized_Data_PFDA/Fig8c.xlsx",
+            "benchmarks/regulatory_goldset/extracted/epa_pfas_template/pfas_template_zip/Bernstein_PFAS_pbpk_template_code/Data/Digitized_Data_PFDA/Fig8d.csv",
+            "benchmarks/regulatory_goldset/extracted/epa_pfas_template/pfas_template_zip/Bernstein_PFAS_pbpk_template_code/Data/Digitized_Data_PFDA/Fig8d.xlsx",
+            "benchmarks/regulatory_goldset/extracted/epa_pfas_template/pfas_template_zip/Bernstein_PFAS_pbpk_template_code/Data/Digitized_Data_PFHxS/Fig7a.csv",
+            "benchmarks/regulatory_goldset/extracted/epa_pfas_template/pfas_template_zip/Bernstein_PFAS_pbpk_template_code/Data/Digitized_Data_PFHxS/Fig7a.xlsx",
+            "benchmarks/regulatory_goldset/extracted/epa_pfas_template/pfas_template_zip/Bernstein_PFAS_pbpk_template_code/Data/Digitized_Data_PFHxS/Fig7b.csv",
+            "benchmarks/regulatory_goldset/extracted/epa_pfas_template/pfas_template_zip/Bernstein_PFAS_pbpk_template_code/Data/Digitized_Data_PFHxS/Fig7b.xlsx",
+            "benchmarks/regulatory_goldset/extracted/epa_pfas_template/pfas_template_zip/Bernstein_PFAS_pbpk_template_code/Data/Digitized_Data_PFHxS/Fig7c.csv",
+            "benchmarks/regulatory_goldset/extracted/epa_pfas_template/pfas_template_zip/Bernstein_PFAS_pbpk_template_code/Data/Digitized_Data_PFHxS/Fig7c.xlsx",
+            "benchmarks/regulatory_goldset/extracted/epa_pfas_template/pfas_template_zip/Bernstein_PFAS_pbpk_template_code/Data/Digitized_Data_PFHxS/Fig7d.csv",
+            "benchmarks/regulatory_goldset/extracted/epa_pfas_template/pfas_template_zip/Bernstein_PFAS_pbpk_template_code/Data/Digitized_Data_PFHxS/Fig7d.xlsx",
+            "benchmarks/regulatory_goldset/extracted/epa_pfas_template/pfas_template_zip/Bernstein_PFAS_pbpk_template_code/Data/Digitized_Data_PFHxS/Fig7e.csv",
+            "benchmarks/regulatory_goldset/extracted/epa_pfas_template/pfas_template_zip/Bernstein_PFAS_pbpk_template_code/Data/Digitized_Data_PFHxS/Fig7e.xlsx",
+            "benchmarks/regulatory_goldset/extracted/epa_pfas_template/pfas_template_zip/Bernstein_PFAS_pbpk_template_code/Data/Digitized_Data_PFHxS/Fig7f.csv",
+            "benchmarks/regulatory_goldset/extracted/epa_pfas_template/pfas_template_zip/Bernstein_PFAS_pbpk_template_code/Data/Digitized_Data_PFHxS/Fig7f.xlsx",
+            "benchmarks/regulatory_goldset/extracted/epa_pfas_template/pfas_template_zip/Bernstein_PFAS_pbpk_template_code/Data/Digitized_Data_PFHxS/Fig8a.csv",
+            "benchmarks/regulatory_goldset/extracted/epa_pfas_template/pfas_template_zip/Bernstein_PFAS_pbpk_template_code/Data/Digitized_Data_PFHxS/Fig8a.xlsx",
+            "benchmarks/regulatory_goldset/extracted/epa_pfas_template/pfas_template_zip/Bernstein_PFAS_pbpk_template_code/Data/Digitized_Data_PFHxS/Fig8b.csv",
+            "benchmarks/regulatory_goldset/extracted/epa_pfas_template/pfas_template_zip/Bernstein_PFAS_pbpk_template_code/Data/Digitized_Data_PFHxS/Fig8b.xlsx",
+            "benchmarks/regulatory_goldset/extracted/epa_pfas_template/pfas_template_zip/Bernstein_PFAS_pbpk_template_code/Data/Digitized_Data_PFHxS/Fig8c.csv",
+            "benchmarks/regulatory_goldset/extracted/epa_pfas_template/pfas_template_zip/Bernstein_PFAS_pbpk_template_code/Data/Digitized_Data_PFHxS/Fig8c.xlsx",
+            "benchmarks/regulatory_goldset/extracted/epa_pfas_template/pfas_template_zip/Bernstein_PFAS_pbpk_template_code/Data/Digitized_Data_PFHxS/Fig8d.csv",
+            "benchmarks/regulatory_goldset/extracted/epa_pfas_template/pfas_template_zip/Bernstein_PFAS_pbpk_template_code/Data/Digitized_Data_PFHxS/Fig8d.xlsx",
+            "benchmarks/regulatory_goldset/extracted/epa_pfas_template/pfas_template_zip/Bernstein_PFAS_pbpk_template_code/Data/Digitized_Data_PFHxS/Fig8e.csv",
+            "benchmarks/regulatory_goldset/extracted/epa_pfas_template/pfas_template_zip/Bernstein_PFAS_pbpk_template_code/Data/Digitized_Data_PFHxS/Fig8e.xlsx",
+            "benchmarks/regulatory_goldset/extracted/epa_pfas_template/pfas_template_zip/Bernstein_PFAS_pbpk_template_code/Data/Digitized_Data_PFHxS/Fig8f.csv",
+            "benchmarks/regulatory_goldset/extracted/epa_pfas_template/pfas_template_zip/Bernstein_PFAS_pbpk_template_code/Data/Digitized_Data_PFHxS/Fig8f.xlsx",
+            "benchmarks/regulatory_goldset/extracted/epa_pfas_template/pfas_template_zip/Bernstein_PFAS_pbpk_template_code/Data/Digitized_Data_PFNA/Fig7a.csv",
+            "benchmarks/regulatory_goldset/extracted/epa_pfas_template/pfas_template_zip/Bernstein_PFAS_pbpk_template_code/Data/Digitized_Data_PFNA/Fig7a.xlsx",
+            "benchmarks/regulatory_goldset/extracted/epa_pfas_template/pfas_template_zip/Bernstein_PFAS_pbpk_template_code/Data/Digitized_Data_PFNA/Fig7b.csv",
+            "benchmarks/regulatory_goldset/extracted/epa_pfas_template/pfas_template_zip/Bernstein_PFAS_pbpk_template_code/Data/Digitized_Data_PFNA/Fig7b.xlsx",
+            "benchmarks/regulatory_goldset/extracted/epa_pfas_template/pfas_template_zip/Bernstein_PFAS_pbpk_template_code/Data/Digitized_Data_PFNA/Fig7c.csv",
+            "benchmarks/regulatory_goldset/extracted/epa_pfas_template/pfas_template_zip/Bernstein_PFAS_pbpk_template_code/Data/Digitized_Data_PFNA/Fig7c.xlsx",
+            "benchmarks/regulatory_goldset/extracted/epa_pfas_template/pfas_template_zip/Bernstein_PFAS_pbpk_template_code/Data/Digitized_Data_PFNA/Fig7d.csv",
+            "benchmarks/regulatory_goldset/extracted/epa_pfas_template/pfas_template_zip/Bernstein_PFAS_pbpk_template_code/Data/Digitized_Data_PFNA/Fig7d.xlsx"
+          ],
+          "contentType": null,
+          "downloadPath": "benchmarks/regulatory_goldset/downloads/epa_pfas_template/Bernstein2021_PFAS_pbpk_template_model.zip",
+          "extractPath": "benchmarks/regulatory_goldset/extracted/epa_pfas_template/pfas_template_zip",
+          "extractedFileCount": 78,
+          "id": "pfas_template_zip",
+          "label": "PFAS template code zip",
+          "sha256": "4957d55f9f5115228f128f6d63839eacd87b264474c51399b1d66b56a459b951",
+          "url": "https://pasteur.epa.gov/uploads/10.23719/1520081/Bernstein2021_PFAS_pbpk_template_model.zip",
+          "usedCachedDownload": true,
+          "usedCachedExtraction": true
+        },
+        {
+          "bytes": 30076,
+          "contentType": null,
+          "downloadPath": "benchmarks/regulatory_goldset/downloads/epa_pfas_template/PFAS_PBPK_Model_Template_Project_Instructions.docx",
+          "id": "pfas_template_instructions",
+          "label": "PFAS template instructions",
+          "sha256": "6989d76ac74b7871179e6676cb3e141dc20bbee8be7d81a7109ae9212509fa5a",
+          "url": "https://pasteur.epa.gov/uploads/10.23719/1520081/PFAS_PBPK_Model_Template_Project_Instructions.docx",
+          "usedCachedDownload": true
+        }
+      ],
+      "benchmarkRole": "adjunct-challenge-set",
+      "coverageModels": [
+        "PFAS template"
+      ],
+      "id": "epa_pfas_template",
+      "notes": [
+        "Use as the modern reproducibility and transparency stress test."
+      ],
+      "result": "fetched",
+      "scanSummary": {
+        "available": true,
+        "dataFileCount": 40,
+        "docFileCount": 0,
+        "evidencePaths": [],
+        "extensionCounts": {
+          ".csv": 20,
+          ".xlsx": 20
+        },
+        "fileCount": 78,
+        "flags": {
+          "hasCalibrationArtifacts": false,
+          "hasCompiledRuntimeArtifacts": false,
+          "hasEvaluationArtifacts": false,
+          "hasInstructions": false,
+          "hasParameterArtifacts": false,
+          "hasReadme": false,
+          "hasUncertaintyArtifacts": false,
+          "hasVariabilityArtifacts": false
+        },
+        "modelFileCount": 0,
+        "outputFileCount": 0,
+        "rootPath": "benchmarks/regulatory_goldset/extracted/epa_pfas_template/pfas_template_zip",
+        "scriptFileCount": 0
+      },
+      "scorecard": {
+        "dimensionCounts": {
+          "missing": 5,
+          "notApplicable": 0,
+          "partial": 2,
+          "present": 1
+        },
+        "dimensions": [
+          {
+            "evidence": [
+              "PFAS template",
+              "Use as the modern reproducibility and transparency stress test."
+            ],
+            "id": "contextOfUseClarity",
+            "label": "Context/use clarity",
+            "reason": "The package provides some context signals, but not a consistently explicit context-of-use framing.",
+            "status": "partial"
+          },
+          {
+            "evidence": [],
+            "id": "runnableCodeModelAvailability",
+            "label": "Runnable code/model availability",
+            "reason": "No public model/code package was found in the fetched contents.",
+            "status": "missing"
+          },
+          {
+            "evidence": [],
+            "id": "softwarePlatformSpecificity",
+            "label": "Software/platform specificity",
+            "reason": "No clear software/platform declaration was found.",
+            "status": "missing"
+          },
+          {
+            "evidence": [],
+            "id": "parameterProvenanceDepth",
+            "label": "Parameter provenance depth",
+            "reason": "Some data or parameter hints are present, but provenance depth is limited.",
+            "status": "partial"
+          },
+          {
+            "evidence": [],
+            "id": "calibrationVsEvaluationSeparation",
+            "label": "Calibration vs evaluation separation",
+            "reason": "No distinct calibration or evaluation artifacts were detected.",
+            "status": "missing"
+          },
+          {
+            "evidence": [],
+            "id": "uncertaintySensitivityVariability",
+            "label": "Uncertainty, sensitivity, and variability",
+            "reason": "No explicit uncertainty, sensitivity, or variability artifacts were detected.",
+            "status": "missing"
+          },
+          {
+            "evidence": [],
+            "id": "reproducibilityPackCompleteness",
+            "label": "Reproducibility-pack completeness",
+            "reason": "The package does not yet look like a coherent reproducibility pack.",
+            "status": "missing"
+          },
+          {
+            "evidence": [
+              "benchmarks/regulatory_goldset/downloads/epa_pfas_template/Bernstein2021_PFAS_pbpk_template_model.zip",
+              "benchmarks/regulatory_goldset/downloads/epa_pfas_template/PFAS_PBPK_Model_Template_Project_Instructions.docx"
+            ],
+            "id": "publicTraceabilityHashability",
+            "label": "Public traceability and hashability",
+            "reason": "The package has public download paths, stable local evidence paths, and SHA-256 hashes.",
+            "status": "present"
+          }
+        ],
+        "overallTier": "challenge-set",
+        "scorecardVersion": "pbpk-regulatory-goldset-source-scorecard.v1"
+      },
+      "sourceType": "epa-download",
+      "status": "retrievable",
+      "title": "EPA PFAS PBPK template package"
+    },
+    {
+      "artifacts": [
+        {
+          "archiveEntryCount": null,
+          "bytes": 7409877,
+          "candidateFileCount": 23,
+          "candidateFilesSample": [
+            "benchmarks/regulatory_goldset/extracted/pfos_ges_lac/pfos_ges_lac_zip/PFOS-Ges-Lac-master/Additional files/ModFit/Human/CodingBook_Human.xlsx",
+            "benchmarks/regulatory_goldset/extracted/pfos_ges_lac/pfos_ges_lac_zip/PFOS-Ges-Lac-master/Additional files/ModFit/Human/Data_H.csv",
+            "benchmarks/regulatory_goldset/extracted/pfos_ges_lac/pfos_ges_lac_zip/PFOS-Ges-Lac-master/Additional files/ModFit/Human/FitCode_Human.R",
+            "benchmarks/regulatory_goldset/extracted/pfos_ges_lac/pfos_ges_lac_zip/PFOS-Ges-Lac-master/Additional files/ModFit/Human/HMod.R",
+            "benchmarks/regulatory_goldset/extracted/pfos_ges_lac/pfos_ges_lac_zip/PFOS-Ges-Lac-master/Additional files/ModFit/Rat/CodeBook_Rat.xlsx",
+            "benchmarks/regulatory_goldset/extracted/pfos_ges_lac/pfos_ges_lac_zip/PFOS-Ges-Lac-master/Additional files/ModFit/Rat/Data_R.csv",
+            "benchmarks/regulatory_goldset/extracted/pfos_ges_lac/pfos_ges_lac_zip/PFOS-Ges-Lac-master/Additional files/ModFit/Rat/FitCode_Rat.R",
+            "benchmarks/regulatory_goldset/extracted/pfos_ges_lac/pfos_ges_lac_zip/PFOS-Ges-Lac-master/Additional files/ModFit/Rat/RMod.R",
+            "benchmarks/regulatory_goldset/extracted/pfos_ges_lac/pfos_ges_lac_zip/PFOS-Ges-Lac-master/Additional files/Results/PlotCode/Data_H.csv",
+            "benchmarks/regulatory_goldset/extracted/pfos_ges_lac/pfos_ges_lac_zip/PFOS-Ges-Lac-master/Additional files/Results/PlotCode/Data_R.csv",
+            "benchmarks/regulatory_goldset/extracted/pfos_ges_lac/pfos_ges_lac_zip/PFOS-Ges-Lac-master/Additional files/Results/PlotCode/Fig_2.R",
+            "benchmarks/regulatory_goldset/extracted/pfos_ges_lac/pfos_ges_lac_zip/PFOS-Ges-Lac-master/Additional files/Results/PlotCode/Fig_3.R",
+            "benchmarks/regulatory_goldset/extracted/pfos_ges_lac/pfos_ges_lac_zip/PFOS-Ges-Lac-master/Additional files/Results/PlotCode/Fig_4.R",
+            "benchmarks/regulatory_goldset/extracted/pfos_ges_lac/pfos_ges_lac_zip/PFOS-Ges-Lac-master/Additional files/Results/PlotCode/Fig_5.R",
+            "benchmarks/regulatory_goldset/extracted/pfos_ges_lac/pfos_ges_lac_zip/PFOS-Ges-Lac-master/Additional files/Results/PlotCode/Fig_6.R",
+            "benchmarks/regulatory_goldset/extracted/pfos_ges_lac/pfos_ges_lac_zip/PFOS-Ges-Lac-master/Additional files/Results/PlotCode/Fig_S1-S2.R",
+            "benchmarks/regulatory_goldset/extracted/pfos_ges_lac/pfos_ges_lac_zip/PFOS-Ges-Lac-master/Additional files/Results/PlotCode/Fig_S3.R",
+            "benchmarks/regulatory_goldset/extracted/pfos_ges_lac/pfos_ges_lac_zip/PFOS-Ges-Lac-master/Additional files/Results/PlotCode/HMod.R",
+            "benchmarks/regulatory_goldset/extracted/pfos_ges_lac/pfos_ges_lac_zip/PFOS-Ges-Lac-master/Additional files/Results/PlotCode/Pred_H.R",
+            "benchmarks/regulatory_goldset/extracted/pfos_ges_lac/pfos_ges_lac_zip/PFOS-Ges-Lac-master/Additional files/Results/PlotCode/Pred_Rat.R",
+            "benchmarks/regulatory_goldset/extracted/pfos_ges_lac/pfos_ges_lac_zip/PFOS-Ges-Lac-master/Additional files/Results/PlotCode/RMod.R",
+            "benchmarks/regulatory_goldset/extracted/pfos_ges_lac/pfos_ges_lac_zip/PFOS-Ges-Lac-master/Additional files/Results/PlotCode/Table_4.R",
+            "benchmarks/regulatory_goldset/extracted/pfos_ges_lac/pfos_ges_lac_zip/PFOS-Ges-Lac-master/Additional files/Results/PlotCode/Table_5.R"
+          ],
+          "contentType": null,
+          "downloadPath": "benchmarks/regulatory_goldset/downloads/pfos_ges_lac/master",
+          "extractPath": "benchmarks/regulatory_goldset/extracted/pfos_ges_lac/pfos_ges_lac_zip",
+          "extractedFileCount": 47,
+          "id": "pfos_ges_lac_zip",
+          "label": "PFOS-Ges-Lac GitHub archive",
+          "sha256": "8cf7c8667a0ef4bcc4b1c2e70f87dffda8698648b218aa2662cb721e4aaf449b",
+          "url": "https://codeload.github.com/KSUICCM/PFOS-Ges-Lac/zip/refs/heads/master",
+          "usedCachedDownload": true,
+          "usedCachedExtraction": true
+        }
+      ],
+      "benchmarkRole": "adjunct-challenge-set",
+      "coverageModels": [
+        "PFOS"
+      ],
+      "id": "pfos_ges_lac",
+      "notes": [
+        "Open PFOS model adjunct for the PFAS challenge set."
+      ],
+      "result": "fetched",
+      "scanSummary": {
+        "available": true,
+        "dataFileCount": 6,
+        "docFileCount": 0,
+        "evidencePaths": [
+          "benchmarks/regulatory_goldset/extracted/pfos_ges_lac/pfos_ges_lac_zip/PFOS-Ges-Lac-master/Additional files/ModFit/Human/CodingBook_Human.xlsx",
+          "benchmarks/regulatory_goldset/extracted/pfos_ges_lac/pfos_ges_lac_zip/PFOS-Ges-Lac-master/Additional files/ModFit/Rat/CodeBook_Rat.xlsx",
+          "benchmarks/regulatory_goldset/extracted/pfos_ges_lac/pfos_ges_lac_zip/PFOS-Ges-Lac-master/Additional files/ModFit/Human/Data_H.csv",
+          "benchmarks/regulatory_goldset/extracted/pfos_ges_lac/pfos_ges_lac_zip/PFOS-Ges-Lac-master/Additional files/ModFit/Human/FitCode_Human.R",
+          "benchmarks/regulatory_goldset/extracted/pfos_ges_lac/pfos_ges_lac_zip/PFOS-Ges-Lac-master/Additional files/Results/PlotCode/Data_H.csv",
+          "benchmarks/regulatory_goldset/extracted/pfos_ges_lac/pfos_ges_lac_zip/PFOS-Ges-Lac-master/Additional files/Results/PlotCode/Data_R.csv",
+          "benchmarks/regulatory_goldset/extracted/pfos_ges_lac/pfos_ges_lac_zip/PFOS-Ges-Lac-master/Additional files/Results/PlotCode/Fig_2.R"
+        ],
+        "extensionCounts": {
+          ".csv": 4,
+          ".r": 17,
+          ".xlsx": 2
+        },
+        "fileCount": 47,
+        "flags": {
+          "hasCalibrationArtifacts": true,
+          "hasCompiledRuntimeArtifacts": false,
+          "hasEvaluationArtifacts": true,
+          "hasInstructions": false,
+          "hasParameterArtifacts": true,
+          "hasReadme": false,
+          "hasUncertaintyArtifacts": false,
+          "hasVariabilityArtifacts": false
+        },
+        "modelFileCount": 0,
+        "outputFileCount": 0,
+        "rootPath": "benchmarks/regulatory_goldset/extracted/pfos_ges_lac/pfos_ges_lac_zip",
+        "scriptFileCount": 17
+      },
+      "scorecard": {
+        "dimensionCounts": {
+          "missing": 1,
+          "notApplicable": 0,
+          "partial": 4,
+          "present": 3
+        },
+        "dimensions": [
+          {
+            "evidence": [
+              "PFOS",
+              "benchmarks/regulatory_goldset/extracted/pfos_ges_lac/pfos_ges_lac_zip/PFOS-Ges-Lac-master/Additional files/ModFit/Human/CodingBook_Human.xlsx",
+              "benchmarks/regulatory_goldset/extracted/pfos_ges_lac/pfos_ges_lac_zip/PFOS-Ges-Lac-master/Additional files/ModFit/Rat/CodeBook_Rat.xlsx",
+              "Open PFOS model adjunct for the PFAS challenge set."
+            ],
+            "id": "contextOfUseClarity",
+            "label": "Context/use clarity",
+            "reason": "The package provides some context signals, but not a consistently explicit context-of-use framing.",
+            "status": "partial"
+          },
+          {
+            "evidence": [
+              "benchmarks/regulatory_goldset/extracted/pfos_ges_lac/pfos_ges_lac_zip/PFOS-Ges-Lac-master/Additional files/ModFit/Human/CodingBook_Human.xlsx",
+              "benchmarks/regulatory_goldset/extracted/pfos_ges_lac/pfos_ges_lac_zip/PFOS-Ges-Lac-master/Additional files/ModFit/Rat/CodeBook_Rat.xlsx",
+              "benchmarks/regulatory_goldset/extracted/pfos_ges_lac/pfos_ges_lac_zip/PFOS-Ges-Lac-master/Additional files/ModFit/Human/Data_H.csv",
+              "benchmarks/regulatory_goldset/extracted/pfos_ges_lac/pfos_ges_lac_zip/PFOS-Ges-Lac-master/Additional files/ModFit/Human/FitCode_Human.R"
+            ],
+            "id": "runnableCodeModelAvailability",
+            "label": "Runnable code/model availability",
+            "reason": "Some code or model artifacts are present, but the runnable stack is incomplete.",
+            "status": "partial"
+          },
+          {
+            "evidence": [
+              "benchmarks/regulatory_goldset/extracted/pfos_ges_lac/pfos_ges_lac_zip/PFOS-Ges-Lac-master/Additional files/ModFit/Human/CodingBook_Human.xlsx",
+              "benchmarks/regulatory_goldset/extracted/pfos_ges_lac/pfos_ges_lac_zip/PFOS-Ges-Lac-master/Additional files/ModFit/Rat/CodeBook_Rat.xlsx",
+              "benchmarks/regulatory_goldset/extracted/pfos_ges_lac/pfos_ges_lac_zip/PFOS-Ges-Lac-master/Additional files/ModFit/Human/Data_H.csv",
+              "benchmarks/regulatory_goldset/extracted/pfos_ges_lac/pfos_ges_lac_zip/PFOS-Ges-Lac-master/Additional files/ModFit/Human/FitCode_Human.R"
+            ],
+            "id": "softwarePlatformSpecificity",
+            "label": "Software/platform specificity",
+            "reason": "The package hints at a software stack, but platform/run details are still thin.",
+            "status": "partial"
+          },
+          {
+            "evidence": [
+              "benchmarks/regulatory_goldset/extracted/pfos_ges_lac/pfos_ges_lac_zip/PFOS-Ges-Lac-master/Additional files/ModFit/Human/CodingBook_Human.xlsx",
+              "benchmarks/regulatory_goldset/extracted/pfos_ges_lac/pfos_ges_lac_zip/PFOS-Ges-Lac-master/Additional files/ModFit/Rat/CodeBook_Rat.xlsx",
+              "benchmarks/regulatory_goldset/extracted/pfos_ges_lac/pfos_ges_lac_zip/PFOS-Ges-Lac-master/Additional files/ModFit/Human/Data_H.csv",
+              "benchmarks/regulatory_goldset/extracted/pfos_ges_lac/pfos_ges_lac_zip/PFOS-Ges-Lac-master/Additional files/ModFit/Human/FitCode_Human.R",
+              "benchmarks/regulatory_goldset/extracted/pfos_ges_lac/pfos_ges_lac_zip/PFOS-Ges-Lac-master/Additional files/Results/PlotCode/Data_H.csv"
+            ],
+            "id": "parameterProvenanceDepth",
+            "label": "Parameter provenance depth",
+            "reason": "The package contains parameter-label or codebook style artifacts alongside tabular data.",
+            "status": "present"
+          },
+          {
+            "evidence": [
+              "benchmarks/regulatory_goldset/extracted/pfos_ges_lac/pfos_ges_lac_zip/PFOS-Ges-Lac-master/Additional files/ModFit/Human/CodingBook_Human.xlsx",
+              "benchmarks/regulatory_goldset/extracted/pfos_ges_lac/pfos_ges_lac_zip/PFOS-Ges-Lac-master/Additional files/ModFit/Rat/CodeBook_Rat.xlsx",
+              "benchmarks/regulatory_goldset/extracted/pfos_ges_lac/pfos_ges_lac_zip/PFOS-Ges-Lac-master/Additional files/ModFit/Human/Data_H.csv",
+              "benchmarks/regulatory_goldset/extracted/pfos_ges_lac/pfos_ges_lac_zip/PFOS-Ges-Lac-master/Additional files/ModFit/Human/FitCode_Human.R",
+              "benchmarks/regulatory_goldset/extracted/pfos_ges_lac/pfos_ges_lac_zip/PFOS-Ges-Lac-master/Additional files/Results/PlotCode/Data_H.csv"
+            ],
+            "id": "calibrationVsEvaluationSeparation",
+            "label": "Calibration vs evaluation separation",
+            "reason": "The package separates fit-oriented artifacts from evaluation/check outputs.",
+            "status": "present"
+          },
+          {
+            "evidence": [],
+            "id": "uncertaintySensitivityVariability",
+            "label": "Uncertainty, sensitivity, and variability",
+            "reason": "No explicit uncertainty, sensitivity, or variability artifacts were detected.",
+            "status": "missing"
+          },
+          {
+            "evidence": [
+              "benchmarks/regulatory_goldset/extracted/pfos_ges_lac/pfos_ges_lac_zip/PFOS-Ges-Lac-master/Additional files/ModFit/Human/CodingBook_Human.xlsx",
+              "benchmarks/regulatory_goldset/extracted/pfos_ges_lac/pfos_ges_lac_zip/PFOS-Ges-Lac-master/Additional files/ModFit/Rat/CodeBook_Rat.xlsx",
+              "benchmarks/regulatory_goldset/extracted/pfos_ges_lac/pfos_ges_lac_zip/PFOS-Ges-Lac-master/Additional files/ModFit/Human/Data_H.csv",
+              "benchmarks/regulatory_goldset/extracted/pfos_ges_lac/pfos_ges_lac_zip/PFOS-Ges-Lac-master/Additional files/ModFit/Human/FitCode_Human.R",
+              "benchmarks/regulatory_goldset/extracted/pfos_ges_lac/pfos_ges_lac_zip/PFOS-Ges-Lac-master/Additional files/Results/PlotCode/Data_H.csv"
+            ],
+            "id": "reproducibilityPackCompleteness",
+            "label": "Reproducibility-pack completeness",
+            "reason": "The package is reproducible enough to inspect, but it is still missing some pack elements.",
+            "status": "partial"
+          },
+          {
+            "evidence": [
+              "benchmarks/regulatory_goldset/downloads/pfos_ges_lac/master"
+            ],
+            "id": "publicTraceabilityHashability",
+            "label": "Public traceability and hashability",
+            "reason": "The package has public download paths, stable local evidence paths, and SHA-256 hashes.",
+            "status": "present"
+          }
+        ],
+        "overallTier": "challenge-set",
+        "scorecardVersion": "pbpk-regulatory-goldset-source-scorecard.v1"
+      },
+      "sourceType": "github-archive",
+      "status": "retrievable",
+      "title": "PFOS-Ges-Lac open PFOS model"
+    },
+    {
+      "artifacts": [],
+      "benchmarkRole": "documentation-only",
+      "coverageModels": [
+        "2-butoxyethanol"
+      ],
+      "id": "two_butoxyethanol_reference",
+      "notes": [
+        "Keep as a prose confidence benchmark, but do not treat it as a fetched executable/code package until a direct public model archive is confirmed."
+      ],
+      "result": "unresolved-source",
+      "scanSummary": {
+        "available": false,
+        "dataFileCount": 0,
+        "docFileCount": 0,
+        "evidencePaths": [],
+        "extensionCounts": {},
+        "fileCount": 0,
+        "flags": {
+          "hasCalibrationArtifacts": false,
+          "hasCompiledRuntimeArtifacts": false,
+          "hasEvaluationArtifacts": false,
+          "hasInstructions": false,
+          "hasParameterArtifacts": false,
+          "hasReadme": false,
+          "hasUncertaintyArtifacts": false,
+          "hasVariabilityArtifacts": false
+        },
+        "modelFileCount": 0,
+        "outputFileCount": 0,
+        "rootPath": null,
+        "scriptFileCount": 0
+      },
+      "scorecard": {
+        "dimensionCounts": {
+          "missing": 0,
+          "notApplicable": 7,
+          "partial": 1,
+          "present": 0
+        },
+        "dimensions": [
+          {
+            "evidence": [
+              "Keep as a prose confidence benchmark, but do not treat it as a fetched executable/code package until a direct public model archive is confirmed."
+            ],
+            "id": "contextOfUseClarity",
+            "label": "Context/use clarity",
+            "reason": "This source is tracked as a documentation-only confidence benchmark, so only prose-level context is available.",
+            "status": "partial"
+          },
+          {
+            "evidence": [],
+            "id": "runnableCodeModelAvailability",
+            "label": "Runnable code/model availability",
+            "reason": "This source is documentation-only and is not being scored as an executable/code package in phase 1.",
+            "status": "not-applicable"
+          },
+          {
+            "evidence": [],
+            "id": "softwarePlatformSpecificity",
+            "label": "Software/platform specificity",
+            "reason": "This source is documentation-only and is not being scored as an executable/code package in phase 1.",
+            "status": "not-applicable"
+          },
+          {
+            "evidence": [],
+            "id": "parameterProvenanceDepth",
+            "label": "Parameter provenance depth",
+            "reason": "This source is documentation-only and is not being scored as an executable/code package in phase 1.",
+            "status": "not-applicable"
+          },
+          {
+            "evidence": [],
+            "id": "calibrationVsEvaluationSeparation",
+            "label": "Calibration vs evaluation separation",
+            "reason": "This source is documentation-only and is not being scored as an executable/code package in phase 1.",
+            "status": "not-applicable"
+          },
+          {
+            "evidence": [],
+            "id": "uncertaintySensitivityVariability",
+            "label": "Uncertainty, sensitivity, and variability",
+            "reason": "This source is documentation-only and is not being scored as an executable/code package in phase 1.",
+            "status": "not-applicable"
+          },
+          {
+            "evidence": [],
+            "id": "reproducibilityPackCompleteness",
+            "label": "Reproducibility-pack completeness",
+            "reason": "This source is documentation-only and is not being scored as an executable/code package in phase 1.",
+            "status": "not-applicable"
+          },
+          {
+            "evidence": [],
+            "id": "publicTraceabilityHashability",
+            "label": "Public traceability and hashability",
+            "reason": "This source is documentation-only and is not being scored as an executable/code package in phase 1.",
+            "status": "not-applicable"
+          }
+        ],
+        "overallTier": "documentation-only-reference",
+        "scorecardVersion": "pbpk-regulatory-goldset-source-scorecard.v1"
+      },
+      "sourceType": "unresolved-public-code",
+      "status": "unresolved",
+      "title": "2-Butoxyethanol confidence-language benchmark"
+    }
+  ],
+  "summaryVersion": "pbpk-regulatory-goldset-scorecard.v1"
+}
